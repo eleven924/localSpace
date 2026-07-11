@@ -1,0 +1,18 @@
+{
+  "name": "LocalSpace",
+  "outputfilename": "localspace",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "author": {
+    "name": "LocalSpace Team",
+    "email": "team@localspace.app"
+  },
+  "info": {
+    "companyName": "LocalSpace",
+    "productName": "LocalSpace",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2026",
+    "comments": "Local File Index Management Software"
+  }
+}
