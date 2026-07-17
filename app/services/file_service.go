@@ -23,10 +23,11 @@ type FileService struct {
 
 // ImportFileRequest represents a file import request
 type ImportFileRequest struct {
-	FilePath    string
-	FileName    string
-	Description string
-	Tags        []string
+	FilePath    string   // 文件路径
+	FileName    string   // 文件名
+	Description string   // 用户提供的描述
+	Tags        []string // 用户提供的标签
+	Keywords    string   // 用户输入的关键词
 }
 
 // FileFilter represents filters for file queries

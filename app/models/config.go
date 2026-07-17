@@ -16,6 +16,12 @@ type AIConfig struct {
 	Model   string `json:"model"`
 	BaseURL string `json:"baseURL"`
 	Enabled bool   `json:"enabled"`
+
+	// Agent settings
+	EnableAgent     bool `json:"enableAgent"`     // 启用Agent功能
+	EnableWebSearch bool `json:"enableWebSearch"` // 启用网络搜索
+	MaxTokens       int  `json:"maxTokens"`       // 最大token数
+	Timeout         int  `json:"timeout"`         // 超时时间（秒）
 }
 
 // ThemeConfig represents theme configuration
