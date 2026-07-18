@@ -31,21 +31,24 @@ type AgentRuntime interface {
 	Run(ctx context.Context, req *AgentRunRequest) (*AgentRunResponse, error)
 }
 
-// OpenAIRuntime executes metadata-agent requests with the existing Eino/OpenAI seam.
-type OpenAIRuntime struct{}
+// DefaultAgentRuntime executes metadata-agent requests with the existing Eino/OpenAI seam.
+type DefaultAgentRuntime struct{}
 
-// NewOpenAIRuntime creates the default production runtime for metadata agents.
-func NewOpenAIRuntime() *OpenAIRuntime {
-	return &OpenAIRuntime{}
+// NewDefaultAgentRuntime creates the default production runtime for metadata agents.
+func NewDefaultAgentRuntime() *DefaultAgentRuntime {
+	return &DefaultAgentRuntime{}
 }
 
 // Run performs a single chat-model execution and returns trace-aware runtime output.
-func (r *OpenAIRuntime) Run(ctx context.Context, req *AgentRunRequest) (*AgentRunResponse, error) {
+func (r *DefaultAgentRuntime) Run(ctx context.Context, req *AgentRunRequest) (*AgentRunResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("agent run request is nil")
 	}
 	if req.AIConfig == nil {
 		return nil, fmt.Errorf("ai config is nil")
+	}
+	if req.AIConfig.APIKey == "" || req.AIConfig.Model == "" || req.AIConfig.BaseURL == "" {
+		return nil, fmt.Errorf("invalid ai config")
 	}
 
 	chatConfig := &openai.ChatModelConfig{

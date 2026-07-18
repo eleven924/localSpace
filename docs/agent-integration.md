@@ -2,63 +2,54 @@
 
 ## Overview
 
-LocalSpace now uses intelligent agents for automatic tag and description generation during file import. This guide explains how the agent system works and how to use it effectively.
+LocalSpace now routes import-time AI enrichment through one metadata-agent path. During file import, `FileService` performs a single metadata analysis pass and reuses the result for both tags and description generation. Phase-one web-search readiness is wired into this flow through trace-aware tool resolution, while failures still degrade gracefully so imports continue.
 
 ## Architecture
 
-The agent system consists of several components:
+The phase-one metadata-agent architecture centers on these components:
 
-- **AgentService**: Manages tag and description generation agents
-- **TagAgent**: Specialized agent for generating file tags
-- **DescriptionAgent**: Specialized agent for generating file descriptions
-- **WebSearchTool**: Provides web search capability for agents
-- **PromptBuilder**: Constructs intelligent prompts for AI generation
+- **FileService**: Performs one unified metadata analysis pass per import and applies the returned tags and description.
+- **AgentService**: Owns metadata analysis orchestration, AI configuration lookup, fallback behavior, and service-layer tool gating.
+- **EinoMetadataAgent**: Builds prompts, invokes the runtime, parses structured output, and records execution trace details.
+- **DefaultAgentRuntime**: Provides the default production runtime used by `NewAgentService` for model execution.
+- **ToolRegistry**: Registers trace-ready tools such as `web_search` for optional metadata-agent use.
+- **WebSearchTool**: Supplies bounded phase-one web-search capability when the service layer decides it should be exposed.
 
-## Features
+## Unified Metadata Analysis Flow
 
-### 1. Keyword Input
+1. `FileService` assembles metadata-generation input during import.
+2. `AgentService.AnalyzeMetadata` or `AnalyzeMetadataWithTrace` loads AI configuration and decides whether agent execution is enabled.
+3. `AgentService` resolves optional tools from `ToolRegistry` in the service layer. For phase one, this includes gated exposure of `web_search`.
+4. `EinoMetadataAgent` runs once through `DefaultAgentRuntime` and returns one structured metadata result.
+5. `FileService` reuses that single analysis result for both tags and description updates.
+6. If any AI or runtime step fails, the service falls back to safe metadata defaults without blocking the import.
 
-Users can now provide keywords when importing files to guide AI generation:
+## Web-Search Readiness
 
-```go
-req := ImportFileRequest{
-    FilePath:    "/path/to/file.mp4",
-    FileName:    "movie.mp4",
-    Keywords:    "action thriller movie",
-    Tags:        []string{"entertainment"},
-    Description: "An action thriller movie",
-}
-```
+Phase-one web-search support is intentionally bounded:
 
-### 2. Intelligent Generation
+- `NewAgentService` registers `web_search` once through `ToolRegistry`.
+- Tool exposure is resolved in the service layer, not inside the runtime.
+- `web_search` is only offered when AI is enabled, agent mode is enabled, web search is enabled, and the file lacks enough user-supplied context.
+- Trace data records which tools were available and which were used, making the flow ready for later observability and expansion.
 
-Agents analyze multiple sources of information:
-- File name and type
-- User-provided keywords
-- User-provided tags
-- User-provided description
-- File metadata
+This keeps metadata tool gating in one place while preparing the branch for richer search-backed analysis later.
 
-### 3. Autonomous Web Search
-
-Agents can automatically decide when to search the web for additional information:
-- Unfamiliar software names
-- Game titles
-- Complex filenames
-- Limited user input
-
-### 4. Error Resilience
+## Error Resilience
 
 AI generation failures never block file imports:
-- Graceful degradation to basic generation
-- User input is always preserved
-- Errors are logged but don't interrupt the process
+
+- Configuration-load failures fall back safely.
+- Runtime or parsing failures fall back safely.
+- User-provided metadata is preserved where possible.
+- Basic file-type-derived defaults are used when generated metadata is unavailable.
+- Trace data retains fallback reasons for diagnostics.
 
 ## Configuration
 
 ### AI Configuration
 
-Extend your AI configuration to enable agent features:
+Agent-backed metadata analysis depends on AI configuration like the following:
 
 ```json
 {
@@ -77,168 +68,15 @@ Extend your AI configuration to enable agent features:
 
 ### Configuration Options
 
-- `enabled`: Enable/disable AI features globally
-- `enableAgent`: Enable intelligent agent generation
-- `enableWebSearch`: Allow agents to search the web
-- `maxTokens`: Maximum tokens for AI responses
-- `timeout`: Timeout in seconds for AI operations
+- `enabled`: Enables or disables AI features globally.
+- `enableAgent`: Enables unified metadata-agent analysis.
+- `enableWebSearch`: Allows service-layer exposure of the `web_search` tool.
+- `maxTokens`: Caps model output size.
+- `timeout`: Sets the runtime timeout in seconds.
 
-## Usage
+## Operational Notes
 
-### Basic Import
-
-```go
-req := ImportFileRequest{
-    FilePath: "/path/to/file.pdf",
-    FileName: "document.pdf",
-    // No keywords, tags, or description - agent will generate
-}
-
-err := fileService.ImportFile(req)
-```
-
-### Import with User Input
-
-```go
-req := ImportFileRequest{
-    FilePath:    "/path/to/file.pdf",
-    FileName:    "document.pdf",
-    Keywords:    "business report finance",
-    Tags:        []string{"work", "important"},
-    Description: "Annual financial report",
-}
-
-err := fileService.ImportFile(req)
-```
-
-### Programmatic Generation
-
-```go
-ctx := context.Background()
-
-// Generate tags
-tags, err := agentService.GenerateTags(
-    ctx,
-    "movie.mp4",
-    "video",
-    "action thriller",
-    []string{"entertainment"},
-    "An action movie",
-)
-
-// Generate description
-description, err := agentService.GenerateDescription(
-    ctx,
-    "document.pdf",
-    "document",
-    "business",
-    []string{"work"},
-    "Annual report",
-)
-```
-
-## Best Practices
-
-### 1. Provide Context When Possible
-
-Give the agents more information to work with:
-
-```go
-// Good
-req := ImportFileRequest{
-    FileName:     "software-installer.exe",
-    Keywords:     "productivity tool office suite",
-    Tags:         []string{"software", "installer"},
-}
-
-// Less effective
-req := ImportFileRequest{
-    FileName: "installer.exe",
-}
-```
-
-### 2. Use Descriptive Filenames
-
-Descriptive filenames help agents understand file content:
-
-```
-Good: Annual_Financial_Report_2024.pdf
-Less effective: document.pdf
-```
-
-### 3. Leverage User Tags
-
-Provide initial tags to guide generation:
-
-```go
-req := ImportFileRequest{
-    FileName: "game-setup.exe",
-    Tags:     []string{"game", "installer"},
-    Keywords: "RPG adventure game",
-}
-```
-
-### 4. Monitor Performance
-
-Keep an eye on AI usage and costs:
-
-- Check logs for generation errors
-- Monitor API call frequency
-- Adjust timeout settings if needed
-
-## Troubleshooting
-
-### AI Generation Not Working
-
-1. Check AI configuration is enabled
-2. Verify API key is valid
-3. Check network connectivity
-4. Review logs for error messages
-
-### Poor Quality Results
-
-1. Provide more keywords or user input
-2. Use more descriptive filenames
-3. Enable web search for more context
-4. Adjust AI model or temperature settings
-
-### Slow Performance
-
-1. Reduce timeout values
-2. Disable web search if not needed
-3. Use faster AI model
-4. Consider caching results
-
-## Performance Expectations
-
-- **Tag generation**: < 3 seconds (without web search)
-- **Tag generation**: < 8 seconds (with web search)
-- **Description generation**: < 3 seconds (without web search)
-- **Description generation**: < 8 seconds (with web search)
-- **Concurrent requests**: Support for 10+ simultaneous operations
-
-## Security Considerations
-
-- User keywords and tags are never logged
-- Web search queries are anonymized
-- API keys are stored securely
-- Input validation prevents injection attacks
-
-## Future Enhancements
-
-Planned improvements to the agent system:
-
-- [ ] Batch generation for multiple files
-- [ ] Custom prompt templates
-- [ ] User feedback learning
-- [ ] Vector database for semantic search
-- [ ] Local model support
-
-## Support
-
-For issues or questions about agent integration:
-
-1. Check this documentation first
-2. Review logs for error messages
-3. Verify configuration settings
-4. Test with simple examples first
+- Imports continue even when AI configuration is missing or invalid.
+- `AnalyzeMetadataWithTrace` is the diagnostics-friendly entry point when callers need trace information.
+- `AnalyzeMetadata`, `GenerateTags`, and `GenerateDescription` all rely on the same unified metadata-analysis path.
+- Phase one prepares the architecture for future tool expansion without widening runtime responsibilities.

@@ -25,7 +25,7 @@ func NewAgentService(configRepo *repositories.ConfigRepository) *AgentService {
 	webSearchTool := tools.NewWebSearchTool(10 * time.Second)
 	toolRegistry.Register(webSearchTool.Name(), webSearchTool)
 
-	metadataRuntime := agents.NewOpenAIRuntime()
+	metadataRuntime := agents.NewDefaultAgentRuntime()
 	metadataAgent := agents.NewEinoMetadataAgent(metadataRuntime)
 
 	return &AgentService{
