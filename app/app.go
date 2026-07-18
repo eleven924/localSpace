@@ -332,6 +332,28 @@ func (a *App) openFileLocation(filePath string) error {
 
 // GetAIAnalysis gets AI analysis for a file
 func (a *App) GetAIAnalysis(fileName, fileType string) (*models.AIAnalysis, error) {
+	// Try to use agent service first if available
+	if a.agentService != nil {
+		ctx := context.Background()
+		tags, err := a.agentService.GenerateTags(ctx, fileName, fileType, "", []string{}, "")
+		if err != nil {
+			// Agent failure is not critical, fall back to empty tags
+			tags = []string{}
+		}
+
+		description, err := a.agentService.GenerateDescription(ctx, fileName, fileType, "", []string{}, "")
+		if err != nil {
+			// Agent failure is not critical, fall back to empty description
+			description = ""
+		}
+
+		return &models.AIAnalysis{
+			Tags:        tags,
+			Description: description,
+		}, nil
+	}
+
+	// Fallback to old AI service if agent service is not available
 	tags, err := a.aiService.GenerateTags(fileName, fileType)
 	if err != nil {
 		// AI failure is not critical, continue with empty tags
