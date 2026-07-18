@@ -29,6 +29,12 @@
         </svg>
         <span>重命名</span>
       </div>
+      <div class="menu-item" @click="handleEditMetadata">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
+        </svg>
+        <span>编辑标签和描述</span>
+      </div>
       <div class="menu-item delete" @click="handleDelete">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
           <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -118,6 +124,12 @@
       v-model:show="showDetailModal"
       :file="file"
     />
+
+    <EditFileMetaModal
+      v-model:show="showEditMetaDialog"
+      :file="file"
+      @updated="handleMetadataUpdated"
+    />
   </div>
 </template>
 
@@ -126,6 +138,7 @@ import { ref, nextTick } from 'vue'
 import { FILE_TYPES, formatFileSize, formatDate } from '@/utils/constants'
 import { api } from '@/api/index'
 import FileDetailModal from './FileDetailModal.vue'
+import EditFileMetaModal from './EditFileMetaModal.vue'
 
 interface File {
   id: number
@@ -149,12 +162,14 @@ const emit = defineEmits<{
   open: [id: number]
   click: [file: File]
   delete: [id: number]
+  updated: [id: number]
 }>()
 
 const thumbnailError = ref(false)
 const showMenu = ref(false)
 const showDetailModal = ref(false)
 const showRenameDialog = ref(false)
+const showEditMetaDialog = ref(false)
 const newFileName = ref('')
 const isRenaming = ref(false)
 const fileNameInput = ref<HTMLInputElement | null>(null)
@@ -222,6 +237,15 @@ const handleRename = () => {
     fileNameInput.value?.focus()
     fileNameInput.value?.select()
   })
+}
+
+const handleEditMetadata = () => {
+  showEditMetaDialog.value = true
+  showMenu.value = false
+}
+
+const handleMetadataUpdated = () => {
+  emit('updated', props.file.id)
 }
 
 const closeRenameDialog = () => {
