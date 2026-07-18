@@ -20,13 +20,14 @@ import (
 
 // App struct
 type App struct {
-	ctx              context.Context
-	db               *sql.DB
-	fileService      *services.FileService
-	storageService   *services.StorageService
-	aiService        *services.AIService
-	configService    *services.ConfigService
-	thumbnailService *services.ThumbnailService
+	ctx               context.Context
+	db                *sql.DB
+	fileService       *services.FileService
+	storageService    *services.StorageService
+	aiService         *services.AIService
+	agentService      *services.AgentService
+	configService     *services.ConfigService
+	thumbnailService  *services.ThumbnailService
 }
 
 // NewApp creates a new App application struct
@@ -89,11 +90,15 @@ func (a *App) initializeApp() {
 	a.storageService = services.NewStorageService(configRepo)
 	a.aiService = services.NewAIService(configRepo)
 
+	// Initialize agent service
+	a.agentService = services.NewAgentService(configRepo)
+
 	// Initialize thumbnail service
 	thumbnailDir := filepath.Join(dataDir, "thumbnails")
 	a.thumbnailService = services.NewThumbnailService(thumbnailDir)
 
 	a.fileService = services.NewFileService(fileRepo, a.storageService, a.aiService, a.thumbnailService)
+	a.fileService.SetAgentService(a.agentService)
 	a.configService = services.NewConfigService(configRepo)
 
 	fmt.Printf("LocalSpace initialized\n")
@@ -163,12 +168,13 @@ func (a *App) ParseFileType(extension string) (models.FileType, error) {
 // File Management Methods
 
 // ImportFile imports a file into LocalSpace
-func (a *App) ImportFile(filePath, fileName, description string, tags []string) error {
+func (a *App) ImportFile(filePath, fileName, description string, tags []string, keywords string) error {
 	return a.fileService.ImportFile(services.ImportFileRequest{
 		FilePath:    filePath,
 		FileName:    fileName,
 		Description: description,
 		Tags:        tags,
+		Keywords:    keywords,
 	})
 }
 
