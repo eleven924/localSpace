@@ -18,7 +18,10 @@ type AgentService struct {
 	toolRegistry  *tools.ToolRegistry
 }
 
-// NewAgentService creates a new agent service
+// NewAgentService creates a new agent service with phase-one metadata wiring.
+//
+// The service layer owns tool registration and gating. The default runtime remains a single
+// direct chat-model call seam so the phase-one architecture is explicit in code.
 func NewAgentService(configRepo *repositories.ConfigRepository) *AgentService {
 	toolRegistry := tools.NewToolRegistry()
 

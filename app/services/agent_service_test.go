@@ -30,6 +30,22 @@ func TestNewAgentService(t *testing.T) {
 	if service.toolRegistry == nil {
 		t.Error("Expected tool registry to be initialized")
 	}
+
+	metadataAgent, ok := service.metadataAgent.(*agents.EinoMetadataAgent)
+	if !ok {
+		t.Fatalf("expected metadata agent to be *agents.EinoMetadataAgent, got %T", service.metadataAgent)
+	}
+	if metadataAgent == nil {
+		t.Fatal("expected concrete metadata agent instance")
+	}
+
+	tool, err := service.toolRegistry.Get("web_search")
+	if err != nil {
+		t.Fatalf("expected web_search to be registered, got error: %v", err)
+	}
+	if tool == nil {
+		t.Fatal("expected web_search tool instance")
+	}
 }
 
 func TestShouldExposeWebSearch(t *testing.T) {

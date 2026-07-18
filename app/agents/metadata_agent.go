@@ -12,7 +12,10 @@ type MetadataAgent interface {
 	Analyze(ctx context.Context, input *MetadataGenerationInput, aiConfig *models.AIConfig, availableTools []tools.Tool) (*MetadataAnalysisResult, error)
 }
 
-// EinoMetadataAgent is the first metadata agent wrapper over AgentRuntime.
+// EinoMetadataAgent is the phase-one metadata-agent wrapper over AgentRuntime.
+//
+// It owns prompt construction, delegates one runtime call, and parses structured output. It does
+// not yet orchestrate a richer tool-calling loop inside the runtime.
 type EinoMetadataAgent struct {
 	runtime       AgentRuntime
 	promptBuilder *PromptBuilder

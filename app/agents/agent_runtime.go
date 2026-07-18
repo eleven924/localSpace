@@ -31,15 +31,19 @@ type AgentRuntime interface {
 	Run(ctx context.Context, req *AgentRunRequest) (*AgentRunResponse, error)
 }
 
-// DefaultAgentRuntime executes metadata-agent requests with the existing Eino/OpenAI seam.
+// DefaultAgentRuntime executes phase-one metadata-agent requests through a direct chat-model seam.
+//
+// Phase one intentionally keeps tool gating and tool selection in AgentService. The runtime only
+// receives already-resolved tools for trace/reporting and still performs a single direct model call
+// rather than a multi-step agent/tool loop.
 type DefaultAgentRuntime struct{}
 
-// NewDefaultAgentRuntime creates the default production runtime for metadata agents.
+// NewDefaultAgentRuntime creates the default production runtime for phase-one metadata agents.
 func NewDefaultAgentRuntime() *DefaultAgentRuntime {
 	return &DefaultAgentRuntime{}
 }
 
-// Run performs a single chat-model execution and returns trace-aware runtime output.
+// Run performs a single direct chat-model execution and returns trace-aware runtime output.
 func (r *DefaultAgentRuntime) Run(ctx context.Context, req *AgentRunRequest) (*AgentRunResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("agent run request is nil")

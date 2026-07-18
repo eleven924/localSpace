@@ -55,7 +55,10 @@ func TestEinoMetadataAgentAnalyze_InvalidOutput(t *testing.T) {
 }
 
 func TestDefaultAgentRuntimeRun_RequiresConfig(t *testing.T) {
-	runtime := &DefaultAgentRuntime{}
+	runtime := NewDefaultAgentRuntime()
+	if runtime == nil {
+		t.Fatal("expected runtime to be constructed")
+	}
 
 	if _, err := runtime.Run(context.Background(), &AgentRunRequest{SystemPrompt: "sys", UserPrompt: "user", AIConfig: &models.AIConfig{}}); err == nil {
 		t.Fatal("expected invalid config to return error")

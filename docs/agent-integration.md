@@ -2,27 +2,43 @@
 
 ## Overview
 
-LocalSpace now routes import-time AI enrichment through one metadata-agent path. During file import, `FileService` performs a single metadata analysis pass and reuses the result for both tags and description generation. Phase-one web-search readiness is wired into this flow through trace-aware tool resolution, while failures still degrade gracefully so imports continue.
+LocalSpace now routes import-time AI enrichment through one metadata-agent path. During file import, `FileService` performs a single metadata analysis pass and reuses the result for both tags and description generation. Phase one also prepares bounded web-search readiness, but the current runtime still executes one direct chat-model call per metadata request instead of a richer multi-step agent loop.
 
-## Architecture
+## Phase-One Architecture
 
-The phase-one metadata-agent architecture centers on these components:
+The delivered phase-one architecture is intentionally narrow and explicit:
 
-- **FileService**: Performs one unified metadata analysis pass per import and applies the returned tags and description.
-- **AgentService**: Owns metadata analysis orchestration, AI configuration lookup, fallback behavior, and service-layer tool gating.
-- **EinoMetadataAgent**: Builds prompts, invokes the runtime, parses structured output, and records execution trace details.
-- **DefaultAgentRuntime**: Provides the default production runtime used by `NewAgentService` for model execution.
-- **ToolRegistry**: Registers trace-ready tools such as `web_search` for optional metadata-agent use.
-- **WebSearchTool**: Supplies bounded phase-one web-search capability when the service layer decides it should be exposed.
+- **FileService**: Builds metadata input once during import and reuses one analysis result for tag and description updates.
+- **AgentService**: Owns AI configuration lookup, fallback behavior, `ToolRegistry` setup, and metadata tool gating.
+- **EinoMetadataAgent**: Builds prompts, delegates a single runtime invocation, parses structured JSON output, and records trace data.
+- **DefaultAgentRuntime**: Implements the production runtime seam used by `NewAgentService`; today it wraps one direct Eino/OpenAI-compatible chat-model call.
+- **ToolRegistry**: Holds optional tools such as `web_search` so the service layer can expose them deliberately.
+- **WebSearchTool**: Exists as a trace-ready, service-gated capability for future expansion.
+
+This is an architecture change, not just a rename of direct model invocation: prompt building, runtime execution, trace capture, and service-layer tool exposure now sit behind explicit metadata-agent seams even though the phase-one runtime remains a single direct model call internally.
 
 ## Unified Metadata Analysis Flow
 
-1. `FileService` assembles metadata-generation input during import.
-2. `AgentService.AnalyzeMetadata` or `AnalyzeMetadataWithTrace` loads AI configuration and decides whether agent execution is enabled.
-3. `AgentService` resolves optional tools from `ToolRegistry` in the service layer. For phase one, this includes gated exposure of `web_search`.
-4. `EinoMetadataAgent` runs once through `DefaultAgentRuntime` and returns one structured metadata result.
-5. `FileService` reuses that single analysis result for both tags and description updates.
-6. If any AI or runtime step fails, the service falls back to safe metadata defaults without blocking the import.
+1. `FileService` assembles `MetadataGenerationInput` during import.
+2. `AgentService.AnalyzeMetadata` or `AnalyzeMetadataWithTrace` loads AI configuration and decides whether phase-one agent execution is enabled.
+3. `AgentService` resolves optional tools from `ToolRegistry` in the service layer. For phase one, this may expose `web_search`.
+4. `EinoMetadataAgent` builds prompts and invokes `DefaultAgentRuntime` once.
+5. `DefaultAgentRuntime` performs one direct chat-model request and returns output plus traceable tool names.
+6. `EinoMetadataAgent` parses the structured response into one `MetadataAnalysisResult`.
+7. `FileService` reuses that single analysis result for both tags and description updates.
+8. If any AI or runtime step fails, the service falls back to safe metadata defaults without blocking the import.
+
+## Runtime and Tool Boundaries
+
+The important phase-one seams are:
+
+- Tool registration happens once in `NewAgentService`.
+- Tool gating stays in `AgentService`, not in `DefaultAgentRuntime`.
+- `DefaultAgentRuntime` does not decide whether tools are allowed.
+- `DefaultAgentRuntime` does not yet execute a tool-calling loop.
+- The runtime only receives already-resolved tools so their availability can be reflected in trace data.
+
+That makes the current behavior accurate in both code and docs: web search is architecturally visible and trace-ready, while the runtime remains a direct model invocation seam for now.
 
 ## Web-Search Readiness
 
@@ -80,3 +96,4 @@ Agent-backed metadata analysis depends on AI configuration like the following:
 - `AnalyzeMetadataWithTrace` is the diagnostics-friendly entry point when callers need trace information.
 - `AnalyzeMetadata`, `GenerateTags`, and `GenerateDescription` all rely on the same unified metadata-analysis path.
 - Phase one prepares the architecture for future tool expansion without widening runtime responsibilities.
+- The current runtime seam is intentionally direct-chat based; future work can evolve that seam without moving metadata tool gating out of the service layer.
