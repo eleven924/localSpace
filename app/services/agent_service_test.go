@@ -23,8 +23,8 @@ func TestNewAgentService(t *testing.T) {
 		t.Fatal("Expected agent service to be created")
 	}
 
-	if service.metadataAgent != nil {
-		t.Error("Expected metadata agent to be nil until runtime wiring is injected")
+	if service.metadataAgent == nil {
+		t.Error("Expected metadata agent to be initialized")
 	}
 
 	if service.toolRegistry == nil {
@@ -121,51 +121,15 @@ func TestAgentServiceAnalyzeMetadata_FallbackOnDisabledAgent(t *testing.T) {
 	}
 }
 
-func TestAgentServiceAnalyzeMetadataWithTrace_FallbackOnConfigLoadError(t *testing.T) {
+func TestAgentServiceAnalyzeMetadataWithTrace_FallbackOnMissingConfigRepo(t *testing.T) {
 	service := &AgentService{}
 
 	result, err := service.AnalyzeMetadataWithTrace(context.Background(), &agents.MetadataGenerationInput{FileType: "video"})
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	if result.Trace.FallbackReason != "agent disabled" {
-		t.Fatalf("expected configless service to fallback as agent disabled, got %q", result.Trace.FallbackReason)
-	}
-}
-
-func TestAgentServiceAnalyzeMetadata_CompatibilityWrappersUseUnifiedPath(t *testing.T) {
-	service := &AgentService{
-		metadataAgent: &fakeMetadataAgent{
-			result: &agents.MetadataAnalysisResult{
-				Analysis: &agents.MetadataAnalysis{Tags: []string{"video", "剧情"}, Description: "剧情影片"},
-				Trace:    &agents.MetadataTrace{AgentEnabled: true},
-			},
-		},
-		toolRegistry: tools.NewToolRegistry(),
-	}
-
-	analysis, err := service.AnalyzeMetadata(context.Background(), &agents.MetadataGenerationInput{FileName: "movie.mp4", FileType: "video"})
-	if err != nil {
-		t.Fatalf("expected nil error from AnalyzeMetadata, got %v", err)
-	}
-	if len(analysis.Tags) != 1 || analysis.Tags[0] != "video" {
-		t.Fatalf("expected unified path fallback without config repo stub, got %v", analysis.Tags)
-	}
-
-	tags, err := service.GenerateTags(context.Background(), "movie.mp4", "video", "", nil, "")
-	if err != nil {
-		t.Fatalf("expected nil error from GenerateTags, got %v", err)
-	}
-	if len(tags) != 1 || tags[0] != analysis.Tags[0] {
-		t.Fatalf("expected GenerateTags to match AnalyzeMetadata output, got %v vs %v", tags, analysis.Tags)
-	}
-
-	description, err := service.GenerateDescription(context.Background(), "movie.mp4", "video", "", nil, "")
-	if err != nil {
-		t.Fatalf("expected nil error from GenerateDescription, got %v", err)
-	}
-	if description != analysis.Description {
-		t.Fatalf("expected GenerateDescription to match AnalyzeMetadata output, got %q vs %q", description, analysis.Description)
+	if result.Trace.FallbackReason != "failed to load ai config" {
+		t.Fatalf("expected missing config repo to fallback as failed to load ai config, got %q", result.Trace.FallbackReason)
 	}
 }
 

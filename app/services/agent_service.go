@@ -25,9 +25,13 @@ func NewAgentService(configRepo *repositories.ConfigRepository) *AgentService {
 	webSearchTool := tools.NewWebSearchTool(10 * time.Second)
 	toolRegistry.Register(webSearchTool.Name(), webSearchTool)
 
+	metadataRuntime := agents.NewOpenAIRuntime()
+	metadataAgent := agents.NewEinoMetadataAgent(metadataRuntime)
+
 	return &AgentService{
-		configRepo:   configRepo,
-		toolRegistry: toolRegistry,
+		metadataAgent: metadataAgent,
+		configRepo:    configRepo,
+		toolRegistry:  toolRegistry,
 	}
 }
 
@@ -139,7 +143,7 @@ func (s *AgentService) AnalyzeMetadataWithTrace(ctx context.Context, input *agen
 		return fallbackMetadataResult(input, "agent service unavailable"), nil
 	}
 	if s.configRepo == nil {
-		return s.analyzeMetadataWithConfig(ctx, input, nil)
+		return fallbackMetadataResult(input, "failed to load ai config"), nil
 	}
 
 	config, err := s.configRepo.GetAIConfig()
