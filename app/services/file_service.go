@@ -262,6 +262,51 @@ func (s *FileService) resolveMetadataForImport(ctx context.Context, analyzer met
 	return resolved, nil
 }
 
+func (s *FileService) normalizeMetadataTags(tags []string) []string {
+	seen := make(map[string]struct{}, len(tags))
+	normalized := make([]string, 0, len(tags))
+
+	for _, tag := range tags {
+		trimmed := strings.TrimSpace(tag)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+
+	return normalized
+}
+
+func (s *FileService) normalizeMetadataDescription(description string) string {
+	return strings.TrimSpace(description)
+}
+
+func (s *FileService) UpdateFileMetadata(id uint, tags []string, description string) error {
+	if id == 0 {
+		return fmt.Errorf("file id cannot be empty")
+	}
+	if s.fileRepo == nil {
+		return fmt.Errorf("file repository not initialized")
+	}
+
+	if _, err := s.fileRepo.FindByID(id); err != nil {
+		return fmt.Errorf("failed to get file: %w", err)
+	}
+
+	normalizedTags := s.normalizeMetadataTags(tags)
+	normalizedDescription := s.normalizeMetadataDescription(description)
+
+	if err := s.fileRepo.UpdateMetadata(id, normalizedTags, normalizedDescription); err != nil {
+		return fmt.Errorf("failed to update file metadata: %w", err)
+	}
+
+	return nil
+}
+
 // ListFiles returns a list of files
 func (s *FileService) ListFiles(filter FileFilter) ([]*models.File, error) {
 	files, err := s.fileRepo.List(repositories.FileFilter{

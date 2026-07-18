@@ -308,6 +308,31 @@ func (r *FileRepository) DeleteByPath(pathPrefix string) (int64, error) {
 	return rowsAffected, nil
 }
 
+// UpdateMetadata updates only tags, description, and modified time for a file
+func (r *FileRepository) UpdateMetadata(id uint, tags []string, description string) error {
+	tagsJSON, err := json.Marshal(tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags: %w", err)
+	}
+
+	query := `UPDATE files SET tags = ?, description = ?, modified_at = CURRENT_TIMESTAMP WHERE id = ?`
+
+	result, err := r.db.Exec(query, string(tagsJSON), description, id)
+	if err != nil {
+		return fmt.Errorf("failed to update file metadata: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("file not found")
+	}
+
+	return nil
+}
+
 // Update updates a file
 func (r *FileRepository) Update(file *models.File) error {
 	tagsJSON, err := json.Marshal(file.Tags)
