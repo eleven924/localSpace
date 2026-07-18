@@ -307,9 +307,21 @@ const testResult = ref<{ success: boolean; message: string } | null>(null)
 
 const isFormValid = computed(() => {
   if (!config.value.enabled) return true
-  return config.value.apiKey.trim().length > 0 &&
-         config.value.model.trim().length > 0 &&
-         config.value.baseURL.trim().length > 0
+
+  const hasModelConfig = config.value.apiKey.trim().length > 0 &&
+    config.value.model.trim().length > 0 &&
+    config.value.baseURL.trim().length > 0
+
+  if (!hasModelConfig) {
+    return false
+  }
+
+  if (config.value.enableAgent && config.value.enableWebSearch) {
+    return config.value.webSearchBaseURL?.trim().length > 0 &&
+      config.value.webSearchAPIKey?.trim().length > 0
+  }
+
+  return true
 })
 
 const hasChanges = computed(() => {
