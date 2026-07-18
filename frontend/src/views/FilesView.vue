@@ -52,6 +52,7 @@
         @open="handleOpenFile"
         @click="handleClickFile"
         @delete="handleDeleteFile"
+        @updated="handleUpdateFileMetadata"
       />
     </div>
   </div>
@@ -186,11 +187,7 @@ const checkFileUpdate = async (fileId: number, originalFile: any | null): Promis
     if (hasChanges) {
       console.log('File updated:', updatedFile.fileName, updatedFile.fileSize)
       // Refresh file list
-      if (searchQuery.value) {
-        filesStore.searchFiles(searchQuery.value)
-      } else {
-        filesStore.loadFiles(filesStore.currentFileType)
-      }
+      await refreshCurrentResults()
       return updatedFile
     }
 
@@ -201,11 +198,7 @@ const checkFileUpdate = async (fileId: number, originalFile: any | null): Promis
       console.log('File no longer exists, stopping check and refreshing list')
       stopFileUpdateCheck(fileId)
       // Refresh file list to show updated info
-      if (searchQuery.value) {
-        filesStore.searchFiles(searchQuery.value)
-      } else {
-        filesStore.loadFiles(filesStore.currentFileType)
-      }
+      await refreshCurrentResults()
     } else {
       console.error('Failed to check file update:', error)
     }
@@ -226,21 +219,24 @@ const handleClickFile = (file: any) => {
   console.log('File clicked:', file.fileName)
 }
 
-const handleDeleteFile = async (id: number) => {
-  // Refresh the file list after deletion
-  if (searchQuery.value) {
-    filesStore.searchFiles(searchQuery.value)
-  } else {
-    filesStore.loadFiles(filesStore.currentFileType)
+const refreshCurrentResults = async () => {
+  if (searchQuery.value.trim()) {
+    await filesStore.searchFiles(searchQuery.value)
+    return
   }
+  await filesStore.loadFiles(filesStore.currentFileType)
 }
 
-const handleRetry = () => {
-  if (searchQuery.value) {
-    filesStore.searchFiles(searchQuery.value)
-  } else {
-    filesStore.loadFiles(filesStore.currentFileType)
-  }
+const handleUpdateFileMetadata = async (_id: number) => {
+  await refreshCurrentResults()
+}
+
+const handleDeleteFile = async (_id: number) => {
+  await refreshCurrentResults()
+}
+
+const handleRetry = async () => {
+  await refreshCurrentResults()
 }
 </script>
 

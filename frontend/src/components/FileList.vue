@@ -18,6 +18,7 @@
         @open="handleOpen"
         @click="handleClick"
         @delete="handleDelete"
+        @updated="handleUpdated"
       />
     </div>
   </div>
@@ -49,6 +50,7 @@ const emit = defineEmits<{
   open: [id: number]
   click: [file: File]
   delete: [id: number]
+  updated: [id: number]
 }>()
 
 const columns = ref(3)
@@ -86,6 +88,10 @@ const handleClick = (file: File) => {
 
 const handleDelete = (id: number) => {
   emit('delete', id)
+}
+
+const handleUpdated = (id: number) => {
+  emit('updated', id)
 }
 </script>
 

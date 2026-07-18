@@ -58,16 +58,16 @@
     <div class="file-info">
       <h3 class="file-name" :title="file.fileName">{{ file.fileName }}</h3>
       <div v-if="file.tags && file.tags.length > 0" class="file-tags">
-        <span
-          v-for="tag in file.tags.slice(0, 3)"
-          :key="tag"
-          class="tag"
-          :title="tag"
-        >
+        <span v-for="tag in visibleTags" :key="tag" class="tag" :title="tag">
           {{ tag }}
         </span>
-        <span v-if="file.tags.length > 3" class="tag more">
-          +{{ file.tags.length - 3 }}
+        <span v-if="hiddenTags.length > 0" class="tag more more-tags-trigger">
+          +{{ hiddenTags.length }}
+          <span class="hidden-tags-tooltip">
+            <span v-for="tag in hiddenTags" :key="`hidden-${tag}`" class="tag tooltip-tag">
+              {{ tag }}
+            </span>
+          </span>
         </span>
       </div>
       <p v-if="file.description" class="file-description" :title="file.description">
@@ -134,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { computed, ref, nextTick } from 'vue'
 import { FILE_TYPES, formatFileSize, formatDate } from '@/utils/constants'
 import { api } from '@/api/index'
 import FileDetailModal from './FileDetailModal.vue'
@@ -173,6 +173,8 @@ const showEditMetaDialog = ref(false)
 const newFileName = ref('')
 const isRenaming = ref(false)
 const fileNameInput = ref<HTMLInputElement | null>(null)
+const visibleTags = computed(() => props.file.tags.slice(0, 3))
+const hiddenTags = computed(() => props.file.tags.slice(3))
 
 const handleClick = () => {
   emit('click', props.file)
@@ -446,6 +448,36 @@ document.addEventListener('click', handleClickOutside)
 .tag.more {
   background-color: var(--border-color);
   color: var(--text-color);
+}
+
+.more-tags-trigger {
+  position: relative;
+}
+
+.hidden-tags-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: none;
+  min-width: 160px;
+  max-width: 240px;
+  padding: 8px;
+  border-radius: 8px;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px var(--shadow-color);
+  gap: 6px;
+  flex-wrap: wrap;
+  z-index: 30;
+}
+
+.more-tags-trigger:hover .hidden-tags-tooltip {
+  display: flex;
+}
+
+.tooltip-tag {
+  background-color: var(--primary-color);
+  color: white;
 }
 
 .file-description {
