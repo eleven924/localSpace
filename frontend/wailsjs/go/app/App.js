@@ -130,6 +130,10 @@ export function RenameFile(arg1, arg2) {
   return window['go']['app']['App']['RenameFile'](arg1, arg2);
 }
 
+export function UpdateFileMetadata(arg1, arg2, arg3) {
+  return window['go']['app']['App']['UpdateFileMetadata'](arg1, arg2, arg3);
+}
+
 export function SearchFiles(arg1) {
   return window['go']['app']['App']['SearchFiles'](arg1);
 }

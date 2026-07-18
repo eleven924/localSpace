@@ -23,6 +23,7 @@ declare global {
           OpenFileLocation: (id: number) => Promise<string>
           RefreshFile: (id: number) => Promise<any>
           RenameFile: (id: number, newName: string) => Promise<string>
+          UpdateFileMetadata: (id: number, tags: string[], description: string) => Promise<void>
 
           // AI operations
           GetAIAnalysis: (
@@ -221,6 +222,20 @@ export const api = {
             return
           }
           window.go!.app!.App.RenameFile(id, newName)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+    updateMetadata: (id: number, tags: string[], description: string) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.UpdateFileMetadata(id, tags, description)
             .then(() => resolve('success'))
             .catch(reject)
         } catch (error) {

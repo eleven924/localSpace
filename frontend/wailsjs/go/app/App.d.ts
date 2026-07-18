@@ -66,6 +66,8 @@ export function RemoveStorageDirectory(arg1:number):Promise<void>;
 
 export function RenameFile(arg1:number,arg2:string):Promise<void>;
 
+export function UpdateFileMetadata(arg1:number,arg2:Array<string>,arg3:string):Promise<void>;
+
 export function SearchFiles(arg1:string):Promise<Array<models.File>>;
 
 export function SelectDirectory():Promise<string>;
