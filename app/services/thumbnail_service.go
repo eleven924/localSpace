@@ -120,7 +120,6 @@ func (s *ThumbnailService) GetThumbnailAsync(filePath, fileType string, fileID u
 // RemoveThumbnail 移除指定文件的缩略图
 func (s *ThumbnailService) RemoveThumbnail(fileID uint, fileType string) error {
 	cacheKey := s.generateCacheKey(fileID, fileType)
-	cachePath := filepath.Join(s.cacheDir, cacheKey)
 
 	// 从缓存中移除
 	s.cacheMutex.Lock()
@@ -128,11 +127,21 @@ func (s *ThumbnailService) RemoveThumbnail(fileID uint, fileType string) error {
 		s.currentSize -= entry.Size
 		delete(s.cache, cacheKey)
 	}
+	legacyCacheKeys := s.generateLegacyCacheKeys(fileID, fileType)
+	for _, legacyCacheKey := range legacyCacheKeys {
+		if entry, exists := s.cache[legacyCacheKey]; exists {
+			s.currentSize -= entry.Size
+			delete(s.cache, legacyCacheKey)
+		}
+	}
 	s.cacheMutex.Unlock()
 
 	// 删除文件
-	if err := os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove thumbnail file: %w", err)
+	for _, key := range append([]string{cacheKey}, legacyCacheKeys...) {
+		cachePath := filepath.Join(s.cacheDir, key)
+		if err := os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to remove thumbnail file: %w", err)
+		}
 	}
 
 	return nil
@@ -200,7 +209,15 @@ func (s *ThumbnailService) generateThumbnail(filePath, fileType, outputPath stri
 
 // generateCacheKey 生成缓存键
 func (s *ThumbnailService) generateCacheKey(fileID uint, fileType string) string {
-	return fmt.Sprintf("%d_%s", fileID, fileType)
+	return fmt.Sprintf("%d_%s_wide.png", fileID, fileType)
+}
+
+func (s *ThumbnailService) generateLegacyCacheKeys(fileID uint, fileType string) []string {
+	return []string{
+		fmt.Sprintf("%d_%s_square.png", fileID, fileType),
+		fmt.Sprintf("%d_%s.png", fileID, fileType),
+		fmt.Sprintf("%d_%s", fileID, fileType),
+	}
 }
 
 // checkCacheSize 检查缓存大小，必要时清理
@@ -322,11 +339,11 @@ func (s *ThumbnailService) GetCacheStats() map[string]interface{} {
 	defer s.cacheMutex.RUnlock()
 
 	return map[string]interface{}{
-		"count":        len(s.cache),
-		"currentSize":  s.currentSize,
-		"maxSize":      s.maxCacheSize,
-		"usagePercent": float64(s.currentSize) / float64(s.maxCacheSize) * 100,
-		"maxAge":       s.maxAge.String(),
+		"count":         len(s.cache),
+		"currentSize":   s.currentSize,
+		"maxSize":       s.maxCacheSize,
+		"usagePercent":  float64(s.currentSize) / float64(s.maxCacheSize) * 100,
+		"maxAge":        s.maxAge.String(),
 		"defaultWidth":  s.defaultWidth,
 		"defaultHeight": s.defaultHeight,
 	}
@@ -335,8 +352,8 @@ func (s *ThumbnailService) GetCacheStats() map[string]interface{} {
 // WarmupCache 预热缓存（为指定文件生成缩略图）
 func (s *ThumbnailService) WarmupCache(files []struct {
 	FilePath string
-	 FileType string
-		FileID   uint
+	FileType string
+	FileID   uint
 }) (success, failed int) {
 	for _, file := range files {
 		_, err := s.GetThumbnail(file.FilePath, file.FileType, file.FileID)

@@ -45,8 +45,8 @@
 
     <div class="file-thumbnail">
       <img
-        v-if="file.thumbnail"
-        :src="file.thumbnail"
+        v-if="showThumbnail"
+        :src="thumbnailSrc"
         :alt="file.fileName"
         class="thumbnail-image"
         @error="handleThumbnailError"
@@ -134,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick } from 'vue'
+import { computed, ref, nextTick, watch } from 'vue'
 import { FILE_TYPES, formatFileSize, formatDate } from '@/utils/constants'
 import { api } from '@/api/index'
 import FileDetailModal from './FileDetailModal.vue'
@@ -175,6 +175,10 @@ const isRenaming = ref(false)
 const fileNameInput = ref<HTMLInputElement | null>(null)
 const visibleTags = computed(() => props.file.tags.slice(0, 3))
 const hiddenTags = computed(() => props.file.tags.slice(3))
+const showThumbnail = computed(() => Boolean(props.file.thumbnail) && !thumbnailError.value)
+const thumbnailSrc = computed(() => {
+  return props.file.thumbnail || ''
+})
 
 const handleClick = () => {
   emit('click', props.file)
@@ -184,6 +188,13 @@ const handleClick = () => {
 const handleThumbnailError = () => {
   thumbnailError.value = true
 }
+
+watch(
+  () => props.file.thumbnail,
+  () => {
+    thumbnailError.value = false
+  }
+)
 
 const getFileIcon = (fileType: string): string => {
   const type = FILE_TYPES.find(t => t.value === fileType)
@@ -390,7 +401,8 @@ document.addEventListener('click', handleClickOutside)
 
 .file-thumbnail {
   width: 100%;
-  height: 150px;
+  aspect-ratio: 16 / 9;
+  height: auto;
   background-color: var(--bg-color);
   border-radius: 4px;
   display: flex;
@@ -506,7 +518,7 @@ document.addEventListener('click', handleClickOutside)
 
 @media (max-width: 768px) {
   .file-thumbnail {
-    height: 120px;
+    aspect-ratio: 16 / 9;
   }
 
   .file-icon {

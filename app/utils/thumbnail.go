@@ -15,7 +15,7 @@ import (
 // ThumbnailSize 默认缩略图尺寸
 const (
 	DefaultThumbnailWidth  = 300
-	DefaultThumbnailHeight = 300
+	DefaultThumbnailHeight = 169
 	ThumbnailQuality       = 85 // JPEG 质量 (1-100)
 )
 
@@ -37,8 +37,8 @@ func GenerateThumbnail(filePath, outputPath string, width, height int) error {
 		return fmt.Errorf("failed to open source image: %w", err)
 	}
 
-	// 生成缩略图（保持宽高比）
-	dst := imaging.Thumbnail(src, width, height, imaging.Lanczos)
+	// 生成固定比例缩略图，必要时居中裁切，避免显示时出现留白。
+	dst := imaging.Fill(src, width, height, imaging.Center, imaging.Lanczos)
 
 	// 根据输出格式保存
 	ext := strings.ToLower(filepath.Ext(outputPath))
@@ -75,14 +75,16 @@ func GenerateVideoThumbnail(filePath, outputPath string, width, height int) erro
 		"-i", filePath,
 		"-ss", "00:00:01",
 		"-vframes", "1",
-		"-vf", fmt.Sprintf("scale=%d:%d", width, height),
+		"-vf", fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d", width, height, width, height),
+		"-f", "image2",
+		"-update", "1",
 		"-y", // 覆盖已存在的文件
 		outputPath,
 	)
 
 	// 运行命令
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to generate video thumbnail: %w", err)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to generate video thumbnail: %w: %s", err, strings.TrimSpace(string(output)))
 	}
 
 	return nil

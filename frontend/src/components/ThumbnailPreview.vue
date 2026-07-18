@@ -5,7 +5,7 @@
       <div class="preview-content">
         <img
           v-if="thumbnailPath && !loading && !error"
-          :src="`file://${thumbnailPath}`"
+          :src="thumbnailPath"
           :alt="fileName"
           class="preview-image"
           @error="handleError"

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -329,9 +330,14 @@ func (s *FileService) ListFiles(filter FileFilter) ([]*models.File, error) {
 
 	// 为每个文件生成或获取缩略图
 	for _, file := range files {
-		if file.Thumbnail == "" || !s.thumbnailExists(file.Thumbnail) {
+		if file.Thumbnail == "" || !s.thumbnailIsCurrent(file) {
 			// 异步生成缩略图
 			go s.generateThumbnailForFile(file.ID, file.FilePath, file.FileType)
+			continue
+		}
+
+		if thumbnailDataURI, err := s.thumbnailDataURI(file.Thumbnail); err == nil {
+			file.Thumbnail = thumbnailDataURI
 		}
 	}
 
@@ -340,7 +346,23 @@ func (s *FileService) ListFiles(filter FileFilter) ([]*models.File, error) {
 
 // SearchFiles searches for files
 func (s *FileService) SearchFiles(query string) ([]*models.File, error) {
-	return s.fileRepo.Search(query)
+	files, err := s.fileRepo.Search(query)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		if file.Thumbnail == "" || !s.thumbnailIsCurrent(file) {
+			go s.generateThumbnailForFile(file.ID, file.FilePath, file.FileType)
+			continue
+		}
+
+		if thumbnailDataURI, err := s.thumbnailDataURI(file.Thumbnail); err == nil {
+			file.Thumbnail = thumbnailDataURI
+		}
+	}
+
+	return files, nil
 }
 
 // GetFile returns a single file by ID
@@ -351,8 +373,13 @@ func (s *FileService) GetFile(id uint) (*models.File, error) {
 	}
 
 	// 生成或获取缩略图
-	if file.Thumbnail == "" || !s.thumbnailExists(file.Thumbnail) {
+	if file.Thumbnail == "" || !s.thumbnailIsCurrent(file) {
 		go s.generateThumbnailForFile(file.ID, file.FilePath, file.FileType)
+		return file, nil
+	}
+
+	if thumbnailDataURI, err := s.thumbnailDataURI(file.Thumbnail); err == nil {
+		file.Thumbnail = thumbnailDataURI
 	}
 
 	return file, nil
@@ -366,7 +393,7 @@ func (s *FileService) GetThumbnail(id uint) (string, error) {
 	}
 
 	// 如果缩略图路径为空或文件不存在，生成新的缩略图
-	if file.Thumbnail == "" || !s.thumbnailExists(file.Thumbnail) {
+	if file.Thumbnail == "" || !s.thumbnailIsCurrent(file) {
 		thumbnailPath, err := s.thumbnailService.GetThumbnail(file.FilePath, file.FileType, file.ID)
 		if err != nil {
 			return "", fmt.Errorf("failed to get thumbnail: %w", err)
@@ -378,10 +405,18 @@ func (s *FileService) GetThumbnail(id uint) (string, error) {
 			fmt.Printf("Warning: Failed to update thumbnail path: %v\n", err)
 		}
 
-		return thumbnailPath, nil
+		thumbnailDataURI, err := s.thumbnailDataURI(thumbnailPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read thumbnail: %w", err)
+		}
+		return thumbnailDataURI, nil
 	}
 
-	return file.Thumbnail, nil
+	thumbnailDataURI, err := s.thumbnailDataURI(file.Thumbnail)
+	if err != nil {
+		return "", fmt.Errorf("failed to read thumbnail: %w", err)
+	}
+	return thumbnailDataURI, nil
 }
 
 // DeleteFile deletes a file
@@ -618,8 +653,37 @@ func (s *FileService) thumbnailExists(thumbnailPath string) bool {
 	if thumbnailPath == "" {
 		return false
 	}
+	if filepath.Ext(thumbnailPath) == "" {
+		return false
+	}
 	_, err := os.Stat(thumbnailPath)
 	return err == nil
+}
+
+func (s *FileService) thumbnailIsCurrent(file *models.File) bool {
+	if file == nil || !s.thumbnailExists(file.Thumbnail) {
+		return false
+	}
+	return filepath.Base(file.Thumbnail) == s.thumbnailService.generateCacheKey(file.ID, file.FileType)
+}
+
+func (s *FileService) thumbnailDataURI(thumbnailPath string) (string, error) {
+	data, err := os.ReadFile(thumbnailPath)
+	if err != nil {
+		return "", err
+	}
+
+	mimeType := "image/png"
+	switch strings.ToLower(filepath.Ext(thumbnailPath)) {
+	case ".jpg", ".jpeg":
+		mimeType = "image/jpeg"
+	case ".gif":
+		mimeType = "image/gif"
+	case ".webp":
+		mimeType = "image/webp"
+	}
+
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data)), nil
 }
 
 // copyFile copies a file from src to dst
