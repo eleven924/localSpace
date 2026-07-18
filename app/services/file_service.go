@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"LocalSpace/app/agents"
 	"LocalSpace/app/models"
 	"LocalSpace/app/repositories"
 	"LocalSpace/app/utils"
@@ -30,6 +31,10 @@ type ImportFileRequest struct {
 	Description string   // 用户提供的描述
 	Tags        []string // 用户提供的标签
 	Keywords    string   // 用户输入的关键词
+}
+
+type metadataAnalyzer interface {
+	AnalyzeMetadata(ctx context.Context, input *agents.MetadataGenerationInput) (*agents.MetadataAnalysis, error)
 }
 
 // FileFilter represents filters for file queries
@@ -178,45 +183,9 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 	}
 
 	// AI generation using AgentService
-	var tags []string
-	var description string
-
-	// Try AgentService first
-	if s.agentService != nil {
-		ctx := context.Background()
-
-		// Generate tags
-		if agentTags, err := s.agentService.GenerateTags(
-			ctx,
-			req.FileName,
-			fileType,
-			req.Keywords,
-			req.Tags,
-			req.Description,
-		); err == nil {
-			tags = agentTags
-		}
-
-		// Generate description
-		if agentDesc, err := s.agentService.GenerateDescription(
-			ctx,
-			req.FileName,
-			fileType,
-			req.Keywords,
-			req.Tags,
-			req.Description,
-		); err == nil {
-			description = agentDesc
-		}
-	}
-
-	// Fallback to user input if AI generation failed
-	if len(tags) == 0 && len(req.Tags) > 0 {
-		tags = req.Tags
-	}
-	if description == "" && req.Description != "" {
-		description = req.Description
-	}
+	metadataAnalysis, _ := s.resolveMetadataForImport(context.Background(), s.agentService, &req, fileType)
+	tags := metadataAnalysis.Tags
+	description := metadataAnalysis.Description
 
 	// Create file record
 	originalName := req.FileName
@@ -257,6 +226,38 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 	}
 
 	return nil
+}
+
+func (s *FileService) resolveMetadataForImport(ctx context.Context, analyzer metadataAnalyzer, req *ImportFileRequest, fileType string) (*agents.MetadataAnalysis, error) {
+	fallback := &agents.MetadataAnalysis{}
+	if req != nil {
+		fallback.Tags = append(fallback.Tags, req.Tags...)
+		fallback.Description = req.Description
+	}
+
+	if analyzer == nil {
+		return fallback, nil
+	}
+
+	analysis, err := analyzer.AnalyzeMetadata(ctx, &agents.MetadataGenerationInput{
+		FileName:        req.FileName,
+		FileType:        fileType,
+		UserKeywords:    req.Keywords,
+		UserTags:        req.Tags,
+		UserDescription: req.Description,
+	})
+	if err != nil || analysis == nil {
+		return fallback, nil
+	}
+
+	if len(analysis.Tags) == 0 {
+		analysis.Tags = fallback.Tags
+	}
+	if analysis.Description == "" {
+		analysis.Description = fallback.Description
+	}
+
+	return analysis, nil
 }
 
 // ListFiles returns a list of files

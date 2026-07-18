@@ -1,7 +1,10 @@
 package services
 
 import (
+	"context"
 	"testing"
+
+	"LocalSpace/app/agents"
 )
 
 func TestImportFileRequestWithAgentFields(t *testing.T) {
@@ -129,5 +132,36 @@ func TestAgentServiceIntegrationStructure(t *testing.T) {
 		if !found {
 			t.Errorf("Expected tag '%s' not found in final tags: %v", expected, finalTags)
 		}
+	}
+}
+
+type countingAgentService struct {
+	calls int
+}
+
+func (c *countingAgentService) AnalyzeMetadata(ctx context.Context, input *agents.MetadataGenerationInput) (*agents.MetadataAnalysis, error) {
+	c.calls++
+	return &agents.MetadataAnalysis{Tags: []string{"video", "action"}, Description: "动作片"}, nil
+}
+
+func TestFileServiceUsesSingleMetadataAnalysisResult(t *testing.T) {
+	service := &FileService{}
+	counting := &countingAgentService{}
+
+	analysis, err := service.resolveMetadataForImport(context.Background(), counting, &ImportFileRequest{
+		FileName: "movie.mp4",
+		Keywords: "action thriller",
+		Tags:     []string{"娱乐"},
+	}, "video")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	if counting.calls != 1 {
+		t.Fatalf("expected one metadata analysis call, got %d", counting.calls)
+	}
+
+	if analysis.Description != "动作片" {
+		t.Fatalf("expected unified description result, got %q", analysis.Description)
 	}
 }
