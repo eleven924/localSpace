@@ -233,6 +233,14 @@ func (a *App) RenameFile(id uint, newName string) error {
 	return a.fileService.RenameFile(id, newName)
 }
 
+// UpdateFileMetadata updates file tags and description.
+func (a *App) UpdateFileMetadata(id uint, tags []string, description string) error {
+	if !a.isInitialized() {
+		return fmt.Errorf("app not initialized")
+	}
+	return a.fileService.UpdateFileMetadata(id, tags, description)
+}
+
 // OpenFile opens a file with the default system application
 func (a *App) OpenFile(id uint) error {
 	file, err := a.fileService.GetFile(id)

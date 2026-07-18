@@ -15,9 +15,15 @@ import (
 	"LocalSpace/app/utils"
 )
 
+type fileMetadataUpdater interface {
+	FindByID(id uint) (*models.File, error)
+	UpdateMetadata(id uint, tags []string, description string) error
+}
+
 // FileService handles file operations
 type FileService struct {
 	fileRepo         *repositories.FileRepository
+	metadataRepo     fileMetadataUpdater
 	storageService   *StorageService
 	aiService        *AIService
 	agentService     *AgentService
@@ -55,6 +61,7 @@ func NewFileService(
 ) *FileService {
 	return &FileService{
 		fileRepo:         fileRepo,
+		metadataRepo:     fileRepo,
 		storageService:   storageService,
 		aiService:        aiService,
 		thumbnailService: thumbnailService,
@@ -289,18 +296,18 @@ func (s *FileService) UpdateFileMetadata(id uint, tags []string, description str
 	if id == 0 {
 		return fmt.Errorf("file id cannot be empty")
 	}
-	if s.fileRepo == nil {
+	if s.metadataRepo == nil {
 		return fmt.Errorf("file repository not initialized")
 	}
 
-	if _, err := s.fileRepo.FindByID(id); err != nil {
+	if _, err := s.metadataRepo.FindByID(id); err != nil {
 		return fmt.Errorf("failed to get file: %w", err)
 	}
 
 	normalizedTags := s.normalizeMetadataTags(tags)
 	normalizedDescription := s.normalizeMetadataDescription(description)
 
-	if err := s.fileRepo.UpdateMetadata(id, normalizedTags, normalizedDescription); err != nil {
+	if err := s.metadataRepo.UpdateMetadata(id, normalizedTags, normalizedDescription); err != nil {
 		return fmt.Errorf("failed to update file metadata: %w", err)
 	}
 

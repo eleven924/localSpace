@@ -82,7 +82,7 @@ func (r *metadataRepoStub) UpdateMetadata(id uint, tags []string, description st
 
 func TestUpdateFileMetadata_NormalizesInputBeforePersisting(t *testing.T) {
 	repo := &metadataRepoStub{}
-	service := &FileService{fileRepo: repo}
+	service := &FileService{metadataRepo: repo}
 
 	err := service.UpdateFileMetadata(7, []string{" 工作 ", "工作", "重要", ""}, "  新描述  ")
 	if err != nil {
@@ -110,7 +110,7 @@ func TestUpdateFileMetadata_NormalizesInputBeforePersisting(t *testing.T) {
 
 func TestUpdateFileMetadata_PropagatesRepositoryErrors(t *testing.T) {
 	repo := &metadataRepoStub{updateErr: errors.New("boom")}
-	service := &FileService{fileRepo: repo}
+	service := &FileService{metadataRepo: repo}
 
 	err := service.UpdateFileMetadata(9, []string{"tag"}, "desc")
 	if err == nil {
