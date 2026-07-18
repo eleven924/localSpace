@@ -25,7 +25,13 @@ declare global {
           RenameFile: (id: number, newName: string) => Promise<string>
 
           // AI operations
-          GetAIAnalysis: (fileName: string, fileType: string) => Promise<any>
+          GetAIAnalysis: (
+            fileName: string,
+            fileType: string,
+            userKeywords: string,
+            userTags: string[],
+            userDescription: string
+          ) => Promise<any>
 
           // Storage
           GetStorageDirectories: () => Promise<any[]>
