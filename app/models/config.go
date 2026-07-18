@@ -17,6 +17,11 @@ type AIConfig struct {
 	BaseURL string `json:"baseURL"`
 	Enabled bool   `json:"enabled"`
 
+	EnableAgent     bool `json:"enableAgent"`
+	EnableWebSearch bool `json:"enableWebSearch"`
+	MaxTokens       int  `json:"maxTokens"`
+	Timeout         int  `json:"timeout"`
+
 	WebSearchProvider   string `json:"webSearchProvider"`
 	WebSearchBaseURL    string `json:"webSearchBaseURL"`
 	WebSearchAPIKey     string `json:"webSearchAPIKey"`

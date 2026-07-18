@@ -41,9 +41,15 @@ var migrations = []Migration{
 	},
 	{
 		Version: 5,
-		Name:    "add_ai_config_web_search_provider_fields",
+		Name:    "add_ai_config_runtime_fields",
 		Up:      migration005_Up,
 		Down:    migration005_Down,
+	},
+	{
+		Version: 6,
+		Name:    "add_ai_config_web_search_provider_fields",
+		Up:      migration006_Up,
+		Down:    migration006_Down,
 	},
 }
 
@@ -145,6 +151,10 @@ func migration001_Up(db *sql.DB) error {
 			model TEXT NOT NULL,
 			base_url TEXT NOT NULL,
 			enabled BOOLEAN DEFAULT 0,
+			enable_agent BOOLEAN DEFAULT 0,
+			enable_web_search BOOLEAN DEFAULT 0,
+			max_tokens INTEGER DEFAULT 500,
+			timeout INTEGER DEFAULT 30,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`
 
@@ -443,8 +453,45 @@ func migration004_Down(db *sql.DB) error {
 	return fmt.Errorf("SQLite rollback not supported for column additions")
 }
 
-// migration005_Up: add AI web search config fields
+// migration005_Up: add AI runtime config fields
 func migration005_Up(db *sql.DB) error {
+	columns := []struct {
+		name       string
+		definition string
+	}{
+		{name: "enable_agent", definition: "BOOLEAN DEFAULT 0"},
+		{name: "enable_web_search", definition: "BOOLEAN DEFAULT 0"},
+		{name: "max_tokens", definition: "INTEGER DEFAULT 500"},
+		{name: "timeout", definition: "INTEGER DEFAULT 30"},
+	}
+
+	for _, column := range columns {
+		var exists bool
+		err := db.QueryRow(`
+			SELECT COUNT(*) > 0
+			FROM pragma_table_info('ai_configs')
+			WHERE name = ?
+		`, column.name).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("failed to check %s column existence: %w", column.name, err)
+		}
+		if exists {
+			continue
+		}
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE ai_configs ADD COLUMN %s %s", column.name, column.definition)); err != nil {
+			return fmt.Errorf("failed to add %s column: %w", column.name, err)
+		}
+	}
+
+	return nil
+}
+
+func migration005_Down(db *sql.DB) error {
+	return fmt.Errorf("SQLite rollback not supported for column additions")
+}
+
+// migration006_Up: add AI web search config fields
+func migration006_Up(db *sql.DB) error {
 	columns := []struct {
 		name       string
 		definition string
@@ -477,6 +524,6 @@ func migration005_Up(db *sql.DB) error {
 	return nil
 }
 
-func migration005_Down(db *sql.DB) error {
+func migration006_Down(db *sql.DB) error {
 	return fmt.Errorf("SQLite rollback not supported for column additions")
 }

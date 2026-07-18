@@ -109,6 +109,32 @@
           <p class="form-hint">限制生成的最大 Token 数量</p>
         </div>
 
+        <div class="form-group">
+          <label class="toggle-label" for="enable-agent">
+            <span class="label-text">启用 Agent 模式</span>
+          </label>
+          <input
+            id="enable-agent"
+            v-model="config.enableAgent"
+            type="checkbox"
+            @change="handleConfigChange"
+          />
+          <p class="form-hint">启用后允许使用 Agent 能力</p>
+        </div>
+
+        <div v-if="config.enableAgent" class="form-group">
+          <label class="toggle-label" for="enable-web-search">
+            <span class="label-text">启用网络搜索</span>
+          </label>
+          <input
+            id="enable-web-search"
+            v-model="config.enableWebSearch"
+            type="checkbox"
+            @change="handleConfigChange"
+          />
+          <p class="form-hint">仅为 Agent 的 web_search tool 配置搜索服务</p>
+        </div>
+
         <div v-if="config.enableWebSearch" class="search-config-fields">
           <div class="form-group">
             <label for="web-search-provider">
@@ -262,7 +288,7 @@ const config = ref<AIConfig>({
   model: 'gpt-3.5-turbo',
   baseURL: 'https://api.openai.com/v1',
   timeout: 30,
-  maxTokens: 1000,
+  maxTokens: 500,
   enableAgent: true,
   enableWebSearch: false,
   webSearchProvider: '',
@@ -313,7 +339,7 @@ const loadConfig = async () => {
         model: loadedConfig.model || 'gpt-3.5-turbo',
         baseURL: loadedConfig.baseURL || 'https://api.openai.com/v1',
         timeout: loadedConfig.timeout || 30,
-        maxTokens: loadedConfig.maxTokens || 1000,
+        maxTokens: loadedConfig.maxTokens || 500,
         enableAgent: loadedConfig.enableAgent || false,
         enableWebSearch: loadedConfig.enableWebSearch || false,
         webSearchProvider: loadedConfig.webSearchProvider || '',

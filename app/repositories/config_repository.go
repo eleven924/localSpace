@@ -154,7 +154,7 @@ func (r *ConfigRepository) ParseFileType(extension string) (models.FileType, err
 
 // GetAIConfig returns the AI configuration
 func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
-	query := `SELECT id, api_key, model, base_url, enabled FROM ai_configs WHERE id = 1`
+	query := `SELECT id, api_key, model, base_url, enabled, enable_agent, enable_web_search, max_tokens, timeout, web_search_provider, web_search_base_url, web_search_api_key, web_search_timeout, web_search_max_results FROM ai_configs WHERE id = 1`
 
 	var config models.AIConfig
 	err := r.db.QueryRow(query).Scan(
@@ -163,6 +163,15 @@ func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
 		&config.Model,
 		&config.BaseURL,
 		&config.Enabled,
+		&config.EnableAgent,
+		&config.EnableWebSearch,
+		&config.MaxTokens,
+		&config.Timeout,
+		&config.WebSearchProvider,
+		&config.WebSearchBaseURL,
+		&config.WebSearchAPIKey,
+		&config.WebSearchTimeout,
+		&config.WebSearchMaxResults,
 	)
 
 	if err != nil {
@@ -173,7 +182,11 @@ func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
 				Model:               "gpt-3.5-turbo",
 				BaseURL:             "https://api.openai.com/v1",
 				Enabled:             false,
-								WebSearchProvider:   "",
+				EnableAgent:         false,
+				EnableWebSearch:     false,
+				MaxTokens:           500,
+				Timeout:             30,
+				WebSearchProvider:   "",
 				WebSearchBaseURL:    "",
 				WebSearchAPIKey:     "",
 				WebSearchTimeout:    10,
@@ -188,6 +201,16 @@ func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
 
 // SetAIConfig sets the AI configuration
 func (r *ConfigRepository) SetAIConfig(config *models.AIConfig) error {
+	enableAgent := config.EnableAgent
+	enableWebSearch := config.EnableWebSearch
+	maxTokens := config.MaxTokens
+	if maxTokens == 0 {
+		maxTokens = 500
+	}
+	timeout := config.Timeout
+	if timeout == 0 {
+		timeout = 30
+	}
 	webSearchTimeout := config.WebSearchTimeout
 	if webSearchTimeout == 0 {
 		webSearchTimeout = 10
@@ -200,15 +223,20 @@ func (r *ConfigRepository) SetAIConfig(config *models.AIConfig) error {
 	query := `
 		INSERT INTO ai_configs (
 			id, api_key, model, base_url, enabled,
+			enable_agent, enable_web_search, max_tokens, timeout,
 			web_search_provider, web_search_base_url, web_search_api_key, web_search_timeout, web_search_max_results,
 			updated_at
 		)
-		VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT(id) DO UPDATE SET
 			api_key = excluded.api_key,
 			model = excluded.model,
 			base_url = excluded.base_url,
 			enabled = excluded.enabled,
+			enable_agent = excluded.enable_agent,
+			enable_web_search = excluded.enable_web_search,
+			max_tokens = excluded.max_tokens,
+			timeout = excluded.timeout,
 			web_search_provider = excluded.web_search_provider,
 			web_search_base_url = excluded.web_search_base_url,
 			web_search_api_key = excluded.web_search_api_key,
@@ -222,6 +250,10 @@ func (r *ConfigRepository) SetAIConfig(config *models.AIConfig) error {
 		config.Model,
 		config.BaseURL,
 		config.Enabled,
+		enableAgent,
+		enableWebSearch,
+		maxTokens,
+		timeout,
 		config.WebSearchProvider,
 		config.WebSearchBaseURL,
 		config.WebSearchAPIKey,
