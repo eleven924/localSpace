@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,7 @@ type FileService struct {
 	fileRepo         *repositories.FileRepository
 	storageService   *StorageService
 	aiService       *AIService
+	agentService    *AgentService
 	thumbnailService *ThumbnailService
 }
 
@@ -52,6 +54,11 @@ func NewFileService(
 		aiService:       aiService,
 		thumbnailService: thumbnailService,
 	}
+}
+
+// SetAgentService sets the agent service (called after initialization)
+func (s *FileService) SetAgentService(agentService *AgentService) {
+	s.agentService = agentService
 }
 
 // ImportFile imports a file into LocalSpace
@@ -164,12 +171,51 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 		}
 	}
 
-	// Extract metadata
+	// Extract metadata from the file
 	metadata, err := s.ExtractMetadata(destPath, fileType)
 	if err != nil {
-		// Metadata extraction failure is not critical, log and continue
 		fmt.Printf("Warning: Failed to extract metadata: %v\n", err)
-		metadata = models.Metadata{}
+	}
+
+	// AI generation using AgentService
+	var tags []string
+	var description string
+
+	// Try AgentService first
+	if s.agentService != nil {
+		ctx := context.Background()
+
+		// Generate tags
+		if agentTags, err := s.agentService.GenerateTags(
+			ctx,
+			req.FileName,
+			fileType,
+			req.Keywords,
+			req.Tags,
+			req.Description,
+		); err == nil {
+			tags = agentTags
+		}
+
+		// Generate description
+		if agentDesc, err := s.agentService.GenerateDescription(
+			ctx,
+			req.FileName,
+			fileType,
+			req.Keywords,
+			req.Tags,
+			req.Description,
+		); err == nil {
+			description = agentDesc
+		}
+	}
+
+	// Fallback to user input if AI generation failed
+	if len(tags) == 0 && len(req.Tags) > 0 {
+		tags = req.Tags
+	}
+	if description == "" && req.Description != "" {
+		description = req.Description
 	}
 
 	// Create file record
@@ -185,11 +231,11 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 		FileType:     fileType,
 		FileSubType:  strings.TrimPrefix(extension, "."),
 		FileSize:     fileInfo.Size(),
-		Tags:         req.Tags,
-		Description:  req.Description,
+		Tags:         tags,
+		Description:  description,
 		Metadata:     metadata,
 		Thumbnail:    "", // Will be set after file creation
-		Checksum:     checksum, // Set the calculated checksum
+		Checksum:     checksum,
 		IsDeleted:    false,
 		DeletedAt:    "",
 	}
