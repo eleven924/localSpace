@@ -53,3 +53,29 @@ func TestPromptBuilderBuildDescriptionPrompt(t *testing.T) {
 		})
 	}
 }
+
+func TestPromptBuilderBuildMetadataUserPrompt(t *testing.T) {
+	builder := NewPromptBuilder()
+
+	prompt := builder.BuildMetadataUserPrompt(&MetadataGenerationInput{
+		FileName:        "movie.mp4",
+		FileType:        "video",
+		UserKeywords:    "action thriller",
+		UserTags:        []string{"娱乐", "动作"},
+		UserDescription: "一部动作惊悚电影",
+	})
+
+	expectedParts := []string{
+		"movie.mp4",
+		"video",
+		"action thriller",
+		"娱乐, 动作",
+		"一部动作惊悚电影",
+	}
+
+	for _, part := range expectedParts {
+		if !strings.Contains(prompt, part) {
+			t.Fatalf("expected metadata user prompt to contain %q", part)
+		}
+	}
+}

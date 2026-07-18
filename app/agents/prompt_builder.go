@@ -7,14 +7,14 @@ import (
 
 // PromptBuilder builds smart prompts for AI generation
 type PromptBuilder struct {
-	tagTemplates   map[string]string
+	tagTemplates  map[string]string
 	descTemplates map[string]string
 }
 
 // NewPromptBuilder creates a new prompt builder
 func NewPromptBuilder() *PromptBuilder {
 	builder := &PromptBuilder{
-		tagTemplates:   make(map[string]string),
+		tagTemplates:  make(map[string]string),
 		descTemplates: make(map[string]string),
 	}
 	builder.initTemplates()
@@ -50,7 +50,7 @@ func (b *PromptBuilder) initTemplates() {
 请基于以上信息为这个文件生成一个简洁准确的描述（1-2句话）。
 描述应该概括文件的用途、内容或特点。
 要求：
-1. 描述要简洁明了，不超过50个字
+1. 描述要简洁明了，不超过100个字
 2. 优先参考用户提供的描述
 3. 结合关键词和标签信息
 
@@ -92,5 +92,31 @@ func (b *PromptBuilder) BuildDescriptionPrompt(
 		userKeywords,
 		tagsStr,
 		userDescription,
+	)
+}
+
+// BuildMetadataSystemPrompt builds a prompt for metadata JSON generation.
+func (b *PromptBuilder) BuildMetadataSystemPrompt() string {
+	return "你是一个文件元数据补全助手。请根据上下文生成 tags 和 description，并仅返回 JSON：{\"tags\":[],\"description\":\"\"}。"
+}
+
+// BuildMetadataUserPrompt builds a prompt for metadata JSON generation.
+func (b *PromptBuilder) BuildMetadataUserPrompt(input *MetadataGenerationInput) string {
+	tagsStr := ""
+	if input != nil {
+		tagsStr = strings.Join(input.UserTags, ", ")
+		return fmt.Sprintf(
+			"文件名：%s\n文件类型：%s\n用户关键词：%s\n用户标签：%s\n用户描述：%s\n请输出 metadata JSON。",
+			input.FileName,
+			input.FileType,
+			input.UserKeywords,
+			tagsStr,
+			input.UserDescription,
+		)
+	}
+
+	return fmt.Sprintf(
+		"文件名：%s\n文件类型：%s\n用户关键词：%s\n用户标签：%s\n用户描述：%s\n请输出 metadata JSON。",
+		"", "", "", tagsStr, "",
 	)
 }
