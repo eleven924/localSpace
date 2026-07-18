@@ -168,13 +168,20 @@ func (a *App) ParseFileType(extension string) (models.FileType, error) {
 // File Management Methods
 
 // ImportFile imports a file into LocalSpace
-func (a *App) ImportFile(filePath, fileName, description string, tags []string, keywords string) error {
+// Backward compatible: accepts 4 or 5 arguments (keywords is optional)
+func (a *App) ImportFile(filePath, fileName, description string, tags []string, keywords ...string) error {
+	// Provide default empty string for keywords if not provided
+	keywordsStr := ""
+	if len(keywords) > 0 {
+		keywordsStr = keywords[0]
+	}
+
 	return a.fileService.ImportFile(services.ImportFileRequest{
 		FilePath:    filePath,
 		FileName:    fileName,
 		Description: description,
 		Tags:        tags,
-		Keywords:    keywords,
+		Keywords:    keywordsStr,
 	})
 }
 
