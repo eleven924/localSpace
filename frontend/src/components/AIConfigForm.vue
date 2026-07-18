@@ -135,7 +135,7 @@
           <p class="form-hint">仅为 Agent 的 web_search tool 配置搜索服务</p>
         </div>
 
-        <div v-if="config.enableWebSearch" class="search-config-fields">
+        <div v-if="config.enableAgent && config.enableWebSearch" class="search-config-fields">
           <div class="form-group">
             <label for="web-search-provider">
               <span class="label-text">搜索 Provider</span>

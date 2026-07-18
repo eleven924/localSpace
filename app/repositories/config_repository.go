@@ -154,7 +154,7 @@ func (r *ConfigRepository) ParseFileType(extension string) (models.FileType, err
 
 // GetAIConfig returns the AI configuration
 func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
-	query := `SELECT id, api_key, model, base_url, enabled, enable_agent, enable_web_search, max_tokens, timeout, web_search_provider, web_search_base_url, web_search_api_key, web_search_timeout, web_search_max_results FROM ai_configs WHERE id = 1`
+	query := `SELECT id, api_key, model, base_url, enabled FROM ai_configs WHERE id = 1`
 
 	var config models.AIConfig
 	err := r.db.QueryRow(query).Scan(
@@ -163,6 +163,34 @@ func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
 		&config.Model,
 		&config.BaseURL,
 		&config.Enabled,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return defaultAIConfig(), nil
+		}
+		return nil, fmt.Errorf("failed to get AI config: %w", err)
+	}
+
+	populateAIConfigDefaults(&config)
+	if err := r.loadOptionalAIConfigFields(&config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+func (r *ConfigRepository) loadOptionalAIConfigFields(config *models.AIConfig) error {
+	var exists bool
+	err := r.db.QueryRow(`SELECT COUNT(*) > 0 FROM pragma_table_info('ai_configs') WHERE name = 'enable_agent'`).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to inspect AI config schema: %w", err)
+	}
+	if !exists {
+		return nil
+	}
+
+	query := `SELECT enable_agent, enable_web_search, max_tokens, timeout, web_search_provider, web_search_base_url, web_search_api_key, web_search_timeout, web_search_max_results FROM ai_configs WHERE id = 1`
+	if err := r.db.QueryRow(query).Scan(
 		&config.EnableAgent,
 		&config.EnableWebSearch,
 		&config.MaxTokens,
@@ -172,31 +200,55 @@ func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
 		&config.WebSearchAPIKey,
 		&config.WebSearchTimeout,
 		&config.WebSearchMaxResults,
-	)
-
-	if err != nil {
+	); err != nil {
 		if err == sql.ErrNoRows {
-			return &models.AIConfig{
-				ID:                  0,
-				APIKey:              "",
-				Model:               "gpt-3.5-turbo",
-				BaseURL:             "https://api.openai.com/v1",
-				Enabled:             false,
-				EnableAgent:         false,
-				EnableWebSearch:     false,
-				MaxTokens:           500,
-				Timeout:             30,
-				WebSearchProvider:   "",
-				WebSearchBaseURL:    "",
-				WebSearchAPIKey:     "",
-				WebSearchTimeout:    10,
-				WebSearchMaxResults: 3,
-			}, nil
+			return nil
 		}
-		return nil, fmt.Errorf("failed to get AI config: %w", err)
+		return fmt.Errorf("failed to get AI config optional fields: %w", err)
 	}
 
-	return &config, nil
+	populateAIConfigDefaults(config)
+	return nil
+}
+
+func defaultAIConfig() *models.AIConfig {
+	return &models.AIConfig{
+		ID:                  0,
+		APIKey:              "",
+		Model:               "gpt-3.5-turbo",
+		BaseURL:             "https://api.openai.com/v1",
+		Enabled:             false,
+		EnableAgent:         false,
+		EnableWebSearch:     false,
+		MaxTokens:           500,
+		Timeout:             30,
+		WebSearchProvider:   "",
+		WebSearchBaseURL:    "",
+		WebSearchAPIKey:     "",
+		WebSearchTimeout:    10,
+		WebSearchMaxResults: 3,
+	}
+}
+
+func populateAIConfigDefaults(config *models.AIConfig) {
+	if config.Model == "" {
+		config.Model = "gpt-3.5-turbo"
+	}
+	if config.BaseURL == "" {
+		config.BaseURL = "https://api.openai.com/v1"
+	}
+	if config.MaxTokens == 0 {
+		config.MaxTokens = 500
+	}
+	if config.Timeout == 0 {
+		config.Timeout = 30
+	}
+	if config.WebSearchTimeout == 0 {
+		config.WebSearchTimeout = 10
+	}
+	if config.WebSearchMaxResults == 0 {
+		config.WebSearchMaxResults = 3
+	}
 }
 
 // SetAIConfig sets the AI configuration

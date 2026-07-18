@@ -399,6 +399,57 @@ func TestConfigRepository_StorageDirectories(t *testing.T) {
 }
 
 
+
+func TestGetAIConfigSupportsOlderSchemaWithoutOptionalColumns(t *testing.T) {
+	db := setupConfigTestDB(t)
+	defer cleanupConfigTestDB(db)
+
+	if _, err := db.Exec(`
+		INSERT INTO ai_configs (id, api_key, model, base_url, enabled)
+		VALUES (1, 'legacy-key', 'gpt-4', 'https://api.openai.com/v1', 1)
+	`); err != nil {
+		t.Fatalf("Failed to insert legacy AI config row: %v", err)
+	}
+
+	repo := NewConfigRepository(NewSQLiteDBWrapper(db))
+	config, err := repo.GetAIConfig()
+	if err != nil {
+		t.Fatalf("GetAIConfig returned error for old schema: %v", err)
+	}
+
+	if config.APIKey != "legacy-key" {
+		t.Fatalf("expected legacy API key, got %q", config.APIKey)
+	}
+	if config.Model != "gpt-4" {
+		t.Fatalf("expected legacy model, got %q", config.Model)
+	}
+	if config.BaseURL != "https://api.openai.com/v1" {
+		t.Fatalf("expected legacy base URL, got %q", config.BaseURL)
+	}
+	if !config.Enabled {
+		t.Fatal("expected legacy enabled flag true")
+	}
+	if config.EnableAgent {
+		t.Fatal("expected default enableAgent false for old schema")
+	}
+	if config.EnableWebSearch {
+		t.Fatal("expected default enableWebSearch false for old schema")
+	}
+	if config.MaxTokens != 500 {
+		t.Fatalf("expected default max tokens 500 for old schema, got %d", config.MaxTokens)
+	}
+	if config.Timeout != 30 {
+		t.Fatalf("expected default timeout 30 for old schema, got %d", config.Timeout)
+	}
+	if config.WebSearchTimeout != 10 {
+		t.Fatalf("expected default web search timeout 10 for old schema, got %d", config.WebSearchTimeout)
+	}
+	if config.WebSearchMaxResults != 3 {
+		t.Fatalf("expected default web search max results 3 for old schema, got %d", config.WebSearchMaxResults)
+	}
+}
+
+
 func TestGetAIConfigReturnsWebSearchDefaultsWhenRowMissing(t *testing.T) {
 	db := setupConfigTestDB(t)
 	defer cleanupConfigTestDB(db)
