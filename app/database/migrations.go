@@ -39,6 +39,12 @@ var migrations = []Migration{
 		Up:      migration004_Up,
 		Down:    migration004_Down,
 	},
+	{
+		Version: 5,
+		Name:    "add_ai_config_web_search_provider_fields",
+		Up:      migration005_Up,
+		Down:    migration005_Down,
+	},
 }
 
 // RunMigrations 运行数据库迁移
@@ -434,5 +440,43 @@ func migration004_Down(db *sql.DB) error {
 	}
 
 	// SQLite不支持DROP COLUMN，需要重建表（略）
+	return fmt.Errorf("SQLite rollback not supported for column additions")
+}
+
+// migration005_Up: add AI web search config fields
+func migration005_Up(db *sql.DB) error {
+	columns := []struct {
+		name       string
+		definition string
+	}{
+		{name: "web_search_provider", definition: "TEXT DEFAULT ''"},
+		{name: "web_search_base_url", definition: "TEXT DEFAULT ''"},
+		{name: "web_search_api_key", definition: "TEXT DEFAULT ''"},
+		{name: "web_search_timeout", definition: "INTEGER DEFAULT 10"},
+		{name: "web_search_max_results", definition: "INTEGER DEFAULT 3"},
+	}
+
+	for _, column := range columns {
+		var exists bool
+		err := db.QueryRow(`
+			SELECT COUNT(*) > 0
+			FROM pragma_table_info('ai_configs')
+			WHERE name = ?
+		`, column.name).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("failed to check %s column existence: %w", column.name, err)
+		}
+		if exists {
+			continue
+		}
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE ai_configs ADD COLUMN %s %s", column.name, column.definition)); err != nil {
+			return fmt.Errorf("failed to add %s column: %w", column.name, err)
+		}
+	}
+
+	return nil
+}
+
+func migration005_Down(db *sql.DB) error {
 	return fmt.Errorf("SQLite rollback not supported for column additions")
 }

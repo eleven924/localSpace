@@ -167,13 +167,17 @@ func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			// Return default config if not exists
 			return &models.AIConfig{
-				ID:      0,
-				APIKey:  "",
-				Model:   "gpt-3.5-turbo",
-				BaseURL: "https://api.openai.com/v1",
-				Enabled: false,
+				ID:                  0,
+				APIKey:              "",
+				Model:               "gpt-3.5-turbo",
+				BaseURL:             "https://api.openai.com/v1",
+				Enabled:             false,
+								WebSearchProvider:   "",
+				WebSearchBaseURL:    "",
+				WebSearchAPIKey:     "",
+				WebSearchTimeout:    10,
+				WebSearchMaxResults: 3,
 			}, nil
 		}
 		return nil, fmt.Errorf("failed to get AI config: %w", err)
@@ -184,17 +188,46 @@ func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
 
 // SetAIConfig sets the AI configuration
 func (r *ConfigRepository) SetAIConfig(config *models.AIConfig) error {
+	webSearchTimeout := config.WebSearchTimeout
+	if webSearchTimeout == 0 {
+		webSearchTimeout = 10
+	}
+	webSearchMaxResults := config.WebSearchMaxResults
+	if webSearchMaxResults == 0 {
+		webSearchMaxResults = 3
+	}
+
 	query := `
-		INSERT INTO ai_configs (api_key, model, base_url, enabled, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+		INSERT INTO ai_configs (
+			id, api_key, model, base_url, enabled,
+			web_search_provider, web_search_base_url, web_search_api_key, web_search_timeout, web_search_max_results,
+			updated_at
+		)
+		VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT(id) DO UPDATE SET
 			api_key = excluded.api_key,
 			model = excluded.model,
 			base_url = excluded.base_url,
 			enabled = excluded.enabled,
+			web_search_provider = excluded.web_search_provider,
+			web_search_base_url = excluded.web_search_base_url,
+			web_search_api_key = excluded.web_search_api_key,
+			web_search_timeout = excluded.web_search_timeout,
+			web_search_max_results = excluded.web_search_max_results,
 			updated_at = CURRENT_TIMESTAMP`
 
-	_, err := r.db.Exec(query, config.APIKey, config.Model, config.BaseURL, config.Enabled)
+	_, err := r.db.Exec(
+		query,
+		config.APIKey,
+		config.Model,
+		config.BaseURL,
+		config.Enabled,
+		config.WebSearchProvider,
+		config.WebSearchBaseURL,
+		config.WebSearchAPIKey,
+		webSearchTimeout,
+		webSearchMaxResults,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to set AI config: %w", err)
 	}

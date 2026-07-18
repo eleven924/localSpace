@@ -16,6 +16,12 @@ type AIConfig struct {
 	Model   string `json:"model"`
 	BaseURL string `json:"baseURL"`
 	Enabled bool   `json:"enabled"`
+
+	WebSearchProvider   string `json:"webSearchProvider"`
+	WebSearchBaseURL    string `json:"webSearchBaseURL"`
+	WebSearchAPIKey     string `json:"webSearchAPIKey"`
+	WebSearchTimeout    int    `json:"webSearchTimeout"`
+	WebSearchMaxResults int    `json:"webSearchMaxResults"`
 }
 
 // ThemeConfig represents theme configuration

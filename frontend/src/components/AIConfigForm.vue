@@ -109,6 +109,83 @@
           <p class="form-hint">限制生成的最大 Token 数量</p>
         </div>
 
+        <div v-if="config.enableWebSearch" class="search-config-fields">
+          <div class="form-group">
+            <label for="web-search-provider">
+              <span class="label-text">搜索 Provider</span>
+            </label>
+            <input
+              id="web-search-provider"
+              v-model="config.webSearchProvider"
+              type="text"
+              placeholder="例如: mock-http"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">标识当前网络搜索服务类型</p>
+          </div>
+
+          <div class="form-group">
+            <label for="web-search-base-url">
+              <span class="label-text">搜索 Base URL</span>
+              <span class="label-required">*</span>
+            </label>
+            <input
+              id="web-search-base-url"
+              v-model="config.webSearchBaseURL"
+              type="text"
+              placeholder="https://search.example.com"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">网络搜索服务端点地址</p>
+          </div>
+
+          <div class="form-group">
+            <label for="web-search-api-key">
+              <span class="label-text">搜索 API Key</span>
+              <span class="label-required">*</span>
+            </label>
+            <input
+              id="web-search-api-key"
+              v-model="config.webSearchAPIKey"
+              type="password"
+              placeholder="输入网络搜索服务 API Key"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">仅用于 web_search tool，不复用模型 API Key</p>
+          </div>
+
+          <div class="form-group">
+            <label for="web-search-timeout">
+              <span class="label-text">搜索超时时间</span>
+              <span class="label-hint">秒</span>
+            </label>
+            <input
+              id="web-search-timeout"
+              v-model.number="config.webSearchTimeout"
+              type="number"
+              min="1"
+              max="60"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">单次搜索请求超时时间，默认 10 秒</p>
+          </div>
+
+          <div class="form-group">
+            <label for="web-search-max-results">
+              <span class="label-text">搜索结果数量上限</span>
+            </label>
+            <input
+              id="web-search-max-results"
+              v-model.number="config.webSearchMaxResults"
+              type="number"
+              min="1"
+              max="5"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">限制返回给 Agent 的结果数量，建议 3</p>
+          </div>
+        </div>
+
         <div class="test-section">
           <button
             class="btn test-button"
@@ -165,6 +242,13 @@ interface AIConfig {
   baseURL: string
   timeout?: number
   maxTokens?: number
+  enableAgent?: boolean
+  enableWebSearch?: boolean
+  webSearchProvider?: string
+  webSearchBaseURL?: string
+  webSearchAPIKey?: string
+  webSearchTimeout?: number
+  webSearchMaxResults?: number
 }
 
 const emit = defineEmits<{
@@ -179,6 +263,13 @@ const config = ref<AIConfig>({
   baseURL: 'https://api.openai.com/v1',
   timeout: 30,
   maxTokens: 1000,
+  enableAgent: true,
+  enableWebSearch: false,
+  webSearchProvider: '',
+  webSearchBaseURL: '',
+  webSearchAPIKey: '',
+  webSearchTimeout: 10,
+  webSearchMaxResults: 3,
 })
 
 const originalConfig = ref<AIConfig>({ ...config.value })
@@ -223,6 +314,13 @@ const loadConfig = async () => {
         baseURL: loadedConfig.baseURL || 'https://api.openai.com/v1',
         timeout: loadedConfig.timeout || 30,
         maxTokens: loadedConfig.maxTokens || 1000,
+        enableAgent: loadedConfig.enableAgent || false,
+        enableWebSearch: loadedConfig.enableWebSearch || false,
+        webSearchProvider: loadedConfig.webSearchProvider || '',
+        webSearchBaseURL: loadedConfig.webSearchBaseURL || '',
+        webSearchAPIKey: loadedConfig.webSearchAPIKey || '',
+        webSearchTimeout: loadedConfig.webSearchTimeout || 10,
+        webSearchMaxResults: loadedConfig.webSearchMaxResults || 3,
       }
       originalConfig.value = { ...config.value }
     }
@@ -526,6 +624,12 @@ const handleResetConfig = () => {
   color: var(--text-color);
   opacity: 0.6;
   margin: 0;
+}
+
+.search-config-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .test-section {
