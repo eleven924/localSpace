@@ -27,6 +27,35 @@
       </div>
 
       <div v-if="config.enabled" class="config-fields">
+        <div class="toggle-section">
+          <div class="toggle-info">
+            <h5>启用智能 Agent</h5>
+            <p>使用智能Agent进行更精准的标签和描述生成</p>
+          </div>
+          <label class="toggle-switch">
+            <input
+              v-model="config.enableAgent"
+              type="checkbox"
+              @change="handleConfigChange"
+            />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div v-if="config.enableAgent" class="toggle-section">
+          <div class="toggle-info">
+            <h5>启用网络搜索</h5>
+            <p>允许Agent通过网络搜索获取更多上下文信息</p>
+          </div>
+          <label class="toggle-switch">
+            <input
+              v-model="config.enableWebSearch"
+              type="checkbox"
+              @change="handleConfigChange"
+            />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
         <div class="form-group">
           <label for="api-key">
             <span class="label-text">API Key</span>
@@ -165,6 +194,8 @@ interface AIConfig {
   baseURL: string
   timeout?: number
   maxTokens?: number
+  enableAgent?: boolean
+  enableWebSearch?: boolean
 }
 
 const emit = defineEmits<{
@@ -179,6 +210,8 @@ const config = ref<AIConfig>({
   baseURL: 'https://api.openai.com/v1',
   timeout: 30,
   maxTokens: 1000,
+  enableAgent: true,
+  enableWebSearch: false,
 })
 
 const originalConfig = ref<AIConfig>({ ...config.value })
@@ -223,6 +256,8 @@ const loadConfig = async () => {
         baseURL: loadedConfig.baseURL || 'https://api.openai.com/v1',
         timeout: loadedConfig.timeout || 30,
         maxTokens: loadedConfig.maxTokens || 1000,
+        enableAgent: loadedConfig.enableAgent !== undefined ? loadedConfig.enableAgent : true,
+        enableWebSearch: loadedConfig.enableWebSearch || false,
       }
       originalConfig.value = { ...config.value }
     }
