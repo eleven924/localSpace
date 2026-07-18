@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -14,41 +13,21 @@ import (
 
 // AgentService manages AI agents for tag and description generation
 type AgentService struct {
-	tagAgent         *agents.TagAgent
-	descriptionAgent *agents.DescriptionAgent
-	configRepo       *repositories.ConfigRepository
-	toolRegistry     *tools.ToolRegistry
+	metadataAgent agents.MetadataAgent
+	configRepo    *repositories.ConfigRepository
+	toolRegistry  *tools.ToolRegistry
 }
 
 // NewAgentService creates a new agent service
 func NewAgentService(configRepo *repositories.ConfigRepository) *AgentService {
-	// Create tool registry
 	toolRegistry := tools.NewToolRegistry()
 
-	// Register web search tool
 	webSearchTool := tools.NewWebSearchTool(10 * time.Second)
 	toolRegistry.Register(webSearchTool.Name(), webSearchTool)
 
-	// Create agent configurations
-	tagAgentConfig := &agents.AgentConfig{
-		Name:    "tag-agent",
-		Timeout: 30 * time.Second,
-	}
-
-	descriptionAgentConfig := &agents.AgentConfig{
-		Name:    "description-agent",
-		Timeout: 30 * time.Second,
-	}
-
-	// Create agents
-	tagAgent := agents.NewTagAgent(tagAgentConfig)
-	descriptionAgent := agents.NewDescriptionAgent(descriptionAgentConfig)
-
 	return &AgentService{
-		tagAgent:         tagAgent,
-		descriptionAgent: descriptionAgent,
-		configRepo:       configRepo,
-		toolRegistry:     toolRegistry,
+		configRepo:   configRepo,
+		toolRegistry: toolRegistry,
 	}
 }
 
@@ -60,35 +39,21 @@ func (s *AgentService) GenerateTags(
 	userTags []string,
 	userDescription string,
 ) ([]string, error) {
-	// Get AI configuration
-	config, err := s.configRepo.GetAIConfig()
-	if err != nil {
-		return []string{}, nil // Return empty tags, don't block import
-	}
-
-	// Check if AI is enabled
-	if !config.Enabled {
-		return []string{}, nil
-	}
-
-	// Create input
-	input := &agents.TagGenerationInput{
+	analysis, err := s.AnalyzeMetadata(ctx, &agents.MetadataGenerationInput{
 		FileName:        fileName,
 		FileType:        fileType,
 		UserKeywords:    userKeywords,
 		UserTags:        userTags,
 		UserDescription: userDescription,
-	}
-
-	// Generate tags
-	tags, err := s.tagAgent.Generate(ctx, input, config)
+	})
 	if err != nil {
-		// Log error but don't block import
-		fmt.Printf("Warning: Failed to generate tags: %v\n", err)
+		return []string{}, err
+	}
+	if analysis == nil {
 		return []string{}, nil
 	}
 
-	return tags, nil
+	return analysis.Tags, nil
 }
 
 // GenerateDescription generates a description for a file
@@ -99,35 +64,21 @@ func (s *AgentService) GenerateDescription(
 	userTags []string,
 	userDescription string,
 ) (string, error) {
-	// Get AI configuration
-	config, err := s.configRepo.GetAIConfig()
-	if err != nil {
-		return "", nil // Return empty description, don't block import
-	}
-
-	// Check if AI is enabled
-	if !config.Enabled {
-		return "", nil
-	}
-
-	// Create input
-	input := &agents.DescriptionGenerationInput{
+	analysis, err := s.AnalyzeMetadata(ctx, &agents.MetadataGenerationInput{
 		FileName:        fileName,
 		FileType:        fileType,
 		UserKeywords:    userKeywords,
 		UserTags:        userTags,
 		UserDescription: userDescription,
-	}
-
-	// Generate description
-	description, err := s.descriptionAgent.Generate(ctx, input, config)
+	})
 	if err != nil {
-		// Log error but don't block import
-		fmt.Printf("Warning: Failed to generate description: %v\n", err)
+		return "", err
+	}
+	if analysis == nil {
 		return "", nil
 	}
 
-	return description, nil
+	return analysis.Description, nil
 }
 
 // GenerateBatch generates tags and descriptions for multiple files (reserved for future use)
@@ -167,6 +118,106 @@ func (s *AgentService) resolveMetadataTools(config *models.AIConfig, input *agen
 	}
 
 	return []tools.Tool{tool}
+}
+
+// AnalyzeMetadata returns unified metadata analysis without trace details.
+func (s *AgentService) AnalyzeMetadata(ctx context.Context, input *agents.MetadataGenerationInput) (*agents.MetadataAnalysis, error) {
+	result, err := s.AnalyzeMetadataWithTrace(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, nil
+	}
+
+	return result.Analysis, nil
+}
+
+// AnalyzeMetadataWithTrace returns unified metadata analysis with diagnostics.
+func (s *AgentService) AnalyzeMetadataWithTrace(ctx context.Context, input *agents.MetadataGenerationInput) (*agents.MetadataAnalysisResult, error) {
+	if s == nil {
+		return fallbackMetadataResult(input, "agent service unavailable"), nil
+	}
+	if s.configRepo == nil {
+		return s.analyzeMetadataWithConfig(ctx, input, nil)
+	}
+
+	config, err := s.configRepo.GetAIConfig()
+	if err != nil {
+		return fallbackMetadataResult(input, "failed to load ai config"), nil
+	}
+
+	return s.analyzeMetadataWithConfig(ctx, input, config)
+}
+
+func (s *AgentService) analyzeMetadataWithConfig(ctx context.Context, input *agents.MetadataGenerationInput, config *models.AIConfig) (*agents.MetadataAnalysisResult, error) {
+	if config == nil || !config.Enabled || !config.EnableAgent {
+		return fallbackMetadataResult(input, "agent disabled"), nil
+	}
+	if s == nil || s.metadataAgent == nil {
+		return fallbackMetadataResult(input, "metadata agent unavailable"), nil
+	}
+
+	availableTools := s.resolveMetadataTools(config, input)
+	result, err := s.metadataAgent.Analyze(ctx, input, config, availableTools)
+	if err != nil {
+		fallback := fallbackMetadataResult(input, err.Error())
+		fallback.Trace.ToolsAvailable = namesForTools(availableTools)
+		return fallback, nil
+	}
+	if result == nil {
+		fallback := fallbackMetadataResult(input, "metadata agent returned nil result")
+		fallback.Trace.ToolsAvailable = namesForTools(availableTools)
+		return fallback, nil
+	}
+	if result.Trace == nil {
+		result.Trace = &agents.MetadataTrace{}
+	}
+	if len(result.Trace.ToolsAvailable) == 0 {
+		result.Trace.ToolsAvailable = namesForTools(availableTools)
+	}
+
+	return result, nil
+}
+
+func fallbackMetadataResult(input *agents.MetadataGenerationInput, reason string) *agents.MetadataAnalysisResult {
+	tags := []string{}
+	description := ""
+	fileType := ""
+	if input != nil {
+		tags = append(tags, input.UserTags...)
+		description = input.UserDescription
+		fileType = strings.TrimSpace(input.FileType)
+	}
+
+	if len(tags) == 0 && fileType != "" {
+		tags = []string{fileType}
+	}
+	if description == "" && fileType != "" {
+		description = fileType + "文件"
+	}
+
+	return &agents.MetadataAnalysisResult{
+		Analysis: &agents.MetadataAnalysis{
+			Tags:        tags,
+			Description: description,
+		},
+		Trace: &agents.MetadataTrace{
+			AgentEnabled:   false,
+			FallbackReason: reason,
+		},
+	}
+}
+
+func namesForTools(availableTools []tools.Tool) []string {
+	names := make([]string, 0, len(availableTools))
+	for _, tool := range availableTools {
+		if tool == nil {
+			continue
+		}
+		names = append(names, tool.Name())
+	}
+	return names
 }
 
 // FileContext represents a file for batch generation
