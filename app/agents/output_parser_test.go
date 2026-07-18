@@ -21,6 +21,15 @@ func TestParseMetadataOutput(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:  "Preserves unicode",
+			input: `{"tags":["æon","剧情"],"description":"彭昱畅 æ 冒险"}`,
+			want: &MetadataAnalysis{
+				Tags:        []string{"æon", "剧情"},
+				Description: "彭昱畅 æ 冒险",
+			},
+			wantErr: false,
+		},
+		{
 			name:    "Empty input",
 			input:   "",
 			want:    nil,
@@ -28,10 +37,19 @@ func TestParseMetadataOutput(t *testing.T) {
 		},
 		{
 			name:  "JSON with markdown",
-			input: "```json\n{\"tags\":[\"video\"],\"description\":\"test\"}\n```",
+			input: "```json\n{\"tags\":[\"video\"],\"description\":\"test æ\"}\n```",
 			want: &MetadataAnalysis{
 				Tags:        []string{"video"},
-				Description: "test",
+				Description: "test æ",
+			},
+			wantErr: false,
+		},
+		{
+			name:  "JSON with surrounding text",
+			input: "Here is the JSON: {\"tags\":[\"drama\"],\"description\":\"wrapped 剧情\"}",
+			want: &MetadataAnalysis{
+				Tags:        []string{"drama"},
+				Description: "wrapped 剧情",
 			},
 			wantErr: false,
 		},
@@ -44,9 +62,22 @@ func TestParseMetadataOutput(t *testing.T) {
 				t.Errorf("ParseMetadataOutput() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && got == nil {
-				t.Errorf("ParseMetadataOutput() got nil, want non-nil")
+			if tt.wantErr {
 				return
+			}
+			if got == nil {
+				t.Fatalf("ParseMetadataOutput() got nil, want non-nil")
+			}
+			if len(got.Tags) != len(tt.want.Tags) {
+				t.Fatalf("ParseMetadataOutput() tags length = %d, want %d", len(got.Tags), len(tt.want.Tags))
+			}
+			for i := range got.Tags {
+				if got.Tags[i] != tt.want.Tags[i] {
+					t.Fatalf("ParseMetadataOutput() tag[%d] = %q, want %q", i, got.Tags[i], tt.want.Tags[i])
+				}
+			}
+			if got.Description != tt.want.Description {
+				t.Fatalf("ParseMetadataOutput() description = %q, want %q", got.Description, tt.want.Description)
 			}
 		})
 	}

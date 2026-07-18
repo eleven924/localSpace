@@ -36,7 +36,7 @@ type AgentRuntime interface {
 
 // DefaultAgentRuntime runs a bounded model -> tool -> model loop.
 type DefaultAgentRuntime struct {
-	generate func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest) (*schema.Message, error)
+	generate func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest, toolInfos []*schema.ToolInfo) (*schema.Message, error)
 }
 
 // NewDefaultAgentRuntime creates the default metadata runtime.
@@ -46,7 +46,7 @@ func NewDefaultAgentRuntime() *DefaultAgentRuntime {
 	return runtime
 }
 
-func (r *DefaultAgentRuntime) generateWithChatModel(ctx context.Context, messages []*schema.Message, req *AgentRunRequest) (*schema.Message, error) {
+func (r *DefaultAgentRuntime) generateWithChatModel(ctx context.Context, messages []*schema.Message, req *AgentRunRequest, toolInfos []*schema.ToolInfo) (*schema.Message, error) {
 	chatConfig := &openai.ChatModelConfig{
 		APIKey:  req.AIConfig.APIKey,
 		Model:   req.AIConfig.Model,
@@ -67,14 +67,27 @@ func (r *DefaultAgentRuntime) generateWithChatModel(ctx context.Context, message
 		return nil, fmt.Errorf("failed to create chat model: %w", err)
 	}
 
-	resp, err := chatModel.Generate(ctx, messages)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate response: %w", err)
+	var resp *schema.Message
+	if len(toolInfos) > 0 {
+		// Use tool calling model when tools are available
+		toolModel, err := chatModel.WithTools(toolInfos)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tool calling model: %w", err)
+		}
+		resp, err = toolModel.Generate(ctx, messages)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate response with tools: %w", err)
+		}
+	} else {
+		// Use regular model when no tools are available
+		resp, err = chatModel.Generate(ctx, messages)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate response: %w", err)
+		}
 	}
-	if resp.Content == "" {
-		return nil, fmt.Errorf("empty response from AI")
-	}
-	return schema.AssistantMessage(resp.Content, nil), nil
+
+	// Return the raw AssistantMessage (may contain ToolCalls)
+	return resp, nil
 }
 
 // Run executes a bounded runtime loop for metadata generation.
@@ -97,48 +110,63 @@ func (r *DefaultAgentRuntime) Run(ctx context.Context, req *AgentRunRequest) (*A
 		schema.UserMessage(req.UserPrompt),
 	}
 	toolMap := buildToolMap(req.Tools)
+	toolInfos := buildToolInfos(req.Tools)
 	toolsUsed := []string{}
 	searchQueries := []string{}
 
-	// Debug: Log available tools
-	availableToolNames := make([]string, 0, len(req.Tools))
-	for _, tool := range req.Tools {
-		if tool != nil {
-			availableToolNames = append(availableToolNames, tool.Name())
-		}
-	}
-	fmt.Printf("[DEBUG] Web Search Import - Available tools: %v\n", availableToolNames)
-
-	assistantMsg, err := r.generate(ctx, messages, req)
+	assistantMsg, err := r.generate(ctx, messages, req, toolInfos)
 	if err != nil {
 		return nil, err
 	}
 	messages = append(messages, assistantMsg)
 
-	// Debug: Log AI output
-	fmt.Printf("[DEBUG] Web Search Import - AI output: %s\n", assistantMsg.Content)
+	maxRounds := 4
+	webSearchCalls := 0
+	const maxWebSearchCalls = 2
+	for len(assistantMsg.ToolCalls) > 0 && maxRounds > 0 {
+		// Process all tool calls in this batch
+		for _, toolCall := range assistantMsg.ToolCalls {
+			toolName := toolCall.Function.Name
+			toolInput, err := decodeToolInput(toolCall.Function.Arguments)
+			if err != nil {
+				return nil, fmt.Errorf("decode tool input for %s: %w", toolName, err)
+			}
 
-	toolName, toolInput, wantsTool := parseToolCall(assistantMsg.Content)
-	maxRounds := 2
-	for wantsTool && maxRounds > 0 {
-		toolOutput, updatedToolsUsed, updatedSearchQueries, err := r.executeToolCall(ctx, toolMap, toolName, toolInput, toolsUsed, searchQueries)
-		if err != nil {
-			return nil, err
+			if toolName == "web_search" && webSearchCalls >= maxWebSearchCalls {
+				fmt.Printf("[DEBUG] Web Search Import - Web search limit reached after 2 calls; forcing final response\n")
+				continue
+			}
+
+			toolOutput, updatedToolsUsed, updatedSearchQueries, err := r.executeToolCall(ctx, toolMap, toolName, toolInput, toolsUsed, searchQueries)
+			if err != nil {
+				return nil, err
+			}
+			toolsUsed = updatedToolsUsed
+			searchQueries = updatedSearchQueries
+			if toolName == "web_search" {
+				webSearchCalls++
+			}
+
+			messages = append(messages, schema.ToolMessage(toolOutput, toolCall.ID))
 		}
-		toolsUsed = updatedToolsUsed
-		searchQueries = updatedSearchQueries
 
-		messages = append(messages, schema.ToolMessage(toolOutput, toolName))
-		assistantMsg, err = r.generate(ctx, messages, req)
+		currentToolInfos := toolInfos
+		if webSearchCalls >= maxWebSearchCalls {
+			currentToolInfos = nil
+		}
+		assistantMsg, err = r.generate(ctx, messages, req, currentToolInfos)
 		if err != nil {
 			return nil, err
 		}
 		messages = append(messages, assistantMsg)
-		toolName, toolInput, wantsTool = parseToolCall(assistantMsg.Content)
 		maxRounds--
+
+		if webSearchCalls >= maxWebSearchCalls {
+			break
+		}
 	}
 
-	if wantsTool {
+	if len(assistantMsg.ToolCalls) > 0 && webSearchCalls < maxWebSearchCalls {
 		return nil, fmt.Errorf("tool loop exceeded max rounds")
 	}
 	if assistantMsg.Content == "" {
@@ -160,21 +188,15 @@ func (r *DefaultAgentRuntime) executeToolCall(
 	toolsUsed []string,
 	searchQueries []string,
 ) (string, []string, []string, error) {
-	fmt.Printf("[DEBUG] Web Search Import - Tool called: %s with input: %s\n", toolName, input)
-
 	tool, ok := toolMap[toolName]
 	if !ok {
-		fmt.Printf("[DEBUG] Web Search Import - Tool not found: %s\n", toolName)
 		return "", toolsUsed, searchQueries, fmt.Errorf("tool not found: %s", toolName)
 	}
 
 	output, err := tool.Execute(ctx, input)
 	if err != nil {
-		fmt.Printf("[DEBUG] Web Search Import - Tool execution error: %v\n", err)
 		return "", toolsUsed, searchQueries, fmt.Errorf("execute tool %s: %w", toolName, err)
 	}
-
-	fmt.Printf("[DEBUG] Web Search Import - Tool output: %s\n", output)
 
 	toolsUsed = append(toolsUsed, toolName)
 	if toolName == "web_search" && strings.TrimSpace(input) != "" {
@@ -182,6 +204,26 @@ func (r *DefaultAgentRuntime) executeToolCall(
 	}
 
 	return output, toolsUsed, searchQueries, nil
+}
+
+func decodeToolInput(arguments string) (string, error) {
+	trimmed := strings.TrimSpace(arguments)
+	if trimmed == "" {
+		return "", fmt.Errorf("tool arguments are empty")
+	}
+
+	var payload struct {
+		Input string `json:"input"`
+	}
+	if json.Unmarshal([]byte(trimmed), &payload) == nil {
+		payload.Input = strings.TrimSpace(payload.Input)
+		if payload.Input == "" {
+			return "", fmt.Errorf("tool arguments missing input")
+		}
+		return payload.Input, nil
+	}
+
+	return trimmed, nil
 }
 
 func buildToolMap(availableTools []tools.Tool) map[string]tools.Tool {
@@ -195,21 +237,28 @@ func buildToolMap(availableTools []tools.Tool) map[string]tools.Tool {
 	return toolMap
 }
 
-type toolCallEnvelope struct {
-	Tool  string `json:"tool"`
-	Input string `json:"input"`
-}
+func buildToolInfos(availableTools []tools.Tool) []*schema.ToolInfo {
+	toolInfos := make([]*schema.ToolInfo, 0, len(availableTools))
+	for _, tool := range availableTools {
+		if tool == nil {
+			continue
+		}
 
-func parseToolCall(content string) (string, string, bool) {
-	var envelope toolCallEnvelope
-	if err := json.Unmarshal([]byte(content), &envelope); err != nil {
-		fmt.Printf("[DEBUG] Web Search Import - Not a tool call, parsing as direct JSON: %v\n", err)
-		return "", "", false
+		// Create parameters for tool
+		params := map[string]*schema.ParameterInfo{
+			"input": {
+				Type:     schema.String,
+				Desc:     "The input query for the tool",
+				Required: true,
+			},
+		}
+
+		toolInfo := &schema.ToolInfo{
+			Name:        tool.Name(),
+			Desc:        tool.Description(),
+			ParamsOneOf: schema.NewParamsOneOfByParams(params),
+		}
+		toolInfos = append(toolInfos, toolInfo)
 	}
-	if strings.TrimSpace(envelope.Tool) == "" {
-		fmt.Printf("[DEBUG] Web Search Import - Tool name empty in parsed envelope\n")
-		return "", "", false
-	}
-	fmt.Printf("[DEBUG] Web Search Import - Tool call parsed: tool=%s, input=%s\n", envelope.Tool, envelope.Input)
-	return strings.TrimSpace(envelope.Tool), strings.TrimSpace(envelope.Input), true
+	return toolInfos
 }

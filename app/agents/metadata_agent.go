@@ -2,7 +2,6 @@ package agents
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -61,8 +60,9 @@ func (a *EinoMetadataAgent) Analyze(ctx context.Context, input *MetadataGenerati
 		return nil, err
 	}
 
-	analysis := &MetadataAnalysis{}
-	if err := json.Unmarshal([]byte(resp.Output), analysis); err != nil {
+	analysis, err := ParseMetadataOutput(resp.Output)
+	if err != nil {
+		fmt.Printf("[DEBUG] Web Search Import - Failed to parse output: %v\n", err)
 		return nil, fmt.Errorf("parse metadata analysis output: %w", err)
 	}
 
@@ -82,14 +82,15 @@ func buildMetadataSystemPrompt(hasWebSearch bool) string {
 	if hasWebSearch {
 		return strings.TrimSpace(`You analyze one file and return strict JSON with keys "tags" and "description".
 
-IMPORTANT: For video, document, music, game, installer, or image files, you MUST use the web search tool first to gather accurate information before generating tags and description.
+IMPORTANT: For video, document, music, game, installer, or image files, you MUST use the web_search tool first to gather accurate information before generating tags and description.
 
 WORKFLOW:
-1. First, call the web search tool by returning JSON like: {"tool":"web_search","input":"文件名或关键词"}
-2. Wait for the search results
-3. After receiving search results, return final JSON like: {"tags":["tag1","tag2"],"description":"detailed description"}
+1. Use the web_search tool with the filename or keywords as input
+2. Wait for the search results (will be returned as structured data)
+3. Analyze the search results to understand the file content
+4. Return final JSON like: {"tags":["tag1","tag2"],"description":"detailed description"}
 
-The web search tool is available and should be used to get accurate information about the file content, especially for media files where the filename alone is insufficient.
+The web_search tool is available and should be used to get accurate information about the file content, especially for media files where the filename alone is insufficient.
 
 Return STRICT JSON format only, no other text.`)
 	}
@@ -111,12 +112,12 @@ func buildMetadataUserPrompt(input *MetadataGenerationInput, hasWebSearch bool) 
 		hint := ""
 		// 只有在启用web search且文件类型需要时，才添加提示
 		if hasWebSearch && (input.FileType == "video" || input.FileType == "document" || input.FileType == "music") {
-			hint = "\n提示：文件名可能不足以描述文件内容，请先使用web_search工具搜索文件名相关信息，获取准确的描述后再生成标签。"
+			hint = "\n提示：文件名可能不足以描述文件内容，请使用web_search工具搜索文件名相关信息，获取准确的描述后再生成标签。"
 		}
 
 		if hasWebSearch {
 			return fmt.Sprintf(
-				"文件名：%s\n文件类型：%s\n用户关键词：%s\n用户标签：%s\n用户描述：%s%s\n请先使用web_search工具搜索文件信息，然后输出 metadata JSON。",
+				"文件名：%s\n文件类型：%s\n用户关键词：%s\n用户标签：%s\n用户描述：%s%s\n请使用web_search工具搜索文件信息，然后输出 metadata JSON。",
 				input.FileName,
 				input.FileType,
 				input.UserKeywords,
@@ -138,7 +139,7 @@ func buildMetadataUserPrompt(input *MetadataGenerationInput, hasWebSearch bool) 
 
 	if hasWebSearch {
 		return fmt.Sprintf(
-			"文件名：%s\n文件类型：%s\n用户关键词：%s\n用户标签：%s\n用户描述：%s\n请先使用web_search工具搜索文件信息，然后输出 metadata JSON。",
+			"文件名：%s\n文件类型：%s\n用户关键词：%s\n用户标签：%s\n用户描述：%s\n请使用web_search工具搜索文件信息，然后输出 metadata JSON。",
 			"", "", "", tagsStr, "",
 		)
 	}
@@ -158,3 +159,4 @@ func hasTool(availableTools []tools.Tool, name string) bool {
 	}
 	return false
 }
+

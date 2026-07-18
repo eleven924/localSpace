@@ -44,9 +44,34 @@ func TestExecuteToolCallRecordsUsageAndSearchQuery(t *testing.T) {
 	}
 }
 
+func TestDecodeToolInput(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{name: "json envelope", input: `{"input":"movie"}`, want: "movie"},
+		{name: "plain string fallback", input: "movie", want: "movie"},
+		{name: "missing input", input: `{"query":"movie"}`, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := decodeToolInput(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("decodeToolInput() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && got != tt.want {
+				t.Fatalf("decodeToolInput() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDefaultAgentRuntimeRun_WithoutToolsReturnsDirectOutput(t *testing.T) {
 	runtime := &DefaultAgentRuntime{
-		generate: func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest) (*schema.Message, error) {
+		generate: func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest, toolInfos []*schema.ToolInfo) (*schema.Message, error) {
 			return schema.AssistantMessage(`{"tags":["video"],"description":"影片"}`, nil), nil
 		},
 	}
@@ -68,13 +93,23 @@ func TestDefaultAgentRuntimeRun_WithoutToolsReturnsDirectOutput(t *testing.T) {
 }
 
 func TestDefaultAgentRuntimeRun_ExecutesToolLoop(t *testing.T) {
-	tool := &runtimeTestTool{name: "web_search", result: "query: movie\nresults:\n1. Title: Movie"}
+	tool := &runtimeTestTool{name: "web_search", result: `{"type":"search_results","query":"movie","results":[{"title":"Movie","url":"http://example.com","snippet":"A movie"}]}`}
 	calls := 0
 	runtime := &DefaultAgentRuntime{
-		generate: func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest) (*schema.Message, error) {
+		generate: func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest, toolInfos []*schema.ToolInfo) (*schema.Message, error) {
 			calls++
 			if calls == 1 {
-				return schema.AssistantMessage(`{"tool":"web_search","input":"movie"}`, nil), nil
+				return &schema.Message{
+					Role: schema.Assistant,
+					ToolCalls: []schema.ToolCall{{
+						ID:   "call_123",
+						Type: "function",
+						Function: schema.FunctionCall{
+							Name:      "web_search",
+							Arguments: `{"input":"movie"}`,
+						},
+					}},
+				}, nil
 			}
 			return schema.AssistantMessage(`{"tags":["video","movie"],"description":"Movie metadata"}`, nil), nil
 		},
@@ -97,5 +132,48 @@ func TestDefaultAgentRuntimeRun_ExecutesToolLoop(t *testing.T) {
 	}
 	if len(resp.SearchQueries) != 1 || resp.SearchQueries[0] != "movie" {
 		t.Fatalf("expected movie in SearchQueries, got %v", resp.SearchQueries)
+	}
+	if len(tool.calls) != 1 || tool.calls[0] != "movie" {
+		t.Fatalf("expected decoded tool input, got %v", tool.calls)
+	}
+}
+
+func TestDefaultAgentRuntimeRun_LimitsWebSearchToTwoCalls(t *testing.T) {
+	tool := &runtimeTestTool{name: "web_search", result: `{"type":"search_results","query":"movie","results":[]}`}
+	calls := 0
+	runtime := &DefaultAgentRuntime{
+		generate: func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest, toolInfos []*schema.ToolInfo) (*schema.Message, error) {
+			calls++
+			switch calls {
+			case 1:
+				return &schema.Message{Role: schema.Assistant, ToolCalls: []schema.ToolCall{{ID: "call_1", Type: "function", Function: schema.FunctionCall{Name: "web_search", Arguments: `{"input":"movie one"}`}}}}, nil
+			case 2:
+				return &schema.Message{Role: schema.Assistant, ToolCalls: []schema.ToolCall{{ID: "call_2", Type: "function", Function: schema.FunctionCall{Name: "web_search", Arguments: `{"input":"movie two"}`}}}}, nil
+			default:
+				if len(toolInfos) != 0 {
+					return &schema.Message{Role: schema.Assistant, ToolCalls: []schema.ToolCall{{ID: "call_3", Type: "function", Function: schema.FunctionCall{Name: "web_search", Arguments: `{"input":"movie three"}`}}}}, nil
+				}
+				return schema.AssistantMessage(`{"tags":["video"],"description":"Final metadata"}`, nil), nil
+			}
+		},
+	}
+
+	resp, err := runtime.Run(context.Background(), &AgentRunRequest{
+		SystemPrompt: "sys",
+		UserPrompt:   "user",
+		Tools:        []tools.Tool{tool},
+		AIConfig:     &models.AIConfig{APIKey: "key", Model: "model", BaseURL: "https://api.example.com/v1"},
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if resp.Output != `{"tags":["video"],"description":"Final metadata"}` {
+		t.Fatalf("unexpected output %q", resp.Output)
+	}
+	if len(tool.calls) != 2 {
+		t.Fatalf("expected exactly two web_search executions, got %v", tool.calls)
+	}
+	if len(resp.SearchQueries) != 2 || resp.SearchQueries[0] != "movie one" || resp.SearchQueries[1] != "movie two" {
+		t.Fatalf("unexpected search queries %v", resp.SearchQueries)
 	}
 }

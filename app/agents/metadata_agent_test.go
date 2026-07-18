@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"LocalSpace/app/models"
@@ -56,5 +57,37 @@ func TestEinoMetadataAgentAnalyze_PropagatesRuntimeToolTrace(t *testing.T) {
 	}
 	if len(result.Trace.SearchQueries) != 1 || result.Trace.SearchQueries[0] != "movie" {
 		t.Fatalf("expected SearchQueries to include movie, got %v", result.Trace.SearchQueries)
+	}
+}
+
+func TestEinoMetadataAgentAnalyze_ParsesUnicodeAndWrappedJSON(t *testing.T) {
+	agent := NewEinoMetadataAgent(&fakeRuntime{
+		response: &AgentRunResponse{
+			Output:        "```json\n{\"tags\":[\"drama\",\"æon\"],\"description\":\"彭昱畅 æ 冒险\"}\n```",
+			ToolsUsed:     []string{"web_search"},
+			SearchQueries: []string{"movie"},
+		},
+	})
+
+	result, err := agent.Analyze(
+		context.Background(),
+		&MetadataGenerationInput{FileName: "movie.mp4", FileType: "video"},
+		&models.AIConfig{Enabled: true, EnableAgent: true, APIKey: "key", Model: "model", BaseURL: "https://api.example.com/v1"},
+		[]tools.Tool{&fakeTool{name: "web_search"}},
+	)
+	if err != nil {
+		t.Fatalf("Analyze returned error: %v", err)
+	}
+	if result.Analysis == nil {
+		t.Fatalf("expected analysis")
+	}
+	if len(result.Analysis.Tags) != 2 || result.Analysis.Tags[1] != "æon" {
+		t.Fatalf("expected unicode tags preserved, got %v", result.Analysis.Tags)
+	}
+	if result.Analysis.Description != "彭昱畅 æ 冒险" {
+		t.Fatalf("expected unicode description preserved, got %q", result.Analysis.Description)
+	}
+	if result.Trace == nil || result.Trace.RawOutput != strings.TrimSpace("```json\n{\"tags\":[\"drama\",\"æon\"],\"description\":\"彭昱畅 æ 冒险\"}\n```") {
+		t.Fatalf("expected raw output preserved, got %#v", result.Trace)
 	}
 }

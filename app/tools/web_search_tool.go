@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -124,27 +125,26 @@ func (t *WebSearchTool) Search(ctx context.Context, query string) (*SearchResult
 	return &SearchResult{Query: trimmed, Results: items}, nil
 }
 
-// Execute formats the bounded result for agent/runtime consumption.
+// Execute formats the bounded result for agent/runtime consumption in JSON format.
 func (t *WebSearchTool) Execute(ctx context.Context, input string) (string, error) {
-	fmt.Printf("[DEBUG] Web Search Import - Original query: '%s'\n", input)
-
 	result, err := t.Search(ctx, input)
 	if err != nil {
 		return "", err
 	}
 
-	var builder strings.Builder
-	builder.WriteString("query: ")
-	builder.WriteString(result.Query)
-	builder.WriteString("\nresults:\n")
-	for i, item := range result.Results {
-		builder.WriteString(fmt.Sprintf("%d. Title: %s\n   URL: %s\n   Snippet: %s\n", i+1, item.Title, item.URL, item.Snippet))
-	}
-	if len(result.Results) == 0 {
-		builder.WriteString("0. No results found\n")
+	// Return structured JSON format for AI to process
+	toolResult := map[string]any{
+		"type":    "search_results",
+		"query":   result.Query,
+		"results": result.Results,
 	}
 
-	return strings.TrimSpace(builder.String()), nil
+	jsonOutput, err := json.Marshal(toolResult)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal search results to JSON: %w", err)
+	}
+
+	return string(jsonOutput), nil
 }
 
 // optimizeSearchQuery 优化搜索查询，去除文件扩展名和不必要的字符
