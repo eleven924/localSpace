@@ -20,6 +20,19 @@
         />
       </div>
 
+      <div class="form-group">
+        <label for="file-keywords">
+          <span class="label-text">关键词</span>
+          <span class="label-hint">可选</span>
+        </label>
+        <input
+          id="file-keywords"
+          v-model="keywords"
+          type="text"
+          placeholder="输入关键词，多个关键词可用逗号分隔"
+        />
+      </div>
+
       <FileMetadataFields
         :file-name="fileName"
         :file-type="fileType"
@@ -73,6 +86,7 @@ const emit = defineEmits<{
 const fileName = ref(props.file.name)
 const parsedTags = ref<string[]>([])
 const description = ref('')
+const keywords = ref('')
 const importing = ref(false)
 const progressText = ref('准备中...')
 
@@ -84,6 +98,7 @@ watch(() => props.file, (newFile) => {
   fileName.value = newFile.name
   parsedTags.value = []
   description.value = ''
+  keywords.value = ''
 })
 
 const handleFileNameChange = () => {
@@ -104,7 +119,7 @@ const handleImport = async () => {
       fileName.value,
       description.value,
       tags || [],
-      ''
+      keywords.value.trim()
     )
 
     progressText.value = '导入成功！'

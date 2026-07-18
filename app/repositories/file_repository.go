@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"LocalSpace/app/models"
 )
@@ -315,9 +316,10 @@ func (r *FileRepository) UpdateMetadata(id uint, tags []string, description stri
 		return fmt.Errorf("failed to marshal tags: %w", err)
 	}
 
-	query := `UPDATE files SET tags = ?, description = ?, modified_at = CURRENT_TIMESTAMP WHERE id = ?`
+	query := `UPDATE files SET tags = ?, description = ?, modified_at = ? WHERE id = ?`
+	modifiedAt := time.Now().Format(time.RFC3339)
 
-	result, err := r.db.Exec(query, string(tagsJSON), description, id)
+	result, err := r.db.Exec(query, string(tagsJSON), description, modifiedAt, id)
 	if err != nil {
 		return fmt.Errorf("failed to update file metadata: %w", err)
 	}
