@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -29,27 +30,52 @@ func NewAgentService(configRepo *repositories.ConfigRepository) *AgentService {
 
 func (s *AgentService) ensureConfiguredTools(config *models.AIConfig) {
 	if s == nil || s.toolRegistry == nil {
+		fmt.Printf("[DEBUG] Web Search Import - Nil check in ensureConfiguredTools\n")
 		return
 	}
+	fmt.Printf("[DEBUG] Web Search Import - Configuring web search tool...\n")
+	fmt.Printf("[DEBUG] Web Search Import - BaseURL: %s, APIKey: %s, Provider: %s\n",
+		config.WebSearchBaseURL, maskAPIKey(config.WebSearchAPIKey), config.WebSearchProvider)
+
 	webSearchTool := tools.NewConfiguredWebSearchTool(config)
-	_ = s.toolRegistry.Register(webSearchTool.Name(), webSearchTool)
+	if err := s.toolRegistry.Register(webSearchTool.Name(), webSearchTool); err != nil {
+		fmt.Printf("[DEBUG] Web Search Import - Tool registration error: %v\n", err)
+	} else {
+		fmt.Printf("[DEBUG] Web Search Import - Tool registered successfully\n")
+	}
+}
+
+// Helper to mask API key in logs
+func maskAPIKey(key string) string {
+	if len(key) <= 4 {
+		return "***"
+	}
+	return key[:2] + "***" + key[len(key)-2:]
 }
 
 func (s *AgentService) resolveMetadataTools(config *models.AIConfig, input *agents.MetadataGenerationInput) []tools.Tool {
+	fmt.Printf("[DEBUG] Web Search Import - Resolving tools...\n")
+	fmt.Printf("[DEBUG] Web Search Import - EnableAgent: %v, EnableWebSearch: %v\n", config.EnableAgent, config.EnableWebSearch)
+
 	if s == nil || s.toolRegistry == nil || config == nil || input == nil {
+		fmt.Printf("[DEBUG] Web Search Import - Nil check failed\n")
 		return nil
 	}
 	if !config.EnableAgent || !config.EnableWebSearch {
+		fmt.Printf("[DEBUG] Web Search Import - Config flags not enabled\n")
 		return nil
 	}
 	if !isMetadataSearchCandidate(input) {
+		fmt.Printf("[DEBUG] Web Search Import - Not a search candidate: %s (type: %s)\n", input.FileName, input.FileType)
 		return nil
 	}
 
 	tool, ok := s.toolRegistry.Get("web_search")
 	if !ok || tool == nil {
+		fmt.Printf("[DEBUG] Web Search Import - Tool not found in registry\n")
 		return nil
 	}
+	fmt.Printf("[DEBUG] Web Search Import - Tool resolved successfully\n")
 	return []tools.Tool{tool}
 }
 

@@ -100,11 +100,23 @@ func (r *DefaultAgentRuntime) Run(ctx context.Context, req *AgentRunRequest) (*A
 	toolsUsed := []string{}
 	searchQueries := []string{}
 
+	// Debug: Log available tools
+	availableToolNames := make([]string, 0, len(req.Tools))
+	for _, tool := range req.Tools {
+		if tool != nil {
+			availableToolNames = append(availableToolNames, tool.Name())
+		}
+	}
+	fmt.Printf("[DEBUG] Web Search Import - Available tools: %v\n", availableToolNames)
+
 	assistantMsg, err := r.generate(ctx, messages, req)
 	if err != nil {
 		return nil, err
 	}
 	messages = append(messages, assistantMsg)
+
+	// Debug: Log AI output
+	fmt.Printf("[DEBUG] Web Search Import - AI output: %s\n", assistantMsg.Content)
 
 	toolName, toolInput, wantsTool := parseToolCall(assistantMsg.Content)
 	maxRounds := 2
@@ -148,15 +160,21 @@ func (r *DefaultAgentRuntime) executeToolCall(
 	toolsUsed []string,
 	searchQueries []string,
 ) (string, []string, []string, error) {
+	fmt.Printf("[DEBUG] Web Search Import - Tool called: %s with input: %s\n", toolName, input)
+
 	tool, ok := toolMap[toolName]
 	if !ok {
+		fmt.Printf("[DEBUG] Web Search Import - Tool not found: %s\n", toolName)
 		return "", toolsUsed, searchQueries, fmt.Errorf("tool not found: %s", toolName)
 	}
 
 	output, err := tool.Execute(ctx, input)
 	if err != nil {
+		fmt.Printf("[DEBUG] Web Search Import - Tool execution error: %v\n", err)
 		return "", toolsUsed, searchQueries, fmt.Errorf("execute tool %s: %w", toolName, err)
 	}
+
+	fmt.Printf("[DEBUG] Web Search Import - Tool output: %s\n", output)
 
 	toolsUsed = append(toolsUsed, toolName)
 	if toolName == "web_search" && strings.TrimSpace(input) != "" {
@@ -185,10 +203,13 @@ type toolCallEnvelope struct {
 func parseToolCall(content string) (string, string, bool) {
 	var envelope toolCallEnvelope
 	if err := json.Unmarshal([]byte(content), &envelope); err != nil {
+		fmt.Printf("[DEBUG] Web Search Import - Not a tool call, parsing as direct JSON: %v\n", err)
 		return "", "", false
 	}
 	if strings.TrimSpace(envelope.Tool) == "" {
+		fmt.Printf("[DEBUG] Web Search Import - Tool name empty in parsed envelope\n")
 		return "", "", false
 	}
+	fmt.Printf("[DEBUG] Web Search Import - Tool call parsed: tool=%s, input=%s\n", envelope.Tool, envelope.Input)
 	return strings.TrimSpace(envelope.Tool), strings.TrimSpace(envelope.Input), true
 }

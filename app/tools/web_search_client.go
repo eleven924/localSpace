@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -26,7 +26,7 @@ type httpWebSearchResponse struct {
 	Results []struct {
 		Title   string `json:"title"`
 		URL     string `json:"url"`
-		Snippet string `json:"snippet"`
+		Content string `json:"content"` // Tavily使用content而不是snippet
 	} `json:"results"`
 }
 
@@ -53,23 +53,28 @@ func (c *HTTPWebSearchClient) Search(ctx context.Context, query string, limit in
 		return nil, fmt.Errorf("web search API key is not configured")
 	}
 
-	endpoint, err := url.Parse(c.baseURL)
+	// Tavily API 使用 POST 请求，端点需要添加 /search
+	searchEndpoint := strings.TrimRight(c.baseURL, "/") + "/search"
+
+	// Tavily API 请求体格式
+	requestBody := map[string]any{
+		"query":        query,
+		"search_depth": "basic",
+		"max_results":  limit,
+	}
+
+	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("invalid web search base URL: %w", err)
+		return nil, fmt.Errorf("marshal request body: %w", err)
 	}
 
-	params := endpoint.Query()
-	params.Set("q", query)
-	params.Set("limit", fmt.Sprintf("%d", limit))
-	if strings.TrimSpace(c.provider) != "" {
-		params.Set("provider", c.provider)
-	}
-	endpoint.RawQuery = params.Encode()
+	fmt.Printf("[DEBUG] Tavily API Request - URL: %s, Query: %s, Limit: %d\n", searchEndpoint, query, limit)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, searchEndpoint, strings.NewReader(string(jsonBody)))
 	if err != nil {
 		return nil, fmt.Errorf("build web search request: %w", err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Accept", "application/json")
 
@@ -80,7 +85,10 @@ func (c *HTTPWebSearchClient) Search(ctx context.Context, query string, limit in
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("web search returned status %d", resp.StatusCode)
+		// 读取错误响应体以获取更多信息
+		errorBody, _ := io.ReadAll(resp.Body)
+		fmt.Printf("[DEBUG] Tavily API Error - Status: %d, Body: %s\n", resp.StatusCode, string(errorBody))
+		return nil, fmt.Errorf("web search returned status %d, response: %s", resp.StatusCode, string(errorBody))
 	}
 
 	var payload httpWebSearchResponse
@@ -88,12 +96,14 @@ func (c *HTTPWebSearchClient) Search(ctx context.Context, query string, limit in
 		return nil, fmt.Errorf("decode web search response: %w", err)
 	}
 
+	fmt.Printf("[DEBUG] Tavily API Response - Results count: %d\n", len(payload.Results))
+
 	items := make([]SearchItem, 0, len(payload.Results))
 	for _, result := range payload.Results {
 		items = append(items, SearchItem{
 			Title:   strings.TrimSpace(result.Title),
 			URL:     strings.TrimSpace(result.URL),
-			Snippet: strings.TrimSpace(result.Snippet),
+			Snippet: strings.TrimSpace(result.Content), // Tavily使用content字段
 		})
 	}
 
