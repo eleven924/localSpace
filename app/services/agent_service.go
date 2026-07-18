@@ -61,7 +61,11 @@ func (s *AgentService) analyzeMetadataWithConfig(ctx context.Context, input *age
 		return fallbackMetadataResult(nil, nil, "metadata input is nil"), nil
 	}
 	if config == nil {
-		config = &models.AIConfig{}
+		var err error
+		config, err = s.configRepo.GetAIConfig()
+		if err != nil {
+			return fallbackMetadataResult(input, nil, "failed to get AI config: "+err.Error()), nil
+		}
 	}
 
 	s.ensureConfiguredTools(config)

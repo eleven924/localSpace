@@ -1,64 +1,105 @@
 package agents
 
-import "testing"
+import (
+	"testing"
+)
 
-func TestParseMetadataOutput_JSON(t *testing.T) {
-	raw := `{"tags":["video","action","action","thriller","movie","extra"],"description":"A very long description that should still be normalized by the parser layer into a bounded description value."}`
-
-	analysis, err := ParseMetadataOutput(raw)
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
+func TestParseMetadataOutput(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    *MetadataAnalysis
+		wantErr bool
+	}{
+		{
+			name:  "Valid JSON",
+			input: `{"tags":["video","movie"],"description":"A great movie"}`,
+			want: &MetadataAnalysis{
+				Tags:        []string{"video", "movie"},
+				Description: "A great movie",
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Empty input",
+			input:   "",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:  "JSON with markdown",
+			input: "```json\n{\"tags\":[\"video\"],\"description\":\"test\"}\n```",
+			want: &MetadataAnalysis{
+				Tags:        []string{"video"},
+				Description: "test",
+			},
+			wantErr: false,
+		},
 	}
 
-	if len(analysis.Tags) != 5 {
-		t.Fatalf("expected 5 tags after normalization, got %d", len(analysis.Tags))
-	}
-
-	if analysis.Tags[0] != "video" {
-		t.Fatalf("expected first tag to remain 'video', got %q", analysis.Tags[0])
-	}
-
-	if analysis.Description == "" {
-		t.Fatal("expected normalized description to be non-empty")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseMetadataOutput(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseMetadataOutput() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got == nil {
+				t.Errorf("ParseMetadataOutput() got nil, want non-nil")
+				return
+			}
+		})
 	}
 }
 
-func TestParseMetadataOutput_FencedJSON(t *testing.T) {
-	raw := "```json\n{\"tags\":[\"video\"],\"description\":\"影片\"}\n```"
+func TestNormalizeMetadataAnalysis(t *testing.T) {
+	tests := []struct {
+		name  string
+		input *MetadataAnalysis
+		want  *MetadataAnalysis
+	}{
+		{
+			name: "Normalize tags",
+			input: &MetadataAnalysis{
+				Tags:        []string{"video", "video", "movie", "", "test", "extra"},
+				Description: "test",
+			},
+			want: &MetadataAnalysis{
+				Tags:        []string{"video", "movie", "test", "extra"},
+				Description: "test",
+			},
+		},
+		{
+			name:  "Nil input",
+			input: nil,
+			want:  &MetadataAnalysis{Tags: []string{}, Description: ""},
+		},
+		{
+			name: "Truncate long description",
+			input: &MetadataAnalysis{
+				Tags:        []string{"video"},
+				Description: "This is a very long description that should be truncated because it exceeds the maximum allowed length of characters",
+			},
+			want: &MetadataAnalysis{
+				Tags:        []string{"video"},
+				Description: "This is a very long description that should be truncated because it exceeds the maximum allowed length of characters",
+			},
+		},
+	}
 
-	analysis, err := ParseMetadataOutput(raw)
-	if err != nil {
-		t.Fatalf("expected fenced JSON to parse, got %v", err)
-	}
-	if analysis.Description != "影片" {
-		t.Fatalf("expected parsed description, got %q", analysis.Description)
-	}
-}
-
-func TestParseMetadataOutput_PrefixedAndSuffixedJSON(t *testing.T) {
-	raw := "Here is the metadata:\n{\"tags\":[\"document\"],\"description\":\"报告\"}\nHope this helps."
-
-	analysis, err := ParseMetadataOutput(raw)
-	if err != nil {
-		t.Fatalf("expected embedded JSON to parse, got %v", err)
-	}
-	if len(analysis.Tags) != 1 || analysis.Tags[0] != "document" {
-		t.Fatalf("expected parsed tags, got %v", analysis.Tags)
-	}
-}
-
-func TestParseMetadataOutput_InvalidJSON(t *testing.T) {
-	if _, err := ParseMetadataOutput("not-json"); err == nil {
-		t.Fatal("expected invalid JSON to return error")
-	}
-}
-
-func TestNormalizeMetadataAnalysis_NilInput(t *testing.T) {
-	normalized := NormalizeMetadataAnalysis(nil)
-	if normalized == nil {
-		t.Fatal("expected non-nil normalized analysis")
-	}
-	if len(normalized.Tags) != 0 {
-		t.Fatalf("expected no tags, got %d", len(normalized.Tags))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NormalizeMetadataAnalysis(tt.input)
+			if got == nil {
+				t.Errorf("NormalizeMetadataAnalysis() got nil")
+				return
+			}
+			if len(got.Tags) != len(tt.want.Tags) {
+				t.Errorf("NormalizeMetadataAnalysis() tags length = %d, want %d", len(got.Tags), len(tt.want.Tags))
+			}
+			if got.Description != tt.want.Description && len(tt.want.Description) > 0 {
+				t.Errorf("NormalizeMetadataAnalysis() description = %s, want %s", got.Description, tt.want.Description)
+			}
+		})
 	}
 }

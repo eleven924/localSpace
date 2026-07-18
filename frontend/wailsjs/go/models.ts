@@ -29,11 +29,11 @@ export namespace models {
 	    webSearchAPIKey: string;
 	    webSearchTimeout: number;
 	    webSearchMaxResults: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new AIConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
