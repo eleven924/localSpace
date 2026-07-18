@@ -236,7 +236,13 @@ const handleAIAnalyze = async () => {
   aiLoading.value = true
 
   try {
-    const analysis = await api.ai.analyze(props.file.name, props.fileType)
+    const analysis = await api.ai.analyze(
+      props.file.name,
+      props.fileType,
+      '',
+      parsedTags.value,
+      description.value
+    )
     aiAnalysis.value = analysis
   } catch (err) {
     console.error('AI analysis failed:', err)
@@ -280,11 +286,12 @@ const handleImport = async () => {
   try {
     const tags = parsedTags.value.length > 0 ? parsedTags.value : undefined
 
-    await api.file.import(
+    await api.file.importWithKeywords(
       props.file.path,
       fileName.value,
       description.value,
-      tags || []
+      tags || [],
+      ''
     )
 
     progressText.value = '导入成功！'

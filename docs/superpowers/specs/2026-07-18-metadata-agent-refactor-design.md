@@ -1,7 +1,7 @@
 # Metadata Agent Refactor Design
 
 **Date:** 2026-07-18  
-**Status:** Draft approved for planning  
+**Status:** Ready for user review  
 **Scope:** Refactor AI metadata generation from direct chat-model calls to a unified Eino ADK agent + tool architecture
 
 ## 1. Background

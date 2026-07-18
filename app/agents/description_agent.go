@@ -6,19 +6,20 @@ import (
 	"strings"
 	"time"
 
+	"LocalSpace/app/models"
+
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/schema"
-	"LocalSpace/app/models"
 )
 
 // DescriptionGenerationInput represents input for description generation
 type DescriptionGenerationInput struct {
-	FileName         string
-	FileType         string
-	UserKeywords     string
-	UserTags         []string
-	UserDescription  string
-	Metadata         models.Metadata
+	FileName        string
+	FileType        string
+	UserKeywords    string
+	UserTags        []string
+	UserDescription string
+	Metadata        models.Metadata
 }
 
 // DescriptionAgent generates file descriptions using AI with direct OpenAI API calls
@@ -163,7 +164,7 @@ func (a *DescriptionAgent) callOpenAIForDescription(ctx context.Context, prompt 
 	// Create system message
 	systemMsg := &schema.Message{
 		Role:    schema.System,
-		Content: "你是一个专业的文件描述生成助手。你的任务是根据文件信息生成一个简洁准确的描述（1-2句话，不超过50个字）。描述应该概括文件的用途、内容或特点。只返回描述，不要有任何其他文字。",
+		Content: "你是一个专业的文件描述生成助手。你的任务是根据文件信息生成一个简洁准确的描述（1-2句话，不超过200个字）。描述应该概括文件的用途、内容或特点。如果时视频，音乐，游戏类型可以针对介绍下。",
 	}
 
 	// Create user message
@@ -195,13 +196,13 @@ func (a *DescriptionAgent) cleanDescription(response string) string {
 	}
 
 	// Remove quotes and brackets
-	response = strings.Trim(response, `"'"` + `""'`)
+	response = strings.Trim(response, `"'"`+`""'`)
 	response = strings.ReplaceAll(response, "[", "")
 	response = strings.ReplaceAll(response, "]", "")
 
 	// Limit to 50 characters
-	if len(response) > 50 {
-		response = response[:50] + "..."
+	if len([]rune(response)) > 200 {
+		response = string([]rune(response)[:200]) + "..."
 	}
 
 	return response

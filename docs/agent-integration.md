@@ -23,9 +23,9 @@ This is an architecture change, not just a rename of direct model invocation: pr
 2. `AgentService.AnalyzeMetadata` or `AnalyzeMetadataWithTrace` loads AI configuration and decides whether phase-one agent execution is enabled.
 3. `AgentService` resolves optional tools from `ToolRegistry` in the service layer. For phase one, this may expose `web_search`.
 4. `EinoMetadataAgent` builds prompts and invokes `DefaultAgentRuntime` once.
-5. `DefaultAgentRuntime` performs one direct chat-model request and returns output plus traceable tool names.
+5. `DefaultAgentRuntime` performs one direct chat-model request and returns output without marking available tools as used.
 6. `EinoMetadataAgent` parses the structured response into one `MetadataAnalysisResult`.
-7. `FileService` reuses that single analysis result for both tags and description updates.
+7. `FileService` reuses that single analysis result for both tags and description updates, while explicit user tags and descriptions keep priority over generated values.
 8. If any AI or runtime step fails, the service falls back to safe metadata defaults without blocking the import.
 
 ## Runtime and Tool Boundaries
@@ -36,7 +36,7 @@ The important phase-one seams are:
 - Tool gating stays in `AgentService`, not in `DefaultAgentRuntime`.
 - `DefaultAgentRuntime` does not decide whether tools are allowed.
 - `DefaultAgentRuntime` does not yet execute a tool-calling loop.
-- The runtime only receives already-resolved tools so their availability can be reflected in trace data.
+- The runtime only receives already-resolved tools for future extensibility; phase one records them as available, not used.
 
 That makes the current behavior accurate in both code and docs: web search is architecturally visible and trace-ready, while the runtime remains a direct model invocation seam for now.
 
@@ -47,7 +47,7 @@ Phase-one web-search support is intentionally bounded:
 - `NewAgentService` registers `web_search` once through `ToolRegistry`.
 - Tool exposure is resolved in the service layer, not inside the runtime.
 - `web_search` is only offered when AI is enabled, agent mode is enabled, web search is enabled, and the file lacks enough user-supplied context.
-- Trace data records which tools were available and which were used, making the flow ready for later observability and expansion.
+- Trace data records which tools were available separately from which tools were actually used, making the flow ready for later observability and expansion.
 
 This keeps metadata tool gating in one place while preparing the branch for richer search-backed analysis later.
 
@@ -57,7 +57,7 @@ AI generation failures never block file imports:
 
 - Configuration-load failures fall back safely.
 - Runtime or parsing failures fall back safely.
-- User-provided metadata is preserved where possible.
+- User-provided metadata is preserved where possible; explicit import descriptions and tags take priority over generated values.
 - Basic file-type-derived defaults are used when generated metadata is unavailable.
 - Trace data retains fallback reasons for diagnostics.
 

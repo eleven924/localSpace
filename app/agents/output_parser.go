@@ -13,12 +13,51 @@ func ParseMetadataOutput(raw string) (*MetadataAnalysis, error) {
 		return nil, errors.New("empty metadata output")
 	}
 
+	jsonText, err := recoverMetadataJSON(raw)
+	if err != nil {
+		return nil, err
+	}
+
 	var analysis MetadataAnalysis
-	if err := json.Unmarshal([]byte(raw), &analysis); err != nil {
+	if err := json.Unmarshal([]byte(jsonText), &analysis); err != nil {
 		return nil, err
 	}
 
 	return NormalizeMetadataAnalysis(&analysis), nil
+}
+
+func recoverMetadataJSON(raw string) (string, error) {
+	if json.Valid([]byte(raw)) {
+		return raw, nil
+	}
+
+	trimmed := strings.TrimSpace(raw)
+	if strings.HasPrefix(trimmed, "```") {
+		lines := strings.Split(trimmed, "\n")
+		if len(lines) >= 2 {
+			if strings.HasPrefix(strings.TrimSpace(lines[0]), "```") {
+				lines = lines[1:]
+			}
+			if len(lines) > 0 && strings.HasPrefix(strings.TrimSpace(lines[len(lines)-1]), "```") {
+				lines = lines[:len(lines)-1]
+			}
+			candidate := strings.TrimSpace(strings.Join(lines, "\n"))
+			if json.Valid([]byte(candidate)) {
+				return candidate, nil
+			}
+		}
+	}
+
+	start := strings.Index(trimmed, "{")
+	end := strings.LastIndex(trimmed, "}")
+	if start >= 0 && end > start {
+		candidate := strings.TrimSpace(trimmed[start : end+1])
+		if json.Valid([]byte(candidate)) {
+			return candidate, nil
+		}
+	}
+
+	return "", errors.New("metadata output does not contain recoverable JSON")
 }
 
 // NormalizeMetadataAnalysis enforces the metadata output shape.

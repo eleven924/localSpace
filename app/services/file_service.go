@@ -19,8 +19,8 @@ import (
 type FileService struct {
 	fileRepo         *repositories.FileRepository
 	storageService   *StorageService
-	aiService       *AIService
-	agentService    *AgentService
+	aiService        *AIService
+	agentService     *AgentService
 	thumbnailService *ThumbnailService
 }
 
@@ -56,7 +56,7 @@ func NewFileService(
 	return &FileService{
 		fileRepo:         fileRepo,
 		storageService:   storageService,
-		aiService:       aiService,
+		aiService:        aiService,
 		thumbnailService: thumbnailService,
 	}
 }
@@ -183,7 +183,7 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 	}
 
 	// AI generation using AgentService
-	metadataAnalysis, _ := s.resolveMetadataForImport(context.Background(), s.agentService, &req, fileType)
+	metadataAnalysis, _ := s.resolveMetadataForImport(context.Background(), s.agentService, &req, fileType, metadata)
 	tags := metadataAnalysis.Tags
 	description := metadataAnalysis.Description
 
@@ -228,14 +228,14 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 	return nil
 }
 
-func (s *FileService) resolveMetadataForImport(ctx context.Context, analyzer metadataAnalyzer, req *ImportFileRequest, fileType string) (*agents.MetadataAnalysis, error) {
-	fallback := &agents.MetadataAnalysis{}
+func (s *FileService) resolveMetadataForImport(ctx context.Context, analyzer metadataAnalyzer, req *ImportFileRequest, fileType string, metadata models.Metadata) (*agents.MetadataAnalysis, error) {
+	fallback := &agents.MetadataAnalysis{Tags: []string{}}
 	if req != nil {
 		fallback.Tags = append(fallback.Tags, req.Tags...)
-		fallback.Description = req.Description
+		fallback.Description = strings.TrimSpace(req.Description)
 	}
 
-	if analyzer == nil {
+	if analyzer == nil || req == nil {
 		return fallback, nil
 	}
 
@@ -245,19 +245,21 @@ func (s *FileService) resolveMetadataForImport(ctx context.Context, analyzer met
 		UserKeywords:    req.Keywords,
 		UserTags:        req.Tags,
 		UserDescription: req.Description,
+		Metadata:        metadata,
 	})
 	if err != nil || analysis == nil {
 		return fallback, nil
 	}
 
-	if len(analysis.Tags) == 0 {
-		analysis.Tags = fallback.Tags
+	resolved := agents.NormalizeMetadataAnalysis(analysis)
+	if len(req.Tags) > 0 {
+		resolved.Tags = append([]string{}, req.Tags...)
 	}
-	if analysis.Description == "" {
-		analysis.Description = fallback.Description
+	if strings.TrimSpace(req.Description) != "" {
+		resolved.Description = req.Description
 	}
 
-	return analysis, nil
+	return resolved, nil
 }
 
 // ListFiles returns a list of files
@@ -603,16 +605,16 @@ func parseFileType(extension string) (string, error) {
 		".m4v":  "video",
 
 		// Document files
-		".pdf":   "document",
-		".doc":   "document",
-		".docx":  "document",
-		".xls":   "document",
-		".xlsx":  "document",
-		".ppt":   "document",
-		".pptx":  "document",
-		".txt":   "document",
-		".md":    "document",
-		".rtf":   "document",
+		".pdf":  "document",
+		".doc":  "document",
+		".docx": "document",
+		".xls":  "document",
+		".xlsx": "document",
+		".ppt":  "document",
+		".pptx": "document",
+		".txt":  "document",
+		".md":   "document",
+		".rtf":  "document",
 
 		// Music files
 		".mp3":  "music",
@@ -624,20 +626,20 @@ func parseFileType(extension string) (string, error) {
 		".wma":  "music",
 
 		// Game files
-		".exe":  "game",
-		".app":  "game",
-		".iso":  "game",
-		".zip":  "game",
-		".rar":  "game",
-		".7z":   "game",
+		".exe": "game",
+		".app": "game",
+		".iso": "game",
+		".zip": "game",
+		".rar": "game",
+		".7z":  "game",
 
 		// Installer files
-		".msi":  "installer",
-		".pkg":  "installer",
-		".deb":  "installer",
-		".rpm":  "installer",
-		".apk":  "installer",
-		".dmg":  "installer",
+		".msi": "installer",
+		".pkg": "installer",
+		".deb": "installer",
+		".rpm": "installer",
+		".apk": "installer",
+		".dmg": "installer",
 
 		// Image/Disk files (disk images, not pictures)
 		".img":  "image",

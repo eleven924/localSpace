@@ -39,6 +39,12 @@ var migrations = []Migration{
 		Up:      migration004_Up,
 		Down:    migration004_Down,
 	},
+	{
+		Version: 5,
+		Name:    "add_ai_config_agent_fields",
+		Up:      migration005_Up,
+		Down:    migration005_Down,
+	},
 }
 
 // RunMigrations 运行数据库迁移
@@ -61,11 +67,11 @@ func RunMigrations(db *sql.DB) error {
 // createMigrationHistoryTable 创建迁移历史表
 func createMigrationHistoryTable(db *sql.DB) error {
 	query := `
-		CREATE TABLE IF NOT EXISTS schema_migrations (
-			version INTEGER PRIMARY KEY,
-			name TEXT NOT NULL,
-			applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
+			CREATE TABLE IF NOT EXISTS schema_migrations (
+				version INTEGER PRIMARY KEY,
+				name TEXT NOT NULL,
+				applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);`
 
 	_, err := db.Exec(query)
 	return err
@@ -104,14 +110,14 @@ func runMigration(db *sql.DB, migration Migration) error {
 func migration001_Up(db *sql.DB) error {
 	// 创建文件类型表
 	query := `
-		CREATE TABLE IF NOT EXISTS file_types (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL UNIQUE,
-			display_name TEXT NOT NULL,
-			extensions TEXT NOT NULL,
-			sub_types TEXT,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
+			CREATE TABLE IF NOT EXISTS file_types (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				name TEXT NOT NULL UNIQUE,
+				display_name TEXT NOT NULL,
+				extensions TEXT NOT NULL,
+				sub_types TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);`
 
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("failed to create file_types table: %w", err)
@@ -119,13 +125,13 @@ func migration001_Up(db *sql.DB) error {
 
 	// 创建配置表
 	query = `
-		CREATE TABLE IF NOT EXISTS configs (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			key TEXT NOT NULL UNIQUE,
-			value TEXT NOT NULL,
-			description TEXT,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
+			CREATE TABLE IF NOT EXISTS configs (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				key TEXT NOT NULL UNIQUE,
+				value TEXT NOT NULL,
+				description TEXT,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);`
 
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("failed to create configs table: %w", err)
@@ -133,14 +139,14 @@ func migration001_Up(db *sql.DB) error {
 
 	// 创建 AI 配置表
 	query = `
-		CREATE TABLE IF NOT EXISTS ai_configs (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			api_key TEXT NOT NULL,
-			model TEXT NOT NULL,
-			base_url TEXT NOT NULL,
-			enabled BOOLEAN DEFAULT 0,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
+			CREATE TABLE IF NOT EXISTS ai_configs (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				api_key TEXT NOT NULL,
+				model TEXT NOT NULL,
+				base_url TEXT NOT NULL,
+				enabled BOOLEAN DEFAULT 0,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);`
 
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("failed to create ai_configs table: %w", err)
@@ -148,13 +154,13 @@ func migration001_Up(db *sql.DB) error {
 
 	// 创建主题配置表
 	query = `
-		CREATE TABLE IF NOT EXISTS theme_configs (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			theme_mode TEXT NOT NULL,
-			primary_color TEXT NOT NULL,
-			background_image TEXT,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
+			CREATE TABLE IF NOT EXISTS theme_configs (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				theme_mode TEXT NOT NULL,
+				primary_color TEXT NOT NULL,
+				background_image TEXT,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);`
 
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("failed to create theme_configs table: %w", err)
@@ -162,15 +168,15 @@ func migration001_Up(db *sql.DB) error {
 
 	// 创建存储目录表
 	query = `
-		CREATE TABLE IF NOT EXISTS storage_dirs (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			path TEXT NOT NULL UNIQUE,
-			file_type TEXT NOT NULL,
-			current_size INTEGER DEFAULT 0,
-			max_size INTEGER,
-			is_active BOOLEAN DEFAULT 1,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
+			CREATE TABLE IF NOT EXISTS storage_dirs (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				path TEXT NOT NULL UNIQUE,
+				file_type TEXT NOT NULL,
+				current_size INTEGER DEFAULT 0,
+				max_size INTEGER,
+				is_active BOOLEAN DEFAULT 1,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);`
 
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("failed to create storage_dirs table: %w", err)
@@ -178,12 +184,12 @@ func migration001_Up(db *sql.DB) error {
 
 	// 创建标签表
 	query = `
-		CREATE TABLE IF NOT EXISTS tags (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL UNIQUE,
-			color TEXT DEFAULT '#2196F3',
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
+			CREATE TABLE IF NOT EXISTS tags (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				name TEXT NOT NULL UNIQUE,
+				color TEXT DEFAULT '#2196F3',
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);`
 
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("failed to create tags table: %w", err)
@@ -191,20 +197,20 @@ func migration001_Up(db *sql.DB) error {
 
 	// 创建文件表
 	query = `
-		CREATE TABLE IF NOT EXISTS files (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			file_name TEXT NOT NULL,
-			file_path TEXT NOT NULL UNIQUE,
-			file_type TEXT NOT NULL,
-			file_sub_type TEXT,
-			file_size INTEGER NOT NULL,
-			tags TEXT NOT NULL DEFAULT '[]',
-			description TEXT,
-			metadata TEXT DEFAULT '{}',
-			thumbnail TEXT,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			modified_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
+			CREATE TABLE IF NOT EXISTS files (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				file_name TEXT NOT NULL,
+				file_path TEXT NOT NULL UNIQUE,
+				file_type TEXT NOT NULL,
+				file_sub_type TEXT,
+				file_size INTEGER NOT NULL,
+				tags TEXT NOT NULL DEFAULT '[]',
+				description TEXT,
+				metadata TEXT DEFAULT '{}',
+				thumbnail TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				modified_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);`
 
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("failed to create files table: %w", err)
@@ -280,10 +286,10 @@ func migration003_Up(db *sql.DB) error {
 	// 检查列是否已存在
 	var columnExists bool
 	err := db.QueryRow(`
-		SELECT COUNT(*) > 0
-		FROM pragma_table_info('files')
-		WHERE name = 'original_name'
-	`).Scan(&columnExists)
+			SELECT COUNT(*) > 0
+			FROM pragma_table_info('files')
+			WHERE name = 'original_name'
+		`).Scan(&columnExists)
 
 	if err != nil {
 		return fmt.Errorf("failed to check column existence: %w", err)
@@ -299,10 +305,10 @@ func migration003_Up(db *sql.DB) error {
 
 	// 检查 checksum 列
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0
-		FROM pragma_table_info('files')
-		WHERE name = 'checksum'
-	`).Scan(&columnExists)
+			SELECT COUNT(*) > 0
+			FROM pragma_table_info('files')
+			WHERE name = 'checksum'
+		`).Scan(&columnExists)
 
 	if err != nil {
 		return fmt.Errorf("failed to check column existence: %w", err)
@@ -318,10 +324,10 @@ func migration003_Up(db *sql.DB) error {
 
 	// 检查 is_deleted 列
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0
-		FROM pragma_table_info('files')
-		WHERE name = 'is_deleted'
-	`).Scan(&columnExists)
+			SELECT COUNT(*) > 0
+			FROM pragma_table_info('files')
+			WHERE name = 'is_deleted'
+		`).Scan(&columnExists)
 
 	if err != nil {
 		return fmt.Errorf("failed to check column existence: %w", err)
@@ -337,10 +343,10 @@ func migration003_Up(db *sql.DB) error {
 
 	// 检查 deleted_at 列
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0
-		FROM pragma_table_info('files')
-		WHERE name = 'deleted_at'
-	`).Scan(&columnExists)
+			SELECT COUNT(*) > 0
+			FROM pragma_table_info('files')
+			WHERE name = 'deleted_at'
+		`).Scan(&columnExists)
 
 	if err != nil {
 		return fmt.Errorf("failed to check column existence: %w", err)
@@ -430,9 +436,97 @@ func migration004_Down(db *sql.DB) error {
 
 	_, err = db.Exec(`DROP INDEX IF EXISTS idx_storage_dirs_path`)
 	if err != nil {
-		return fmt.Errorf("failed to drop path index: %w", err)
+		return fmt.Errorf("failed to drop path unique index: %w", err)
 	}
 
+	// SQLite不支持DROP COLUMN，需要重建表（略）
+	return fmt.Errorf("SQLite rollback not supported for column additions")
+}
+
+// migration005_Up: 添加 AI 配置的 agent 字段
+func migration005_Up(db *sql.DB) error {
+	// 检查 enable_agent 列
+	var columnExists bool
+	err := db.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('ai_configs')
+		WHERE name = 'enable_agent'
+	`).Scan(&columnExists)
+
+	if err != nil {
+		return fmt.Errorf("failed to check enable_agent column existence: %w", err)
+	}
+
+	if !columnExists {
+		// 添加 enable_agent 列
+		_, err := db.Exec(`ALTER TABLE ai_configs ADD COLUMN enable_agent BOOLEAN DEFAULT 0`)
+		if err != nil {
+			return fmt.Errorf("failed to add enable_agent column: %w", err)
+		}
+	}
+
+	// 检查 enable_web_search 列
+	err = db.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('ai_configs')
+		WHERE name = 'enable_web_search'
+	`).Scan(&columnExists)
+
+	if err != nil {
+		return fmt.Errorf("failed to check enable_web_search column existence: %w", err)
+	}
+
+	if !columnExists {
+		// 添加 enable_web_search 列
+		_, err = db.Exec(`ALTER TABLE ai_configs ADD COLUMN enable_web_search BOOLEAN DEFAULT 0`)
+		if err != nil {
+			return fmt.Errorf("failed to add enable_web_search column: %w", err)
+		}
+	}
+
+	// 检查 max_tokens 列
+	err = db.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('ai_configs')
+		WHERE name = 'max_tokens'
+	`).Scan(&columnExists)
+
+	if err != nil {
+		return fmt.Errorf("failed to check max_tokens column existence: %w", err)
+	}
+
+	if !columnExists {
+		// 添加 max_tokens 列
+		_, err = db.Exec(`ALTER TABLE ai_configs ADD COLUMN max_tokens INTEGER DEFAULT 500`)
+		if err != nil {
+			return fmt.Errorf("failed to add max_tokens column: %w", err)
+		}
+	}
+
+	// 检查 timeout 列
+	err = db.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('ai_configs')
+		WHERE name = 'timeout'
+	`).Scan(&columnExists)
+
+	if err != nil {
+		return fmt.Errorf("failed to check timeout column existence: %w", err)
+	}
+
+	if !columnExists {
+		// 添加 timeout 列
+		_, err = db.Exec(`ALTER TABLE ai_configs ADD COLUMN timeout INTEGER DEFAULT 30`)
+		if err != nil {
+			return fmt.Errorf("failed to add timeout column: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// migration005_Down: 回滚 AI 配置的 agent 字段
+func migration005_Down(db *sql.DB) error {
 	// SQLite不支持DROP COLUMN，需要重建表（略）
 	return fmt.Errorf("SQLite rollback not supported for column additions")
 }

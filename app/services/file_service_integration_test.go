@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"LocalSpace/app/agents"
+	"LocalSpace/app/models"
 )
 
 func TestImportFileRequestWithAgentFields(t *testing.T) {
@@ -136,11 +137,13 @@ func TestAgentServiceIntegrationStructure(t *testing.T) {
 }
 
 type countingAgentService struct {
-	calls int
+	calls        int
+	lastMetadata models.Metadata
 }
 
 func (c *countingAgentService) AnalyzeMetadata(ctx context.Context, input *agents.MetadataGenerationInput) (*agents.MetadataAnalysis, error) {
 	c.calls++
+	c.lastMetadata = input.Metadata
 	return &agents.MetadataAnalysis{Tags: []string{"video", "action"}, Description: "动作片"}, nil
 }
 
@@ -151,8 +154,7 @@ func TestFileServiceUsesSingleMetadataAnalysisResult(t *testing.T) {
 	analysis, err := service.resolveMetadataForImport(context.Background(), counting, &ImportFileRequest{
 		FileName: "movie.mp4",
 		Keywords: "action thriller",
-		Tags:     []string{"娱乐"},
-	}, "video")
+	}, "video", models.Metadata{Duration: 120})
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -163,5 +165,45 @@ func TestFileServiceUsesSingleMetadataAnalysisResult(t *testing.T) {
 
 	if analysis.Description != "动作片" {
 		t.Fatalf("expected unified description result, got %q", analysis.Description)
+	}
+	if counting.lastMetadata.Duration != 120 {
+		t.Fatalf("expected extracted metadata to be passed to analyzer, got %+v", counting.lastMetadata)
+	}
+}
+
+func TestFileServiceResolveMetadataForImport_PreservesExplicitUserMetadata(t *testing.T) {
+	service := &FileService{}
+	counting := &countingAgentService{}
+
+	analysis, err := service.resolveMetadataForImport(context.Background(), counting, &ImportFileRequest{
+		FileName:    "movie.mp4",
+		Tags:        []string{"用户标签"},
+		Description: "用户描述",
+	}, "video", models.Metadata{})
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	if len(analysis.Tags) != 1 || analysis.Tags[0] != "用户标签" {
+		t.Fatalf("expected explicit user tags to take priority, got %v", analysis.Tags)
+	}
+	if analysis.Description != "用户描述" {
+		t.Fatalf("expected explicit user description to take priority, got %q", analysis.Description)
+	}
+}
+
+func TestFileServiceResolveMetadataForImport_NilRequestSafe(t *testing.T) {
+	service := &FileService{}
+	counting := &countingAgentService{}
+
+	analysis, err := service.resolveMetadataForImport(context.Background(), counting, nil, "video", models.Metadata{})
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if analysis == nil {
+		t.Fatal("expected fallback analysis for nil request")
+	}
+	if counting.calls != 0 {
+		t.Fatalf("expected analyzer not to be called for nil request, got %d calls", counting.calls)
 	}
 }

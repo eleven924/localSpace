@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 
 	"LocalSpace/app/models"
 	"LocalSpace/app/tools"
@@ -31,14 +32,26 @@ func NewEinoMetadataAgent(runtime AgentRuntime) *EinoMetadataAgent {
 
 // Analyze builds prompts, executes the runtime, and parses structured metadata output.
 func (a *EinoMetadataAgent) Analyze(ctx context.Context, input *MetadataGenerationInput, aiConfig *models.AIConfig, availableTools []tools.Tool) (*MetadataAnalysisResult, error) {
+	if a == nil || a.runtime == nil {
+		return nil, errors.New("metadata agent runtime is nil")
+	}
+	promptBuilder := a.promptBuilder
+	if promptBuilder == nil {
+		promptBuilder = NewPromptBuilder()
+	}
+
 	response, err := a.runtime.Run(ctx, &AgentRunRequest{
-		SystemPrompt: a.promptBuilder.BuildMetadataSystemPrompt(),
-		UserPrompt:   a.promptBuilder.BuildMetadataUserPrompt(input),
+		SystemPrompt: promptBuilder.BuildMetadataSystemPrompt(),
+		UserPrompt:   promptBuilder.BuildMetadataUserPrompt(input),
 		Tools:        availableTools,
 		AIConfig:     aiConfig,
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if response == nil {
+		return nil, errors.New("metadata agent runtime returned nil response")
 	}
 
 	analysis, err := ParseMetadataOutput(response.Output)
@@ -48,6 +61,9 @@ func (a *EinoMetadataAgent) Analyze(ctx context.Context, input *MetadataGenerati
 
 	toolNames := make([]string, 0, len(availableTools))
 	for _, tool := range availableTools {
+		if tool == nil {
+			continue
+		}
 		toolNames = append(toolNames, tool.Name())
 	}
 

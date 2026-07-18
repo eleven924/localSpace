@@ -10,6 +10,7 @@ import (
 	std_runtime "runtime"
 	"time"
 
+	"LocalSpace/app/agents"
 	"LocalSpace/app/database"
 	"LocalSpace/app/models"
 	"LocalSpace/app/repositories"
@@ -20,14 +21,14 @@ import (
 
 // App struct
 type App struct {
-	ctx               context.Context
-	db                *sql.DB
-	fileService       *services.FileService
-	storageService    *services.StorageService
-	aiService         *services.AIService
-	agentService      *services.AgentService
-	configService     *services.ConfigService
-	thumbnailService  *services.ThumbnailService
+	ctx              context.Context
+	db               *sql.DB
+	fileService      *services.FileService
+	storageService   *services.StorageService
+	aiService        *services.AIService
+	agentService     *services.AgentService
+	configService    *services.ConfigService
+	thumbnailService *services.ThumbnailService
 }
 
 // NewApp creates a new App application struct
@@ -196,9 +197,9 @@ func (a *App) GetFiles(page, pageSize int, fileType string) ([]*models.File, err
 		return []*models.File{}, nil
 	}
 	return a.fileService.ListFiles(services.FileFilter{
-		Page:      page,
-		PageSize:  pageSize,
-		FileType:  fileType,
+		Page:     page,
+		PageSize: pageSize,
+		FileType: fileType,
 	})
 }
 
@@ -331,25 +332,23 @@ func (a *App) openFileLocation(filePath string) error {
 // AI Methods
 
 // GetAIAnalysis gets AI analysis for a file
-func (a *App) GetAIAnalysis(fileName, fileType string) (*models.AIAnalysis, error) {
+func (a *App) GetAIAnalysis(fileName, fileType, userKeywords string, userTags []string, userDescription string) (*models.AIAnalysis, error) {
 	// Try to use agent service first if available
 	if a.agentService != nil {
-		ctx := context.Background()
-		tags, err := a.agentService.GenerateTags(ctx, fileName, fileType, "", []string{}, "")
-		if err != nil {
-			// Agent failure is not critical, fall back to empty tags
-			tags = []string{}
-		}
-
-		description, err := a.agentService.GenerateDescription(ctx, fileName, fileType, "", []string{}, "")
-		if err != nil {
-			// Agent failure is not critical, fall back to empty description
-			description = ""
+		analysis, err := a.agentService.AnalyzeMetadata(context.Background(), &agents.MetadataGenerationInput{
+			FileName:        fileName,
+			FileType:        fileType,
+			UserKeywords:    userKeywords,
+			UserTags:        userTags,
+			UserDescription: userDescription,
+		})
+		if err != nil || analysis == nil {
+			return &models.AIAnalysis{Tags: []string{}, Description: ""}, nil
 		}
 
 		return &models.AIAnalysis{
-			Tags:        tags,
-			Description: description,
+			Tags:        analysis.Tags,
+			Description: analysis.Description,
 		}, nil
 	}
 
@@ -564,10 +563,10 @@ func (a *App) CheckDuplicate(filePath string) (map[string]interface{}, error) {
 	}
 
 	return map[string]interface{}{
-		"is_duplicate":    isDuplicate,
-		"duplicate_id":    duplicateID,
-		"duplicate_name":  duplicateName,
-		"checksum":        "", // Could be returned if needed
+		"is_duplicate":   isDuplicate,
+		"duplicate_id":   duplicateID,
+		"duplicate_name": duplicateName,
+		"checksum":       "", // Could be returned if needed
 	}, nil
 }
 
@@ -584,13 +583,13 @@ func (a *App) GetDuplicateFiles() (map[string][]map[string]interface{}, error) {
 		fileMaps := make([]map[string]interface{}, len(files))
 		for i, file := range files {
 			fileMaps[i] = map[string]interface{}{
-				"id":           file.ID,
-				"file_name":    file.FileName,
-				"file_path":    file.FilePath,
-				"file_type":    file.FileType,
-				"file_size":    file.FileSize,
-				"checksum":     file.Checksum,
-				"created_at":   file.CreatedAt,
+				"id":         file.ID,
+				"file_name":  file.FileName,
+				"file_path":  file.FilePath,
+				"file_type":  file.FileType,
+				"file_size":  file.FileSize,
+				"checksum":   file.Checksum,
+				"created_at": file.CreatedAt,
 			}
 		}
 		result[checksum] = fileMaps

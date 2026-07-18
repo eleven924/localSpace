@@ -23,6 +23,30 @@ func TestParseMetadataOutput_JSON(t *testing.T) {
 	}
 }
 
+func TestParseMetadataOutput_FencedJSON(t *testing.T) {
+	raw := "```json\n{\"tags\":[\"video\"],\"description\":\"影片\"}\n```"
+
+	analysis, err := ParseMetadataOutput(raw)
+	if err != nil {
+		t.Fatalf("expected fenced JSON to parse, got %v", err)
+	}
+	if analysis.Description != "影片" {
+		t.Fatalf("expected parsed description, got %q", analysis.Description)
+	}
+}
+
+func TestParseMetadataOutput_PrefixedAndSuffixedJSON(t *testing.T) {
+	raw := "Here is the metadata:\n{\"tags\":[\"document\"],\"description\":\"报告\"}\nHope this helps."
+
+	analysis, err := ParseMetadataOutput(raw)
+	if err != nil {
+		t.Fatalf("expected embedded JSON to parse, got %v", err)
+	}
+	if len(analysis.Tags) != 1 || analysis.Tags[0] != "document" {
+		t.Fatalf("expected parsed tags, got %v", analysis.Tags)
+	}
+}
+
 func TestParseMetadataOutput_InvalidJSON(t *testing.T) {
 	if _, err := ParseMetadataOutput("not-json"); err == nil {
 		t.Fatal("expected invalid JSON to return error")

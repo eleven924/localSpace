@@ -19,7 +19,7 @@ type AgentRunRequest struct {
 	AIConfig     *models.AIConfig
 }
 
-// AgentRunResponse captures runtime output and tool usage details.
+// AgentRunResponse captures runtime output and tool execution details.
 type AgentRunResponse struct {
 	Output        string
 	ToolsUsed     []string
@@ -33,9 +33,9 @@ type AgentRuntime interface {
 
 // DefaultAgentRuntime executes phase-one metadata-agent requests through a direct chat-model seam.
 //
-// Phase one intentionally keeps tool gating and tool selection in AgentService. The runtime only
-// receives already-resolved tools for trace/reporting and still performs a single direct model call
-// rather than a multi-step agent/tool loop.
+// Phase one intentionally keeps tool gating and tool selection in AgentService. The runtime still
+// performs a single direct model call rather than a multi-step agent/tool loop, so it must not
+// report available tools as used unless a future runtime actually executes them.
 type DefaultAgentRuntime struct{}
 
 // NewDefaultAgentRuntime creates the default production runtime for phase-one metadata agents.
@@ -90,18 +90,6 @@ func (r *DefaultAgentRuntime) Run(ctx context.Context, req *AgentRunRequest) (*A
 	}
 
 	return &AgentRunResponse{
-		Output:    resp.Content,
-		ToolsUsed: namesForRuntimeTools(req.Tools),
+		Output: resp.Content,
 	}, nil
-}
-
-func namesForRuntimeTools(tools []tools.Tool) []string {
-	names := make([]string, 0, len(tools))
-	for _, tool := range tools {
-		if tool == nil {
-			continue
-		}
-		names = append(names, tool.Name())
-	}
-	return names
 }

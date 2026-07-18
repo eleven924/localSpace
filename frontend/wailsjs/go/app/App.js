@@ -38,8 +38,8 @@ export function GenerateThumbnail(arg1) {
   return window['go']['app']['App']['GenerateThumbnail'](arg1);
 }
 
-export function GetAIAnalysis(arg1, arg2) {
-  return window['go']['app']['App']['GetAIAnalysis'](arg1, arg2);
+export function GetAIAnalysis(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['GetAIAnalysis'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function GetAIConfig() {
@@ -96,6 +96,10 @@ export function GetThumbnailCacheStats() {
 
 export function ImportFile(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['ImportFile'](arg1, arg2, arg3, arg4);
+}
+
+export function ImportFileWithKeywords(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['ImportFileWithKeywords'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function InitConfig(arg1) {

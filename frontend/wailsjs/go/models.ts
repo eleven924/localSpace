@@ -20,6 +20,10 @@ export namespace models {
 	    model: string;
 	    baseURL: string;
 	    enabled: boolean;
+	    enableAgent: boolean;
+	    enableWebSearch: boolean;
+	    maxTokens: number;
+	    timeout: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new AIConfig(source);
@@ -32,6 +36,10 @@ export namespace models {
 	        this.model = source["model"];
 	        this.baseURL = source["baseURL"];
 	        this.enabled = source["enabled"];
+	        this.enableAgent = source["enableAgent"];
+	        this.enableWebSearch = source["enableWebSearch"];
+	        this.maxTokens = source["maxTokens"];
+	        this.timeout = source["timeout"];
 	    }
 	}
 	export class Metadata {

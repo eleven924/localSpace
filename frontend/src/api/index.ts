@@ -151,6 +151,20 @@ export const api = {
           reject(error)
         }
       }),
+    importWithKeywords: (filePath: string, fileName: string, description: string, tags: string[], keywords: string) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.ImportFileWithKeywords(filePath, fileName, description, tags, keywords)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
     list: (page: number, pageSize: number, fileType: string) =>
       safeWailsCall(
         () => window.go!.app!.App.GetFiles(page, pageSize, fileType),
@@ -210,9 +224,9 @@ export const api = {
   },
 
   ai: {
-    analyze: (fileName: string, fileType: string) =>
+    analyze: (fileName: string, fileType: string, userKeywords = '', userTags: string[] = [], userDescription = '') =>
       safeWailsCall(
-        () => window.go!.app!.App.GetAIAnalysis(fileName, fileType),
+        () => window.go!.app!.App.GetAIAnalysis(fileName, fileType, userKeywords, userTags, userDescription),
         null,
         `GetAIAnalysis(${fileName})`
       ),

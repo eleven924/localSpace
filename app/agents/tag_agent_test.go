@@ -29,14 +29,25 @@ func TestTagAgentGenerate(t *testing.T) {
 		UserDescription: "An action movie",
 	}
 
-	// Note: This test will fail until we implement the full agent
-	// For now, test that the method exists and returns appropriate error
+	// Disabled/unconfigured AI should use safe basic fallback tags without returning an error.
 	ctx := context.Background()
 	tags, err := agent.Generate(ctx, input, &models.AIConfig{})
 
-	// Should return empty tags and nil error for unconfigured agent
-	if len(tags) != 0 {
-		t.Errorf("Expected empty tags, got %d tags", len(tags))
+	// Should return basic fallback tags and nil error for unconfigured agent.
+	if len(tags) == 0 {
+		t.Fatal("Expected fallback tags for unconfigured agent")
+	}
+
+	expected := map[string]bool{"video": false, "entertainment": false}
+	for _, tag := range tags {
+		if _, ok := expected[tag]; ok {
+			expected[tag] = true
+		}
+	}
+	for tag, found := range expected {
+		if !found {
+			t.Errorf("Expected fallback tag %q in %v", tag, tags)
+		}
 	}
 
 	if err != nil {
@@ -118,9 +129,9 @@ func TestTagAgentDecideNeedSearch(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name        string
-		input       *TagGenerationInput
-		needSearch  bool
+		name       string
+		input      *TagGenerationInput
+		needSearch bool
 	}{
 		{
 			name: "no user input, descriptive filename",

@@ -154,7 +154,7 @@ func (r *ConfigRepository) ParseFileType(extension string) (models.FileType, err
 
 // GetAIConfig returns the AI configuration
 func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
-	query := `SELECT id, api_key, model, base_url, enabled FROM ai_configs WHERE id = 1`
+	query := `SELECT id, api_key, model, base_url, enabled, enable_agent, enable_web_search, max_tokens, timeout FROM ai_configs WHERE id = 1`
 
 	var config models.AIConfig
 	err := r.db.QueryRow(query).Scan(
@@ -163,41 +163,78 @@ func (r *ConfigRepository) GetAIConfig() (*models.AIConfig, error) {
 		&config.Model,
 		&config.BaseURL,
 		&config.Enabled,
+		&config.EnableAgent,
+		&config.EnableWebSearch,
+		&config.MaxTokens,
+		&config.Timeout,
 	)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			fmt.Printf("GetAIConfig: No config found, returning default config\n")
 			// Return default config if not exists
 			return &models.AIConfig{
-				ID:      0,
-				APIKey:  "",
-				Model:   "gpt-3.5-turbo",
-				BaseURL: "https://api.openai.com/v1",
-				Enabled: false,
+				ID:              0,
+				APIKey:          "",
+				Model:           "gpt-3.5-turbo",
+				BaseURL:         "https://api.openai.com/v1",
+				Enabled:         false,
+				EnableAgent:     false,
+				EnableWebSearch: false,
+				MaxTokens:       500,
+				Timeout:         30,
 			}, nil
 		}
 		return nil, fmt.Errorf("failed to get AI config: %w", err)
 	}
+
+	fmt.Printf("GetAIConfig: Retrieved config from database - ID: %d, Enabled: %v, EnableAgent: %v, EnableWebSearch: %v, MaxTokens: %d, Timeout: %d\n",
+		config.ID, config.Enabled, config.EnableAgent, config.EnableWebSearch, config.MaxTokens, config.Timeout)
 
 	return &config, nil
 }
 
 // SetAIConfig sets the AI configuration
 func (r *ConfigRepository) SetAIConfig(config *models.AIConfig) error {
+	fmt.Printf("SetAIConfig: Saving config - ID: %d, Enabled: %v, EnableAgent: %v, EnableWebSearch: %v, MaxTokens: %d, Timeout: %d\n",
+		config.ID, config.Enabled, config.EnableAgent, config.EnableWebSearch, config.MaxTokens, config.Timeout)
+
 	query := `
-		INSERT INTO ai_configs (api_key, model, base_url, enabled, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+		INSERT INTO ai_configs (
+			id, api_key, model, base_url, enabled,
+			enable_agent, enable_web_search, max_tokens, timeout, updated_at
+		)
+		VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT(id) DO UPDATE SET
 			api_key = excluded.api_key,
 			model = excluded.model,
 			base_url = excluded.base_url,
 			enabled = excluded.enabled,
+			enable_agent = excluded.enable_agent,
+			enable_web_search = excluded.enable_web_search,
+			max_tokens = excluded.max_tokens,
+			timeout = excluded.timeout,
 			updated_at = CURRENT_TIMESTAMP`
 
-	_, err := r.db.Exec(query, config.APIKey, config.Model, config.BaseURL, config.Enabled)
+	// Set default values for new fields if they are zero/empty
+	enableAgent := config.EnableAgent
+	enableWebSearch := config.EnableWebSearch
+	maxTokens := config.MaxTokens
+	if maxTokens == 0 {
+		maxTokens = 500 // Default value
+	}
+	timeout := config.Timeout
+	if timeout == 0 {
+		timeout = 30 // Default value
+	}
+
+	_, err := r.db.Exec(query, config.APIKey, config.Model, config.BaseURL, config.Enabled,
+		enableAgent, enableWebSearch, maxTokens, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to set AI config: %w", err)
 	}
+
+	fmt.Printf("SetAIConfig: Successfully saved config\n")
 
 	return nil
 }

@@ -19,8 +19,8 @@ func (f *fakeRuntime) Run(ctx context.Context, req *AgentRunRequest) (*AgentRunR
 
 type fakeTool struct{ name string }
 
-func (f *fakeTool) Name() string { return f.name }
-func (f *fakeTool) Description() string { return "fake" }
+func (f *fakeTool) Name() string                                              { return f.name }
+func (f *fakeTool) Description() string                                       { return "fake" }
 func (f *fakeTool) Execute(ctx context.Context, input string) (string, error) { return "ok", nil }
 
 func TestEinoMetadataAgentAnalyze_ParsesStructuredOutput(t *testing.T) {
@@ -41,8 +41,44 @@ func TestEinoMetadataAgentAnalyze_ParsesStructuredOutput(t *testing.T) {
 		t.Fatalf("expected 2 tags, got %d", len(result.Analysis.Tags))
 	}
 
+	if result.Trace.ToolsAvailable[0] != "web_search" {
+		t.Fatalf("expected tool availability to be recorded, got %v", result.Trace.ToolsAvailable)
+	}
 	if result.Trace.ToolsUsed[0] != "web_search" {
-		t.Fatalf("expected tool usage to be recorded, got %v", result.Trace.ToolsUsed)
+		t.Fatalf("expected runtime-reported tool usage to be recorded, got %v", result.Trace.ToolsUsed)
+	}
+}
+
+func TestEinoMetadataAgentAnalyze_DoesNotTreatAvailableToolAsUsed(t *testing.T) {
+	agent := NewEinoMetadataAgent(&fakeRuntime{
+		response: &AgentRunResponse{
+			Output: `{"tags":["video"],"description":"影片"}`,
+		},
+	})
+
+	result, err := agent.Analyze(context.Background(), &MetadataGenerationInput{FileName: "movie.mp4", FileType: "video"}, &models.AIConfig{Enabled: true, EnableAgent: true}, []tools.Tool{&fakeTool{name: "web_search"}})
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	if len(result.Trace.ToolsAvailable) != 1 || result.Trace.ToolsAvailable[0] != "web_search" {
+		t.Fatalf("expected web_search to be available, got %v", result.Trace.ToolsAvailable)
+	}
+	if len(result.Trace.ToolsUsed) != 0 {
+		t.Fatalf("expected no used tools when runtime did not execute tools, got %v", result.Trace.ToolsUsed)
+	}
+}
+
+func TestEinoMetadataAgentAnalyze_SkipsNilAvailableTools(t *testing.T) {
+	agent := NewEinoMetadataAgent(&fakeRuntime{response: &AgentRunResponse{Output: `{"tags":["video"],"description":"影片"}`}})
+
+	result, err := agent.Analyze(context.Background(), &MetadataGenerationInput{FileName: "movie.mp4", FileType: "video"}, &models.AIConfig{Enabled: true, EnableAgent: true}, []tools.Tool{nil, &fakeTool{name: "web_search"}})
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	if len(result.Trace.ToolsAvailable) != 1 || result.Trace.ToolsAvailable[0] != "web_search" {
+		t.Fatalf("expected nil tools to be skipped, got %v", result.Trace.ToolsAvailable)
 	}
 }
 

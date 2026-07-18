@@ -20,7 +20,7 @@ export function DeleteFile(arg1:number):Promise<void>;
 
 export function GenerateThumbnail(arg1:number):Promise<string>;
 
-export function GetAIAnalysis(arg1:string,arg2:string):Promise<models.AIAnalysis>;
+export function GetAIAnalysis(arg1:string,arg2:string,arg3:string,arg4:Array<string>,arg5:string):Promise<models.AIAnalysis>;
 
 export function GetAIConfig():Promise<models.AIConfig>;
 
@@ -49,6 +49,8 @@ export function GetThumbnailCacheInfo():Promise<number>;
 export function GetThumbnailCacheStats():Promise<Record<string, any>>;
 
 export function ImportFile(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<void>;
+
+export function ImportFileWithKeywords(arg1:string,arg2:string,arg3:string,arg4:Array<string>,arg5:string):Promise<void>;
 
 export function InitConfig(arg1:string):Promise<void>;
 
