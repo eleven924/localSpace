@@ -289,7 +289,7 @@ const config = ref<AIConfig>({
   baseURL: 'https://api.openai.com/v1',
   timeout: 30,
   maxTokens: 500,
-  enableAgent: true,
+  enableAgent: false,
   enableWebSearch: false,
   webSearchProvider: '',
   webSearchBaseURL: '',
