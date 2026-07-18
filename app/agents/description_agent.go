@@ -44,13 +44,19 @@ func (a *DescriptionAgent) Generate(
 	input *DescriptionGenerationInput,
 	aiConfig *models.AIConfig,
 ) (string, error) {
+	fmt.Printf("DescriptionAgent.Generate called with config: %+v\n", aiConfig)
+	fmt.Printf("Input: FileName=%s, FileType=%s, Keywords=%s, Tags=%v, Description=%s\n",
+		input.FileName, input.FileType, input.UserKeywords, input.UserTags, input.UserDescription)
+
 	// Validate AI config
 	if err := a.ValidateAIConfig(aiConfig); err != nil {
-		return "", nil // Return empty description, don't block import
+		fmt.Printf("AI config validation failed: %v\n", err)
+		return a.generateBasicDescription(input), nil
 	}
 
 	// Check if agent is enabled
 	if !aiConfig.EnableAgent {
+		fmt.Printf("Agent is disabled, using basic description\n")
 		return a.generateBasicDescription(input), nil
 	}
 
@@ -60,15 +66,18 @@ func (a *DescriptionAgent) Generate(
 		if len(input.UserDescription) > 50 {
 			return input.UserDescription[:50] + "...", nil
 		}
+		fmt.Printf("Using user description: %s\n", input.UserDescription)
 		return input.UserDescription, nil
 	}
 
 	// Initialize OpenAI model if not already done
 	if a.model == nil {
+		fmt.Printf("Initializing OpenAI model...\n")
 		if err := a.initializeModel(aiConfig); err != nil {
-			// Fall back to basic generation on initialization error
+			fmt.Printf("Failed to initialize model: %v, using basic description\n", err)
 			return a.generateBasicDescription(input), nil
 		}
+		fmt.Printf("Model initialized successfully\n")
 	}
 
 	// Build prompt
@@ -80,6 +89,8 @@ func (a *DescriptionAgent) Generate(
 		input.UserDescription,
 	)
 
+	fmt.Printf("Built prompt: %s\n", prompt)
+
 	// Call OpenAI API
 	description, err := a.callOpenAIForDescription(ctx, prompt)
 	if err != nil {
@@ -88,11 +99,26 @@ func (a *DescriptionAgent) Generate(
 		return a.generateBasicDescription(input), nil
 	}
 
+	fmt.Printf("AI generated description: %s\n", description)
 	return description, nil
 }
 
 // initializeModel initializes the OpenAI chat model
 func (a *DescriptionAgent) initializeModel(aiConfig *models.AIConfig) error {
+	fmt.Printf("Initializing OpenAI model with config: APIKey=%s, BaseURL=%s, Model=%s\n",
+		aiConfig.APIKey, aiConfig.BaseURL, aiConfig.Model)
+
+	// Validate required fields
+	if aiConfig.APIKey == "" {
+		return fmt.Errorf("API key is empty")
+	}
+	if aiConfig.Model == "" {
+		return fmt.Errorf("model is empty")
+	}
+	if aiConfig.BaseURL == "" {
+		return fmt.Errorf("base URL is empty")
+	}
+
 	// Create OpenAI chat model config
 	openaiConfig := &openai.ChatModelConfig{
 		APIKey:  aiConfig.APIKey,
@@ -103,23 +129,28 @@ func (a *DescriptionAgent) initializeModel(aiConfig *models.AIConfig) error {
 	// Set timeout and max tokens if configured
 	if aiConfig.Timeout > 0 {
 		openaiConfig.Timeout = time.Duration(aiConfig.Timeout) * time.Second
+		fmt.Printf("Set timeout: %v\n", openaiConfig.Timeout)
 	}
 	if aiConfig.MaxTokens > 0 {
 		maxTokens := aiConfig.MaxTokens
 		openaiConfig.MaxTokens = &maxTokens
+		fmt.Printf("Set max tokens: %d\n", maxTokens)
 	}
 
 	// Set temperature for consistent description generation
 	temperature := float32(0.6)
 	openaiConfig.Temperature = &temperature
+	fmt.Printf("Set temperature: %v\n", temperature)
 
 	// Create OpenAI model
+	fmt.Printf("Creating OpenAI chat model...\n")
 	model, err := openai.NewChatModel(context.Background(), openaiConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create OpenAI model: %w", err)
 	}
 
 	a.model = model
+	fmt.Printf("OpenAI model created successfully\n")
 	return nil
 }
 
@@ -219,7 +250,7 @@ func (a *DescriptionAgent) generateBasicDescription(input *DescriptionGeneration
 
 // decideNeedSearch decides if web search is needed
 func (a *DescriptionAgent) decideNeedSearch(
-	ctx context.Context,
+	_ context.Context,
 	input *DescriptionGenerationInput,
 	aiConfig *models.AIConfig,
 ) (bool, error) {

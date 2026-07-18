@@ -45,28 +45,37 @@ func (a *TagAgent) Generate(
 	input *TagGenerationInput,
 	aiConfig *models.AIConfig,
 ) ([]string, error) {
+	fmt.Printf("TagAgent.Generate called with config: %+v\n", aiConfig)
+	fmt.Printf("Input: FileName=%s, FileType=%s, Keywords=%s, Tags=%v, Description=%s\n",
+		input.FileName, input.FileType, input.UserKeywords, input.UserTags, input.UserDescription)
+
 	// Validate AI config
 	if err := a.ValidateAIConfig(aiConfig); err != nil {
-		return []string{}, nil // Return empty tags, don't block import
+		fmt.Printf("AI config validation failed: %v\n", err)
+		return a.generateBasicTags(input), nil
 	}
 
 	// Check if agent is enabled
 	if !aiConfig.EnableAgent {
+		fmt.Printf("Agent is disabled, using basic tags\n")
 		return a.generateBasicTags(input), nil
 	}
 
 	// Check if we have enough information to skip AI
 	hasUserInput := input.UserKeywords != "" || len(input.UserTags) > 0 || input.UserDescription != ""
 	if hasUserInput && len(input.UserTags) >= 3 {
+		fmt.Printf("Has enough user tags (%d), skipping AI\n", len(input.UserTags))
 		return input.UserTags, nil
 	}
 
 	// Initialize OpenAI model if not already done
 	if a.model == nil {
+		fmt.Printf("Initializing OpenAI model...\n")
 		if err := a.initializeModel(aiConfig); err != nil {
-			// Fall back to basic generation on initialization error
+			fmt.Printf("Failed to initialize model: %v, using basic tags\n", err)
 			return a.generateBasicTags(input), nil
 		}
+		fmt.Printf("Model initialized successfully\n")
 	}
 
 	// Build prompt
@@ -78,6 +87,8 @@ func (a *TagAgent) Generate(
 		input.UserDescription,
 	)
 
+	fmt.Printf("Built prompt: %s\n", prompt)
+
 	// Call OpenAI API
 	tags, err := a.callOpenAIForTags(ctx, prompt)
 	if err != nil {
@@ -86,11 +97,26 @@ func (a *TagAgent) Generate(
 		return a.generateBasicTags(input), nil
 	}
 
+	fmt.Printf("AI generated tags: %v\n", tags)
 	return tags, nil
 }
 
 // initializeModel initializes the OpenAI chat model
 func (a *TagAgent) initializeModel(aiConfig *models.AIConfig) error {
+	fmt.Printf("Initializing OpenAI model with config: APIKey=%s, BaseURL=%s, Model=%s\n",
+		aiConfig.APIKey, aiConfig.BaseURL, aiConfig.Model)
+
+	// Validate required fields
+	if aiConfig.APIKey == "" {
+		return fmt.Errorf("API key is empty")
+	}
+	if aiConfig.Model == "" {
+		return fmt.Errorf("model is empty")
+	}
+	if aiConfig.BaseURL == "" {
+		return fmt.Errorf("base URL is empty")
+	}
+
 	// Create OpenAI chat model config
 	openaiConfig := &openai.ChatModelConfig{
 		APIKey:  aiConfig.APIKey,
@@ -101,23 +127,28 @@ func (a *TagAgent) initializeModel(aiConfig *models.AIConfig) error {
 	// Set timeout and max tokens if configured
 	if aiConfig.Timeout > 0 {
 		openaiConfig.Timeout = time.Duration(aiConfig.Timeout) * time.Second
+		fmt.Printf("Set timeout: %v\n", openaiConfig.Timeout)
 	}
 	if aiConfig.MaxTokens > 0 {
 		maxTokens := aiConfig.MaxTokens
 		openaiConfig.MaxTokens = &maxTokens
+		fmt.Printf("Set max tokens: %d\n", maxTokens)
 	}
 
 	// Set temperature for consistent tag generation
 	temperature := float32(0.7)
 	openaiConfig.Temperature = &temperature
+	fmt.Printf("Set temperature: %v\n", temperature)
 
 	// Create OpenAI model
+	fmt.Printf("Creating OpenAI chat model...\n")
 	model, err := openai.NewChatModel(context.Background(), openaiConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create OpenAI model: %w", err)
 	}
 
 	a.model = model
+	fmt.Printf("OpenAI model created successfully\n")
 	return nil
 }
 
@@ -172,8 +203,7 @@ func (a *TagAgent) parseTagResponse(response string) []string {
 
 	for _, delimiter := range delimiters {
 		if strings.Contains(response, delimiter) {
-			parts := strings.Split(response, delimiter)
-			for _, part := range parts {
+			for _, part := range strings.Split(response, delimiter) {
 				tag := strings.TrimSpace(part)
 				// Remove quotes from individual tags
 				tag = strings.Trim(tag, `"'"` + `""'`)
@@ -252,7 +282,7 @@ func (a *TagAgent) generateBasicTags(input *TagGenerationInput) []string {
 
 // decideNeedSearch decides if web search is needed
 func (a *TagAgent) decideNeedSearch(
-	ctx context.Context,
+	_ context.Context,
 	input *TagGenerationInput,
 	aiConfig *models.AIConfig,
 ) (bool, error) {
