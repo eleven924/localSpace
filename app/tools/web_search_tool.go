@@ -4,83 +4,140 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
+
+	"LocalSpace/app/models"
 )
 
-// SearchResult represents a web search result
-type SearchResult struct {
-	Query   string
-	Results []SearchItem
+// Tool is the minimal tool contract shared with the metadata runtime.
+type Tool interface {
+	Name() string
+	Description() string
+	Execute(ctx context.Context, input string) (string, error)
 }
 
-// SearchItem represents a single search result item
+// SearchItem represents one bounded search result.
 type SearchItem struct {
 	Title   string
 	URL     string
 	Snippet string
 }
 
-// WebSearchTool provides web search capability
-type WebSearchTool struct {
-	timeout time.Duration
-	// searchClient would be injected here for actual implementation
-	// For now, we'll create a placeholder
+// SearchResult represents a bounded tool search response.
+type SearchResult struct {
+	Query   string
+	Results []SearchItem
 }
 
-// NewWebSearchTool creates a new web search tool
-func NewWebSearchTool(timeout time.Duration) *WebSearchTool {
+// WebSearchTool executes bounded searches through a configured client.
+type WebSearchTool struct {
+	client     WebSearchClient
+	timeout    time.Duration
+	maxResults int
+}
+
+// NewWebSearchTool creates a new web search tool with sane defaults.
+func NewWebSearchTool(client WebSearchClient, timeout time.Duration, maxResults int) *WebSearchTool {
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	if maxResults <= 0 {
+		maxResults = 3
+	}
+	if maxResults > 5 {
+		maxResults = 5
+	}
+
 	return &WebSearchTool{
-		timeout: timeout,
+		client:     client,
+		timeout:    timeout,
+		maxResults: maxResults,
 	}
 }
 
-// Name returns the tool name
+// NewConfiguredWebSearchTool builds a tool from persisted AI config.
+func NewConfiguredWebSearchTool(config *models.AIConfig) *WebSearchTool {
+	if config == nil {
+		return NewWebSearchTool(nil, 10*time.Second, 3)
+	}
+
+	timeout := time.Duration(config.WebSearchTimeout) * time.Second
+	if config.WebSearchTimeout <= 0 {
+		timeout = 10 * time.Second
+	}
+
+	client := NewHTTPWebSearchClient(
+		config.WebSearchBaseURL,
+		config.WebSearchAPIKey,
+		config.WebSearchProvider,
+		&http.Client{Timeout: timeout},
+	)
+
+	return NewWebSearchTool(client, timeout, config.WebSearchMaxResults)
+}
+
+// Name returns the runtime-visible tool name.
 func (t *WebSearchTool) Name() string {
 	return "web_search"
 }
 
-// Description returns a description of the tool
+// Description returns the user-facing tool purpose.
 func (t *WebSearchTool) Description() string {
-	return "Search the web for information about files, software, games, or other topics. Use this when you need more context about unfamiliar names or terms."
+	return "Search the web for short factual result snippets"
 }
 
-// Execute implements the Tool interface
+// Search validates, executes, and bounds one search request.
+func (t *WebSearchTool) Search(ctx context.Context, query string) (*SearchResult, error) {
+	trimmed := strings.TrimSpace(query)
+	if trimmed == "" {
+		return nil, errors.New("search query cannot be empty")
+	}
+	if len(trimmed) > 500 {
+		return nil, errors.New("search query too long")
+	}
+	if t.client == nil {
+		return nil, errors.New("web search client is not configured")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, t.timeout)
+	defer cancel()
+
+	items, err := t.client.Search(ctx, trimmed, t.maxResults)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(items) > t.maxResults {
+		items = items[:t.maxResults]
+	}
+	for i := range items {
+		if len(items[i].Snippet) > 240 {
+			items[i].Snippet = items[i].Snippet[:240] + "..."
+		}
+	}
+
+	return &SearchResult{Query: trimmed, Results: items}, nil
+}
+
+// Execute formats the bounded result for agent/runtime consumption.
 func (t *WebSearchTool) Execute(ctx context.Context, input string) (string, error) {
 	result, err := t.Search(ctx, input)
 	if err != nil {
 		return "", err
 	}
 
-	if len(result.Results) > 3 {
-		result.Results = result.Results[:3]
+	var builder strings.Builder
+	builder.WriteString("query: ")
+	builder.WriteString(result.Query)
+	builder.WriteString("\nresults:\n")
+	for i, item := range result.Results {
+		builder.WriteString(fmt.Sprintf("%d. Title: %s\n   URL: %s\n   Snippet: %s\n", i+1, item.Title, item.URL, item.Snippet))
+	}
+	if len(result.Results) == 0 {
+		builder.WriteString("0. No results found\n")
 	}
 
-	return fmt.Sprintf("query=%s results=%d", result.Query, len(result.Results)), nil
-}
-
-// Search performs a web search
-func (t *WebSearchTool) Search(ctx context.Context, query string) (*SearchResult, error) {
-	// Validate input
-	if query == "" {
-		return nil, errors.New("search query cannot be empty")
-	}
-
-	// Sanitize query (basic implementation)
-	if len(query) > 500 {
-		return nil, errors.New("search query too long")
-	}
-
-	// Set timeout
-	ctx, cancel := context.WithTimeout(ctx, t.timeout)
-	defer cancel()
-
-	// Placeholder for actual search implementation
-	// In real implementation, this would call a search API
-	// For now, return empty result to allow testing
-	result := &SearchResult{
-		Query:   query,
-		Results: []SearchItem{},
-	}
-
-	return result, nil
+	return strings.TrimSpace(builder.String()), nil
 }

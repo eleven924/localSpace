@@ -40,6 +40,15 @@ export interface AIConfig {
   model: string
   baseURL: string
   enabled: boolean
+  enableAgent?: boolean
+  enableWebSearch?: boolean
+  maxTokens?: number
+  timeout?: number
+  webSearchProvider?: string
+  webSearchBaseURL?: string
+  webSearchAPIKey?: string
+  webSearchTimeout?: number
+  webSearchMaxResults?: number
 }
 
 export interface ThemeConfig {

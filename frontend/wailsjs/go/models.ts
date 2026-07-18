@@ -24,11 +24,16 @@ export namespace models {
 	    enableWebSearch: boolean;
 	    maxTokens: number;
 	    timeout: number;
-	
+	    webSearchProvider: string;
+	    webSearchBaseURL: string;
+	    webSearchAPIKey: string;
+	    webSearchTimeout: number;
+	    webSearchMaxResults: number;
+
 	    static createFrom(source: any = {}) {
 	        return new AIConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -40,6 +45,11 @@ export namespace models {
 	        this.enableWebSearch = source["enableWebSearch"];
 	        this.maxTokens = source["maxTokens"];
 	        this.timeout = source["timeout"];
+	        this.webSearchProvider = source["webSearchProvider"];
+	        this.webSearchBaseURL = source["webSearchBaseURL"];
+	        this.webSearchAPIKey = source["webSearchAPIKey"];
+	        this.webSearchTimeout = source["webSearchTimeout"];
+	        this.webSearchMaxResults = source["webSearchMaxResults"];
 	    }
 	}
 	export class Metadata {

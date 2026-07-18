@@ -51,7 +51,11 @@ func (a *BaseAgent) CreateContext(parent context.Context) (context.Context, cont
 
 // GetTool retrieves a tool by name
 func (a *BaseAgent) GetTool(name string) (tools.Tool, error) {
-	return a.toolRegistry.Get(name)
+	tool, ok := a.toolRegistry.Get(name)
+	if !ok {
+		return nil, fmt.Errorf("tool not found: %s", name)
+	}
+	return tool, nil
 }
 
 // ListTools returns all available tool names

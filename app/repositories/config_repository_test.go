@@ -33,6 +33,36 @@ func cleanupConfigTestDB(db *sql.DB) {
 	}
 }
 
+func seedAIConfigColumns(t *testing.T, db *sql.DB) {
+	columns := []struct {
+		name  string
+		query string
+	}{
+		{name: "enable_agent", query: `ALTER TABLE ai_configs ADD COLUMN enable_agent BOOLEAN DEFAULT 0`},
+		{name: "enable_web_search", query: `ALTER TABLE ai_configs ADD COLUMN enable_web_search BOOLEAN DEFAULT 0`},
+		{name: "max_tokens", query: `ALTER TABLE ai_configs ADD COLUMN max_tokens INTEGER DEFAULT 500`},
+		{name: "timeout", query: `ALTER TABLE ai_configs ADD COLUMN timeout INTEGER DEFAULT 30`},
+		{name: "web_search_provider", query: `ALTER TABLE ai_configs ADD COLUMN web_search_provider TEXT DEFAULT ''`},
+		{name: "web_search_base_url", query: `ALTER TABLE ai_configs ADD COLUMN web_search_base_url TEXT DEFAULT ''`},
+		{name: "web_search_api_key", query: `ALTER TABLE ai_configs ADD COLUMN web_search_api_key TEXT DEFAULT ''`},
+		{name: "web_search_timeout", query: `ALTER TABLE ai_configs ADD COLUMN web_search_timeout INTEGER DEFAULT 10`},
+		{name: "web_search_max_results", query: `ALTER TABLE ai_configs ADD COLUMN web_search_max_results INTEGER DEFAULT 3`},
+	}
+
+	for _, column := range columns {
+		var exists bool
+		if err := db.QueryRow(`SELECT COUNT(*) > 0 FROM pragma_table_info('ai_configs') WHERE name = ?`, column.name).Scan(&exists); err != nil {
+			t.Fatalf("Failed to inspect AI config columns: %v", err)
+		}
+		if exists {
+			continue
+		}
+		if _, err := db.Exec(column.query); err != nil {
+			t.Fatalf("Failed to seed AI config columns: %v", err)
+		}
+	}
+}
+
 func TestConfigRepository_Get_Set(t *testing.T) {
 	db := setupConfigTestDB(t)
 	defer cleanupConfigTestDB(db)
@@ -164,6 +194,7 @@ func TestConfigRepository_AIConfig(t *testing.T) {
 	defer cleanupConfigTestDB(db)
 
 	repo := NewConfigRepository(NewSQLiteDBWrapper(db))
+	seedAIConfigColumns(t, db)
 
 	// Test get default AI config
 	config, err := repo.GetAIConfig()
@@ -181,10 +212,19 @@ func TestConfigRepository_AIConfig(t *testing.T) {
 
 	// Test set AI config
 	newConfig := &models.AIConfig{
-		APIKey:  "test-api-key",
-		Model:   "gpt-4",
-		BaseURL: "https://api.openai.com/v1",
-		Enabled: true,
+		APIKey:              "test-api-key",
+		Model:               "gpt-4",
+		BaseURL:             "https://api.openai.com/v1",
+		Enabled:             true,
+		EnableAgent:         true,
+		EnableWebSearch:     true,
+		MaxTokens:           1200,
+		Timeout:             45,
+		WebSearchProvider:   "mock-http",
+		WebSearchBaseURL:    "https://search.example.com",
+		WebSearchAPIKey:     "search-key",
+		WebSearchTimeout:    12,
+		WebSearchMaxResults: 4,
 	}
 
 	err = repo.SetAIConfig(newConfig)
@@ -206,6 +246,33 @@ func TestConfigRepository_AIConfig(t *testing.T) {
 	}
 	if !saved.Enabled {
 		t.Error("Expected AI config to be enabled")
+	}
+	if !saved.EnableAgent {
+		t.Error("Expected enableAgent to persist")
+	}
+	if !saved.EnableWebSearch {
+		t.Error("Expected enableWebSearch to persist")
+	}
+	if saved.MaxTokens != newConfig.MaxTokens {
+		t.Errorf("Expected max tokens %d, got %d", newConfig.MaxTokens, saved.MaxTokens)
+	}
+	if saved.Timeout != newConfig.Timeout {
+		t.Errorf("Expected timeout %d, got %d", newConfig.Timeout, saved.Timeout)
+	}
+	if saved.WebSearchProvider != newConfig.WebSearchProvider {
+		t.Errorf("Expected web search provider %q, got %q", newConfig.WebSearchProvider, saved.WebSearchProvider)
+	}
+	if saved.WebSearchBaseURL != newConfig.WebSearchBaseURL {
+		t.Errorf("Expected web search base URL %q, got %q", newConfig.WebSearchBaseURL, saved.WebSearchBaseURL)
+	}
+	if saved.WebSearchAPIKey != newConfig.WebSearchAPIKey {
+		t.Errorf("Expected web search API key %q, got %q", newConfig.WebSearchAPIKey, saved.WebSearchAPIKey)
+	}
+	if saved.WebSearchTimeout != newConfig.WebSearchTimeout {
+		t.Errorf("Expected web search timeout %d, got %d", newConfig.WebSearchTimeout, saved.WebSearchTimeout)
+	}
+	if saved.WebSearchMaxResults != newConfig.WebSearchMaxResults {
+		t.Errorf("Expected web search max results %d, got %d", newConfig.WebSearchMaxResults, saved.WebSearchMaxResults)
 	}
 }
 
@@ -328,5 +395,92 @@ func TestConfigRepository_StorageDirectories(t *testing.T) {
 
 	if len(dirs) != 0 {
 		t.Errorf("Expected 0 storage directories after removal, got %d", len(dirs))
+	}
+}
+
+
+
+func TestGetAIConfigSupportsOlderSchemaWithoutOptionalColumns(t *testing.T) {
+	db := setupConfigTestDB(t)
+	defer cleanupConfigTestDB(db)
+
+	if _, err := db.Exec(`
+		INSERT INTO ai_configs (id, api_key, model, base_url, enabled)
+		VALUES (1, 'legacy-key', 'gpt-4', 'https://api.openai.com/v1', 1)
+	`); err != nil {
+		t.Fatalf("Failed to insert legacy AI config row: %v", err)
+	}
+
+	repo := NewConfigRepository(NewSQLiteDBWrapper(db))
+	config, err := repo.GetAIConfig()
+	if err != nil {
+		t.Fatalf("GetAIConfig returned error for old schema: %v", err)
+	}
+
+	if config.APIKey != "legacy-key" {
+		t.Fatalf("expected legacy API key, got %q", config.APIKey)
+	}
+	if config.Model != "gpt-4" {
+		t.Fatalf("expected legacy model, got %q", config.Model)
+	}
+	if config.BaseURL != "https://api.openai.com/v1" {
+		t.Fatalf("expected legacy base URL, got %q", config.BaseURL)
+	}
+	if !config.Enabled {
+		t.Fatal("expected legacy enabled flag true")
+	}
+	if config.EnableAgent {
+		t.Fatal("expected default enableAgent false for old schema")
+	}
+	if config.EnableWebSearch {
+		t.Fatal("expected default enableWebSearch false for old schema")
+	}
+	if config.MaxTokens != 500 {
+		t.Fatalf("expected default max tokens 500 for old schema, got %d", config.MaxTokens)
+	}
+	if config.Timeout != 30 {
+		t.Fatalf("expected default timeout 30 for old schema, got %d", config.Timeout)
+	}
+	if config.WebSearchTimeout != 10 {
+		t.Fatalf("expected default web search timeout 10 for old schema, got %d", config.WebSearchTimeout)
+	}
+	if config.WebSearchMaxResults != 3 {
+		t.Fatalf("expected default web search max results 3 for old schema, got %d", config.WebSearchMaxResults)
+	}
+}
+
+
+func TestGetAIConfigReturnsWebSearchDefaultsWhenRowMissing(t *testing.T) {
+	db := setupConfigTestDB(t)
+	defer cleanupConfigTestDB(db)
+
+	repo := NewConfigRepository(NewSQLiteDBWrapper(db))
+	seedAIConfigColumns(t, db)
+
+	config, err := repo.GetAIConfig()
+	if err != nil {
+		t.Fatalf("GetAIConfig returned error: %v", err)
+	}
+
+	if config.EnableAgent {
+		t.Fatalf("expected default enableAgent false, got true")
+	}
+	if config.EnableWebSearch {
+		t.Fatalf("expected default enableWebSearch false, got true")
+	}
+	if config.MaxTokens != 500 {
+		t.Fatalf("expected default max tokens 500, got %d", config.MaxTokens)
+	}
+	if config.Timeout != 30 {
+		t.Fatalf("expected default timeout 30, got %d", config.Timeout)
+	}
+	if config.WebSearchTimeout != 10 {
+		t.Fatalf("expected default web search timeout 10, got %d", config.WebSearchTimeout)
+	}
+	if config.WebSearchMaxResults != 3 {
+		t.Fatalf("expected default web search max results 3, got %d", config.WebSearchMaxResults)
+	}
+	if config.WebSearchProvider != "" {
+		t.Fatalf("expected default provider empty, got %q", config.WebSearchProvider)
 	}
 }

@@ -6,13 +6,15 @@
 
 ## 1. Background
 
-The project already has the architectural seams for agent-facing tool usage:
+The project now has the core architectural seams for agent-facing tool usage:
 
 - `AgentService` registers `web_search` through `ToolRegistry`.
-- `AgentService` conditionally exposes `web_search` when AI, agent mode, and web search are enabled and the import request lacks enough user-provided context.
-- `EinoMetadataAgent` already separates `ToolsAvailable` from `ToolsUsed` in trace output.
-- `WebSearchTool` exists, but it is still a placeholder that always returns an empty result set.
-- `DefaultAgentRuntime` still performs a single direct model call and does not execute a tool-calling loop.
+- `AgentService` conditionally exposes `web_search` when AI, agent mode, and web search are enabled for eligible metadata inputs.
+- `EinoMetadataAgent` separates `ToolsAvailable` from `ToolsUsed` in trace output.
+- `WebSearchTool` is implemented as a bounded HTTP-backed search tool.
+- `DefaultAgentRuntime` performs a bounded tool-calling loop for metadata generation.
+
+Implementation note: The first shipped runtime loop uses a small JSON tool-call envelope (`{"tool":"...","input":"..."}`) for deterministic testing before migrating to richer provider-native tool schemas.
 
 As a result, the codebase currently models web search as “available in principle” rather than “usable in practice.” The agent can be told a tool exists, but it cannot actually invoke it and receive real search results.
 

@@ -17,11 +17,16 @@ type AIConfig struct {
 	BaseURL string `json:"baseURL"`
 	Enabled bool   `json:"enabled"`
 
-	// Agent settings
-	EnableAgent     bool `json:"enableAgent"`     // 启用Agent功能
-	EnableWebSearch bool `json:"enableWebSearch"` // 启用网络搜索
-	MaxTokens       int  `json:"maxTokens"`       // 最大token数
-	Timeout         int  `json:"timeout"`         // 超时时间（秒）
+	EnableAgent     bool `json:"enableAgent"`
+	EnableWebSearch bool `json:"enableWebSearch"`
+	MaxTokens       int  `json:"maxTokens"`
+	Timeout         int  `json:"timeout"`
+
+	WebSearchProvider   string `json:"webSearchProvider"`
+	WebSearchBaseURL    string `json:"webSearchBaseURL"`
+	WebSearchAPIKey     string `json:"webSearchAPIKey"`
+	WebSearchTimeout    int    `json:"webSearchTimeout"`
+	WebSearchMaxResults int    `json:"webSearchMaxResults"`
 }
 
 // ThemeConfig represents theme configuration
@@ -41,13 +46,13 @@ type StorageDir struct {
 	CurrentSize int64  `json:"currentSize"`
 	MaxSize     int64  `json:"maxSize"`
 	IsActive    bool   `json:"isActive"`
-	IsDefault   bool   `json:"isDefault"`      // 新增：是否为默认主目录
-	ParentID    *uint  `json:"parentId"`       // 新增：父目录ID
+	IsDefault   bool   `json:"isDefault"` // 新增：是否为默认主目录
+	ParentID    *uint  `json:"parentId"`  // 新增：父目录ID
 	CreatedAt   string `json:"createdAt"`
 
 	// 计算字段（不存储在数据库）
-	TotalSize   int64        `json:"totalSize,omitempty"`   // 主目录总大小
-	SubDirs     []StorageDir `json:"subDirs,omitempty"` // 子目录列表
+	TotalSize int64        `json:"totalSize,omitempty"` // 主目录总大小
+	SubDirs   []StorageDir `json:"subDirs,omitempty"`   // 子目录列表
 }
 
 // Tag represents a file tag

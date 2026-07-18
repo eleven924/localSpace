@@ -20,18 +20,18 @@ func TestToolRegistry(t *testing.T) {
 		t.Fatalf("Failed to register tool: %v", err)
 	}
 
-	tool, err := registry.Get("test-tool")
-	if err != nil {
-		t.Fatalf("Failed to get tool: %v", err)
+	tool, ok := registry.Get("test-tool")
+	if !ok {
+		t.Fatal("Failed to get tool")
 	}
 
 	if tool.Name() != "test-tool" {
 		t.Errorf("Expected tool name to be 'test-tool', got '%s'", tool.Name())
 	}
 
-	_, err = registry.Get("non-existent")
-	if err == nil {
-		t.Error("Expected error when getting non-existent tool")
+	_, ok = registry.Get("non-existent")
+	if ok {
+		t.Error("Expected missing tool lookup to return ok=false")
 	}
 }
 

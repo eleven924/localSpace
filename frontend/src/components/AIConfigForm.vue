@@ -27,35 +27,6 @@
       </div>
 
       <div v-if="config.enabled" class="config-fields">
-        <div class="toggle-section">
-          <div class="toggle-info">
-            <h5>启用智能 Agent</h5>
-            <p>使用智能Agent进行更精准的标签和描述生成</p>
-          </div>
-          <label class="toggle-switch">
-            <input
-              v-model="config.enableAgent"
-              type="checkbox"
-              @change="handleConfigChange"
-            />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
-        <div v-if="config.enableAgent" class="toggle-section">
-          <div class="toggle-info">
-            <h5>启用网络搜索</h5>
-            <p>允许Agent通过网络搜索获取更多上下文信息</p>
-          </div>
-          <label class="toggle-switch">
-            <input
-              v-model="config.enableWebSearch"
-              type="checkbox"
-              @change="handleConfigChange"
-            />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
         <div class="form-group">
           <label for="api-key">
             <span class="label-text">API Key</span>
@@ -138,6 +109,109 @@
           <p class="form-hint">限制生成的最大 Token 数量</p>
         </div>
 
+        <div class="form-group">
+          <label class="toggle-label" for="enable-agent">
+            <span class="label-text">启用 Agent 模式</span>
+          </label>
+          <input
+            id="enable-agent"
+            v-model="config.enableAgent"
+            type="checkbox"
+            @change="handleConfigChange"
+          />
+          <p class="form-hint">启用后允许使用 Agent 能力</p>
+        </div>
+
+        <div v-if="config.enableAgent" class="form-group">
+          <label class="toggle-label" for="enable-web-search">
+            <span class="label-text">启用网络搜索</span>
+          </label>
+          <input
+            id="enable-web-search"
+            v-model="config.enableWebSearch"
+            type="checkbox"
+            @change="handleConfigChange"
+          />
+          <p class="form-hint">仅为 Agent 的 web_search tool 配置搜索服务</p>
+        </div>
+
+        <div v-if="config.enableAgent && config.enableWebSearch" class="search-config-fields">
+          <div class="form-group">
+            <label for="web-search-provider">
+              <span class="label-text">搜索 Provider</span>
+            </label>
+            <input
+              id="web-search-provider"
+              v-model="config.webSearchProvider"
+              type="text"
+              placeholder="例如: mock-http"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">标识当前网络搜索服务类型</p>
+          </div>
+
+          <div class="form-group">
+            <label for="web-search-base-url">
+              <span class="label-text">搜索 Base URL</span>
+              <span class="label-required">*</span>
+            </label>
+            <input
+              id="web-search-base-url"
+              v-model="config.webSearchBaseURL"
+              type="text"
+              placeholder="https://search.example.com"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">网络搜索服务端点地址</p>
+          </div>
+
+          <div class="form-group">
+            <label for="web-search-api-key">
+              <span class="label-text">搜索 API Key</span>
+              <span class="label-required">*</span>
+            </label>
+            <input
+              id="web-search-api-key"
+              v-model="config.webSearchAPIKey"
+              type="password"
+              placeholder="输入网络搜索服务 API Key"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">仅用于 web_search tool，不复用模型 API Key</p>
+          </div>
+
+          <div class="form-group">
+            <label for="web-search-timeout">
+              <span class="label-text">搜索超时时间</span>
+              <span class="label-hint">秒</span>
+            </label>
+            <input
+              id="web-search-timeout"
+              v-model.number="config.webSearchTimeout"
+              type="number"
+              min="1"
+              max="60"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">单次搜索请求超时时间，默认 10 秒</p>
+          </div>
+
+          <div class="form-group">
+            <label for="web-search-max-results">
+              <span class="label-text">搜索结果数量上限</span>
+            </label>
+            <input
+              id="web-search-max-results"
+              v-model.number="config.webSearchMaxResults"
+              type="number"
+              min="1"
+              max="5"
+              @input="handleConfigChange"
+            />
+            <p class="form-hint">限制返回给 Agent 的结果数量，建议 3</p>
+          </div>
+        </div>
+
         <div class="test-section">
           <button
             class="btn test-button"
@@ -196,6 +270,11 @@ interface AIConfig {
   maxTokens?: number
   enableAgent?: boolean
   enableWebSearch?: boolean
+  webSearchProvider?: string
+  webSearchBaseURL?: string
+  webSearchAPIKey?: string
+  webSearchTimeout?: number
+  webSearchMaxResults?: number
 }
 
 const emit = defineEmits<{
@@ -209,9 +288,14 @@ const config = ref<AIConfig>({
   model: 'gpt-3.5-turbo',
   baseURL: 'https://api.openai.com/v1',
   timeout: 30,
-  maxTokens: 1000,
-  enableAgent: true,
+  maxTokens: 500,
+  enableAgent: false,
   enableWebSearch: false,
+  webSearchProvider: '',
+  webSearchBaseURL: '',
+  webSearchAPIKey: '',
+  webSearchTimeout: 10,
+  webSearchMaxResults: 3,
 })
 
 const originalConfig = ref<AIConfig>({ ...config.value })
@@ -223,9 +307,21 @@ const testResult = ref<{ success: boolean; message: string } | null>(null)
 
 const isFormValid = computed(() => {
   if (!config.value.enabled) return true
-  return config.value.apiKey.trim().length > 0 &&
-         config.value.model.trim().length > 0 &&
-         config.value.baseURL.trim().length > 0
+
+  const hasModelConfig = config.value.apiKey.trim().length > 0 &&
+    config.value.model.trim().length > 0 &&
+    config.value.baseURL.trim().length > 0
+
+  if (!hasModelConfig) {
+    return false
+  }
+
+  if (config.value.enableAgent && config.value.enableWebSearch) {
+    return config.value.webSearchBaseURL?.trim().length > 0 &&
+      config.value.webSearchAPIKey?.trim().length > 0
+  }
+
+  return true
 })
 
 const hasChanges = computed(() => {
@@ -255,9 +351,14 @@ const loadConfig = async () => {
         model: loadedConfig.model || 'gpt-3.5-turbo',
         baseURL: loadedConfig.baseURL || 'https://api.openai.com/v1',
         timeout: loadedConfig.timeout || 30,
-        maxTokens: loadedConfig.maxTokens || 1000,
-        enableAgent: loadedConfig.enableAgent !== undefined ? loadedConfig.enableAgent : true,
+        maxTokens: loadedConfig.maxTokens || 500,
+        enableAgent: loadedConfig.enableAgent || false,
         enableWebSearch: loadedConfig.enableWebSearch || false,
+        webSearchProvider: loadedConfig.webSearchProvider || '',
+        webSearchBaseURL: loadedConfig.webSearchBaseURL || '',
+        webSearchAPIKey: loadedConfig.webSearchAPIKey || '',
+        webSearchTimeout: loadedConfig.webSearchTimeout || 10,
+        webSearchMaxResults: loadedConfig.webSearchMaxResults || 3,
       }
       originalConfig.value = { ...config.value }
     }
@@ -561,6 +662,12 @@ const handleResetConfig = () => {
   color: var(--text-color);
   opacity: 0.6;
   margin: 0;
+}
+
+.search-config-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .test-section {

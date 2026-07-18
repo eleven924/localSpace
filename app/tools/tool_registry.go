@@ -1,76 +1,56 @@
 package tools
 
-import (
-	"context"
-	"errors"
-	"sync"
-)
+import "fmt"
 
-// Tool represents a tool that can be called by agents
-type Tool interface {
-	// Name returns the tool name
-	Name() string
-
-	// Description returns a description of what the tool does
-	Description() string
-
-	// Execute executes the tool with the given input
-	Execute(ctx context.Context, input string) (string, error)
-}
-
-// ToolRegistry manages available tools
+// ToolRegistry stores runtime tools by stable name.
 type ToolRegistry struct {
 	tools map[string]Tool
-	mu    sync.RWMutex
 }
 
-// NewToolRegistry creates a new tool registry
+// NewToolRegistry creates an empty registry.
 func NewToolRegistry() *ToolRegistry {
-	return &ToolRegistry{
-		tools: make(map[string]Tool),
-	}
+	return &ToolRegistry{tools: make(map[string]Tool)}
 }
 
-// Register registers a tool with the given name
+// Register stores or replaces a tool by name.
 func (r *ToolRegistry) Register(name string, tool Tool) error {
-	if name == "" {
-		return errors.New("tool name cannot be empty")
+	if r == nil {
+		return fmt.Errorf("tool registry is nil")
 	}
-
 	if tool == nil {
-		return errors.New("tool cannot be nil")
+		return fmt.Errorf("tool is nil")
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	if name == "" {
+		name = tool.Name()
+	}
+	if name == "" {
+		return fmt.Errorf("tool name is empty")
+	}
+	if r.tools == nil {
+		r.tools = make(map[string]Tool)
+	}
 
 	r.tools[name] = tool
 	return nil
 }
 
-// Get retrieves a tool by name
-func (r *ToolRegistry) Get(name string) (Tool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	tool, exists := r.tools[name]
-	if !exists {
-		return nil, errors.New("tool not found: " + name)
+// Get returns one tool by name.
+func (r *ToolRegistry) Get(name string) (Tool, bool) {
+	if r == nil || r.tools == nil {
+		return nil, false
 	}
-
-	return tool, nil
+	tool, ok := r.tools[name]
+	return tool, ok
 }
 
-// List returns all registered tool names
+// List returns all registered tool names.
 func (r *ToolRegistry) List() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
+	if r == nil || r.tools == nil {
+		return nil
+	}
 	names := make([]string, 0, len(r.tools))
 	for name := range r.tools {
 		names = append(names, name)
 	}
-
 	return names
 }
-

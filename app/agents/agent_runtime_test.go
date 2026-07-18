@@ -6,97 +6,96 @@ import (
 
 	"LocalSpace/app/models"
 	"LocalSpace/app/tools"
+
+	"github.com/cloudwego/eino/schema"
 )
 
-type fakeRuntime struct {
-	response *AgentRunResponse
-	err      error
+type runtimeTestTool struct {
+	name   string
+	calls  []string
+	result string
 }
 
-func (f *fakeRuntime) Run(ctx context.Context, req *AgentRunRequest) (*AgentRunResponse, error) {
-	return f.response, f.err
+func (t *runtimeTestTool) Name() string        { return t.name }
+func (t *runtimeTestTool) Description() string { return "test tool" }
+func (t *runtimeTestTool) Execute(ctx context.Context, input string) (string, error) {
+	t.calls = append(t.calls, input)
+	return t.result, nil
 }
 
-type fakeTool struct{ name string }
-
-func (f *fakeTool) Name() string                                              { return f.name }
-func (f *fakeTool) Description() string                                       { return "fake" }
-func (f *fakeTool) Execute(ctx context.Context, input string) (string, error) { return "ok", nil }
-
-func TestEinoMetadataAgentAnalyze_ParsesStructuredOutput(t *testing.T) {
-	agent := NewEinoMetadataAgent(&fakeRuntime{
-		response: &AgentRunResponse{
-			Output:        `{"tags":["video","action"],"description":"动作影片"}`,
-			ToolsUsed:     []string{"web_search"},
-			SearchQueries: []string{"movie mp4"},
-		},
-	})
-
-	result, err := agent.Analyze(context.Background(), &MetadataGenerationInput{FileName: "movie.mp4", FileType: "video"}, &models.AIConfig{Enabled: true, EnableAgent: true}, []tools.Tool{&fakeTool{name: "web_search"}})
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
-
-	if len(result.Analysis.Tags) != 2 {
-		t.Fatalf("expected 2 tags, got %d", len(result.Analysis.Tags))
-	}
-
-	if result.Trace.ToolsAvailable[0] != "web_search" {
-		t.Fatalf("expected tool availability to be recorded, got %v", result.Trace.ToolsAvailable)
-	}
-	if result.Trace.ToolsUsed[0] != "web_search" {
-		t.Fatalf("expected runtime-reported tool usage to be recorded, got %v", result.Trace.ToolsUsed)
-	}
-}
-
-func TestEinoMetadataAgentAnalyze_DoesNotTreatAvailableToolAsUsed(t *testing.T) {
-	agent := NewEinoMetadataAgent(&fakeRuntime{
-		response: &AgentRunResponse{
-			Output: `{"tags":["video"],"description":"影片"}`,
-		},
-	})
-
-	result, err := agent.Analyze(context.Background(), &MetadataGenerationInput{FileName: "movie.mp4", FileType: "video"}, &models.AIConfig{Enabled: true, EnableAgent: true}, []tools.Tool{&fakeTool{name: "web_search"}})
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
-
-	if len(result.Trace.ToolsAvailable) != 1 || result.Trace.ToolsAvailable[0] != "web_search" {
-		t.Fatalf("expected web_search to be available, got %v", result.Trace.ToolsAvailable)
-	}
-	if len(result.Trace.ToolsUsed) != 0 {
-		t.Fatalf("expected no used tools when runtime did not execute tools, got %v", result.Trace.ToolsUsed)
-	}
-}
-
-func TestEinoMetadataAgentAnalyze_SkipsNilAvailableTools(t *testing.T) {
-	agent := NewEinoMetadataAgent(&fakeRuntime{response: &AgentRunResponse{Output: `{"tags":["video"],"description":"影片"}`}})
-
-	result, err := agent.Analyze(context.Background(), &MetadataGenerationInput{FileName: "movie.mp4", FileType: "video"}, &models.AIConfig{Enabled: true, EnableAgent: true}, []tools.Tool{nil, &fakeTool{name: "web_search"}})
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
-
-	if len(result.Trace.ToolsAvailable) != 1 || result.Trace.ToolsAvailable[0] != "web_search" {
-		t.Fatalf("expected nil tools to be skipped, got %v", result.Trace.ToolsAvailable)
-	}
-}
-
-func TestEinoMetadataAgentAnalyze_InvalidOutput(t *testing.T) {
-	agent := NewEinoMetadataAgent(&fakeRuntime{response: &AgentRunResponse{Output: "not-json"}})
-
-	if _, err := agent.Analyze(context.Background(), &MetadataGenerationInput{FileName: "movie.mp4", FileType: "video"}, &models.AIConfig{Enabled: true, EnableAgent: true}, nil); err == nil {
-		t.Fatal("expected invalid output to return error")
-	}
-}
-
-func TestDefaultAgentRuntimeRun_RequiresConfig(t *testing.T) {
+func TestExecuteToolCallRecordsUsageAndSearchQuery(t *testing.T) {
+	tool := &runtimeTestTool{name: "web_search", result: "query: movie\nresults:\n1. Title: Movie"}
 	runtime := NewDefaultAgentRuntime()
-	if runtime == nil {
-		t.Fatal("expected runtime to be constructed")
+
+	output, toolsUsed, searchQueries, err := runtime.executeToolCall(context.Background(), map[string]tools.Tool{
+		"web_search": tool,
+	}, "web_search", "movie", nil, nil)
+	if err != nil {
+		t.Fatalf("executeToolCall returned error: %v", err)
+	}
+	if output != "query: movie\nresults:\n1. Title: Movie" {
+		t.Fatalf("unexpected tool output %q", output)
+	}
+	if len(toolsUsed) != 1 || toolsUsed[0] != "web_search" {
+		t.Fatalf("expected web_search recorded in ToolsUsed, got %v", toolsUsed)
+	}
+	if len(searchQueries) != 1 || searchQueries[0] != "movie" {
+		t.Fatalf("expected movie recorded in SearchQueries, got %v", searchQueries)
+	}
+}
+
+func TestDefaultAgentRuntimeRun_WithoutToolsReturnsDirectOutput(t *testing.T) {
+	runtime := &DefaultAgentRuntime{
+		generate: func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest) (*schema.Message, error) {
+			return schema.AssistantMessage(`{"tags":["video"],"description":"影片"}`, nil), nil
+		},
 	}
 
-	if _, err := runtime.Run(context.Background(), &AgentRunRequest{SystemPrompt: "sys", UserPrompt: "user", AIConfig: &models.AIConfig{}}); err == nil {
-		t.Fatal("expected invalid config to return error")
+	resp, err := runtime.Run(context.Background(), &AgentRunRequest{
+		SystemPrompt: "sys",
+		UserPrompt:   "user",
+		AIConfig:     &models.AIConfig{APIKey: "key", Model: "model", BaseURL: "https://api.example.com/v1"},
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if resp.Output != `{"tags":["video"],"description":"影片"}` {
+		t.Fatalf("unexpected output %q", resp.Output)
+	}
+	if len(resp.ToolsUsed) != 0 {
+		t.Fatalf("expected no tools used, got %v", resp.ToolsUsed)
+	}
+}
+
+func TestDefaultAgentRuntimeRun_ExecutesToolLoop(t *testing.T) {
+	tool := &runtimeTestTool{name: "web_search", result: "query: movie\nresults:\n1. Title: Movie"}
+	calls := 0
+	runtime := &DefaultAgentRuntime{
+		generate: func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest) (*schema.Message, error) {
+			calls++
+			if calls == 1 {
+				return schema.AssistantMessage(`{"tool":"web_search","input":"movie"}`, nil), nil
+			}
+			return schema.AssistantMessage(`{"tags":["video","movie"],"description":"Movie metadata"}`, nil), nil
+		},
+	}
+
+	resp, err := runtime.Run(context.Background(), &AgentRunRequest{
+		SystemPrompt: "sys",
+		UserPrompt:   "user",
+		Tools:        []tools.Tool{tool},
+		AIConfig:     &models.AIConfig{APIKey: "key", Model: "model", BaseURL: "https://api.example.com/v1"},
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if resp.Output != `{"tags":["video","movie"],"description":"Movie metadata"}` {
+		t.Fatalf("unexpected output %q", resp.Output)
+	}
+	if len(resp.ToolsUsed) != 1 || resp.ToolsUsed[0] != "web_search" {
+		t.Fatalf("expected web_search in ToolsUsed, got %v", resp.ToolsUsed)
+	}
+	if len(resp.SearchQueries) != 1 || resp.SearchQueries[0] != "movie" {
+		t.Fatalf("expected movie in SearchQueries, got %v", resp.SearchQueries)
 	}
 }
