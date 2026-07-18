@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"LocalSpace/app/agents"
@@ -32,13 +33,11 @@ func NewAgentService(configRepo *repositories.ConfigRepository) *AgentService {
 	tagAgentConfig := &agents.AgentConfig{
 		Name:    "tag-agent",
 		Timeout: 30 * time.Second,
-		Tools:   []tools.Tool{webSearchTool},
 	}
 
 	descriptionAgentConfig := &agents.AgentConfig{
 		Name:    "description-agent",
 		Timeout: 30 * time.Second,
-		Tools:   []tools.Tool{webSearchTool},
 	}
 
 	// Create agents
@@ -138,6 +137,36 @@ func (s *AgentService) GenerateBatch(
 ) ([]*models.AIAnalysis, error) {
 	// Reserved for future implementation
 	return []*models.AIAnalysis{}, nil
+}
+
+func shouldExposeWebSearch(config *models.AIConfig, input *agents.MetadataGenerationInput) bool {
+	if config == nil || input == nil {
+		return false
+	}
+
+	if !config.Enabled || !config.EnableAgent || !config.EnableWebSearch {
+		return false
+	}
+
+	if strings.TrimSpace(input.FileName) == "" {
+		return false
+	}
+
+	hasRichUserContext := strings.TrimSpace(input.UserDescription) != "" || len(input.UserTags) >= 2 || strings.TrimSpace(input.UserKeywords) != ""
+	return !hasRichUserContext
+}
+
+func (s *AgentService) resolveMetadataTools(config *models.AIConfig, input *agents.MetadataGenerationInput) []tools.Tool {
+	if s == nil || s.toolRegistry == nil || !shouldExposeWebSearch(config, input) {
+		return []tools.Tool{}
+	}
+
+	tool, err := s.toolRegistry.Get("web_search")
+	if err != nil {
+		return []tools.Tool{}
+	}
+
+	return []tools.Tool{tool}
 }
 
 // FileContext represents a file for batch generation

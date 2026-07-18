@@ -51,7 +51,11 @@ func (t *WebSearchTool) Execute(ctx context.Context, input string) (string, erro
 		return "", err
 	}
 
-	return fmt.Sprintf("Found %d results for '%s'", len(result.Results), result.Query), nil
+	if len(result.Results) > 3 {
+		result.Results = result.Results[:3]
+	}
+
+	return fmt.Sprintf("query=%s results=%d", result.Query, len(result.Results)), nil
 }
 
 // Search performs a web search

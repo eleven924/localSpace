@@ -73,3 +73,4 @@ func (r *ToolRegistry) List() []string {
 
 	return names
 }
+
