@@ -78,6 +78,10 @@ export function GetMasterStoragePathForFile(arg1, arg2, arg3) {
   return window['go']['app']['App']['GetMasterStoragePathForFile'](arg1, arg2, arg3);
 }
 
+export function GetOpenWithConfig() {
+  return window['go']['app']['App']['GetOpenWithConfig']();
+}
+
 export function GetStorageDirectories() {
   return window['go']['app']['App']['GetStorageDirectories']();
 }
@@ -114,6 +118,14 @@ export function OpenFileLocation(arg1) {
   return window['go']['app']['App']['OpenFileLocation'](arg1);
 }
 
+export function OpenFileWithPreferredApp(arg1) {
+  return window['go']['app']['App']['OpenFileWithPreferredApp'](arg1);
+}
+
+export function OpenFileWithSystemDefault(arg1) {
+  return window['go']['app']['App']['OpenFileWithSystemDefault'](arg1);
+}
+
 export function ParseFileType(arg1) {
   return window['go']['app']['App']['ParseFileType'](arg1);
 }
@@ -138,6 +150,10 @@ export function SelectDirectory() {
   return window['go']['app']['App']['SelectDirectory']();
 }
 
+export function SelectExecutable() {
+  return window['go']['app']['App']['SelectExecutable']();
+}
+
 export function SelectFile() {
   return window['go']['app']['App']['SelectFile']();
 }
@@ -160,6 +176,10 @@ export function UpdateConfig(arg1, arg2) {
 
 export function UpdateFileMetadata(arg1, arg2, arg3) {
   return window['go']['app']['App']['UpdateFileMetadata'](arg1, arg2, arg3);
+}
+
+export function UpdateOpenWithConfig(arg1) {
+  return window['go']['app']['App']['UpdateOpenWithConfig'](arg1);
 }
 
 export function UpdateThemeConfig(arg1) {

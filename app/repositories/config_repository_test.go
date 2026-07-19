@@ -85,6 +85,48 @@ func TestConfigRepository_Get_Set(t *testing.T) {
 	}
 }
 
+func TestGetOpenWithConfigReturnsDefaultWhenMissing(t *testing.T) {
+	db := setupConfigTestDB(t)
+	defer cleanupConfigTestDB(db)
+
+	repo := NewConfigRepository(NewSQLiteDBWrapper(db))
+
+	config, err := repo.GetOpenWithConfig()
+	if err != nil {
+		t.Fatalf("GetOpenWithConfig returned error: %v", err)
+	}
+	if config.ByFileType == nil || config.ByExtension == nil {
+		t.Fatal("expected default config maps to be initialized")
+	}
+}
+
+func TestSetOpenWithConfigRoundTrips(t *testing.T) {
+	db := setupConfigTestDB(t)
+	defer cleanupConfigTestDB(db)
+
+	repo := NewConfigRepository(NewSQLiteDBWrapper(db))
+
+	expected := &models.OpenWithConfig{
+		ByFileType: map[string]string{"video": "C:\\Tools\\PotPlayer.exe"},
+		ByExtension: map[string]string{".mkv": "C:\\Tools\\PotPlayer.exe"},
+	}
+
+	if err := repo.SetOpenWithConfig(expected); err != nil {
+		t.Fatalf("SetOpenWithConfig returned error: %v", err)
+	}
+
+	actual, err := repo.GetOpenWithConfig()
+	if err != nil {
+		t.Fatalf("GetOpenWithConfig returned error: %v", err)
+	}
+	if actual.ByFileType["video"] != expected.ByFileType["video"] {
+		t.Fatalf("expected video mapping %q, got %q", expected.ByFileType["video"], actual.ByFileType["video"])
+	}
+	if actual.ByExtension[".mkv"] != expected.ByExtension[".mkv"] {
+		t.Fatalf("expected .mkv mapping %q, got %q", expected.ByExtension[".mkv"], actual.ByExtension[".mkv"])
+	}
+}
+
 func TestConfigRepository_GetAll(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(db)

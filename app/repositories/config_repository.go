@@ -53,6 +53,13 @@ func (r *ConfigRepository) Set(key, value string) error {
 	return nil
 }
 
+func defaultOpenWithConfig() *models.OpenWithConfig {
+	return &models.OpenWithConfig{
+		ByFileType:  map[string]string{},
+		ByExtension: map[string]string{},
+	}
+}
+
 // GetAll returns all configurations
 func (r *ConfigRepository) GetAll() (map[string]string, error) {
 	query := `SELECT key, value FROM configs`
@@ -73,6 +80,53 @@ func (r *ConfigRepository) GetAll() (map[string]string, error) {
 	}
 
 	return configs, nil
+}
+
+// GetOpenWithConfig returns the preferred app configuration.
+func (r *ConfigRepository) GetOpenWithConfig() (*models.OpenWithConfig, error) {
+	value, err := r.Get("open_with_config")
+	if err != nil {
+		if strings.Contains(err.Error(), "config key not found") {
+			return defaultOpenWithConfig(), nil
+		}
+		return nil, err
+	}
+
+	config := defaultOpenWithConfig()
+	if strings.TrimSpace(value) == "" {
+		return config, nil
+	}
+	if err := json.Unmarshal([]byte(value), config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal open-with config: %w", err)
+	}
+	if config.ByFileType == nil {
+		config.ByFileType = map[string]string{}
+	}
+	if config.ByExtension == nil {
+		config.ByExtension = map[string]string{}
+	}
+
+	return config, nil
+}
+
+// SetOpenWithConfig saves the preferred app configuration.
+func (r *ConfigRepository) SetOpenWithConfig(config *models.OpenWithConfig) error {
+	if config == nil {
+		config = defaultOpenWithConfig()
+	}
+	if config.ByFileType == nil {
+		config.ByFileType = map[string]string{}
+	}
+	if config.ByExtension == nil {
+		config.ByExtension = map[string]string{}
+	}
+
+	data, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal open-with config: %w", err)
+	}
+
+	return r.Set("open_with_config", string(data))
 }
 
 // GetFileTypes returns all file types

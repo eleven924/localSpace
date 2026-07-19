@@ -83,6 +83,16 @@ func (s *ConfigService) UpdateThemeConfig(config models.ThemeConfig) error {
 	return s.configRepo.SetThemeConfig(&config)
 }
 
+// GetOpenWithConfig returns the preferred open configuration.
+func (s *ConfigService) GetOpenWithConfig() (*models.OpenWithConfig, error) {
+	return s.configRepo.GetOpenWithConfig()
+}
+
+// UpdateOpenWithConfig updates the preferred open configuration.
+func (s *ConfigService) UpdateOpenWithConfig(config models.OpenWithConfig) error {
+	return s.configRepo.SetOpenWithConfig(&config)
+}
+
 // IsStorageInitialized checks if storage is initialized
 func (s *ConfigService) IsStorageInitialized() (bool, error) {
 	value, err := s.configRepo.Get("storage_initialized")

@@ -53,3 +53,21 @@ func TestAIConfigWebSearchDefaults(t *testing.T) {
 		t.Fatalf("expected zero-value max results before repository defaults, got %d", defaultConfig.WebSearchMaxResults)
 	}
 }
+
+func TestOpenWithConfigSupportsTypeAndExtensionMappings(t *testing.T) {
+	config := OpenWithConfig{
+		ByFileType: map[string]string{
+			"video": "C:\\Program Files\\DAUM\\PotPlayer\\PotPlayerMini64.exe",
+		},
+		ByExtension: map[string]string{
+			".mkv": "C:\\Program Files\\DAUM\\PotPlayer\\PotPlayerMini64.exe",
+		},
+	}
+
+	if config.ByFileType["video"] == "" {
+		t.Fatal("expected video mapping to be present")
+	}
+	if config.ByExtension[".mkv"] == "" {
+		t.Fatal("expected .mkv mapping to be present")
+	}
+}

@@ -1,5 +1,5 @@
 <template>
-  <div class="file-card" @click="handleClick">
+  <div class="file-card" :class="{ 'menu-open': showMenu }" @click="handleClick">
     <!-- Menu button -->
     <div class="menu-button" @click.stop="toggleMenu">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -16,6 +16,18 @@
           <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
         </svg>
         <span>文件详情</span>
+      </div>
+      <div class="menu-item" @click="handleOpenPreferred">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        <span>用默认软件打开</span>
+      </div>
+      <div class="menu-item" @click="handleOpenSystemDefault">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+        </svg>
+        <span>用系统默认打开</span>
       </div>
       <div class="menu-item" @click="handleOpenLocation">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -220,6 +232,26 @@ const handleOpenLocation = async () => {
   }
 }
 
+const handleOpenPreferred = async () => {
+  try {
+    await api.file.openPreferred(props.file.id)
+    showMenu.value = false
+  } catch (error: any) {
+    console.error('Failed to open file with preferred app:', error)
+    alert(error?.message || '指定打开软件不可用，请到设置中检查路径，或使用系统默认打开。')
+  }
+}
+
+const handleOpenSystemDefault = async () => {
+  try {
+    await api.file.openSystemDefault(props.file.id)
+    showMenu.value = false
+  } catch (error) {
+    console.error('Failed to open file with system default:', error)
+    alert('使用系统默认打开失败')
+  }
+}
+
 const handleDelete = async () => {
   if (!confirm(`确定要删除文件 "${props.file.fileName}" 吗?`)) {
     return
@@ -329,13 +361,19 @@ document.addEventListener('click', handleClickOutside)
   min-width: 0;
   min-height: 0;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  z-index: 0;
 }
 
 .file-card:hover {
   border-color: var(--primary-color);
   box-shadow: 0 4px 12px var(--shadow-color);
   transform: translateY(-2px);
+  z-index: 20;
+}
+
+.file-card.menu-open {
+  z-index: 40;
 }
 
 .menu-button {

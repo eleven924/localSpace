@@ -38,6 +38,12 @@ type ThemeConfig struct {
 	BackgroundImage string `json:"backgroundImage"`
 }
 
+// OpenWithConfig stores preferred app mappings for file opens.
+type OpenWithConfig struct {
+	ByFileType  map[string]string `json:"byFileType"`
+	ByExtension map[string]string `json:"byExtension"`
+}
+
 // StorageDir represents a storage directory
 type StorageDir struct {
 	ID          uint   `json:"id"`

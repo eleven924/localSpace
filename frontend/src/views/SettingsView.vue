@@ -38,6 +38,14 @@
           />
         </section>
 
+        <section class="settings-section open-section">
+          <div class="section-header">
+            <div class="section-icon">▶️</div>
+            <h2>打开方式</h2>
+          </div>
+          <OpenWithConfig />
+        </section>
+
         <section class="settings-section theme-section">
           <div class="section-header">
             <div class="section-icon">🎨</div>
@@ -108,6 +116,7 @@ import { useRouter } from 'vue-router'
 import StorageDirSelector from '@/components/StorageDirSelector.vue'
 import AIConfigForm from '@/components/AIConfigForm.vue'
 import ThemeConfig from '@/components/ThemeConfig.vue'
+import OpenWithConfig from '@/components/OpenWithConfig.vue'
 
 const router = useRouter()
 
@@ -220,6 +229,7 @@ const handleCheckUpdates = () => {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas:
     "storage ai"
+    "open ai"
     "theme ai"
     "about ai";
   align-items: start;
@@ -234,6 +244,10 @@ const handleCheckUpdates = () => {
 
 .ai-section {
   grid-area: ai;
+}
+
+.open-section {
+  grid-area: open;
 }
 
 .theme-section {
@@ -281,6 +295,7 @@ const handleCheckUpdates = () => {
 
 .settings-section :deep(.storage-dir-selector),
 .settings-section :deep(.ai-config-form),
+.settings-section :deep(.open-with-config),
 .settings-section :deep(.theme-config) {
   padding: 18px;
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"LocalSpace/app/models"
 	"LocalSpace/app/services"
 )
 
@@ -79,5 +80,17 @@ func TestWaitForInitializationTimesOutWhenServicesStayNil(t *testing.T) {
 
 	if waited := time.Since(start); waited < 100*time.Millisecond {
 		t.Fatalf("expected waitForInitialization to keep waiting before timing out, only waited %v", waited)
+	}
+}
+
+func TestResolvePreferredAppPrefersExtensionOverType(t *testing.T) {
+	config := &models.OpenWithConfig{
+		ByFileType: map[string]string{"video": "C:\\Tools\\VLC.exe"},
+		ByExtension: map[string]string{".mkv": "C:\\Tools\\PotPlayer.exe"},
+	}
+
+	appPath := resolvePreferredApp("episode01.mkv", "video", config)
+	if appPath != "C:\\Tools\\PotPlayer.exe" {
+		t.Fatalf("expected extension mapping to win, got %q", appPath)
 	}
 }

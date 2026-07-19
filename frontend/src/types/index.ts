@@ -59,6 +59,11 @@ export interface ThemeConfig {
   backgroundImage: string
 }
 
+export interface OpenWithConfig {
+  byFileType: Record<string, string>
+  byExtension: Record<string, string>
+}
+
 export interface StorageDir {
   id: number
   path: string

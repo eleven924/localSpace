@@ -159,6 +159,20 @@ export namespace models {
 	    }
 	}
 	
+	export class OpenWithConfig {
+	    byFileType: Record<string, string>;
+	    byExtension: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new OpenWithConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.byFileType = source["byFileType"];
+	        this.byExtension = source["byExtension"];
+	    }
+	}
 	export class StorageDir {
 	    id: number;
 	    path: string;

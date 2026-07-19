@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	std_runtime "runtime"
+	"strings"
 	"time"
 
 	"LocalSpace/app/agents"
@@ -258,8 +259,39 @@ func (a *App) UpdateFileMetadata(id uint, tags []string, description string) err
 	return a.fileService.UpdateFileMetadata(id, tags, description)
 }
 
-// OpenFile opens a file with the default system application
+// OpenFile opens a file with a preferred app when configured, otherwise system default.
 func (a *App) OpenFile(id uint) error {
+	return a.OpenFileWithPreferredApp(id)
+}
+
+// OpenFileWithPreferredApp opens a file with a configured preferred application when available.
+func (a *App) OpenFileWithPreferredApp(id uint) error {
+	file, err := a.fileService.GetFile(id)
+	if err != nil {
+		return err
+	}
+
+	openWithConfig, err := a.configService.GetOpenWithConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load preferred open config: %w", err)
+	}
+
+	appPath := resolvePreferredApp(file.FileName, file.FileType, openWithConfig)
+	if appPath == "" {
+		return a.openFileWithDefaultApp(file.FilePath)
+	}
+	if _, err := os.Stat(appPath); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("preferred app not found: %s", appPath)
+		}
+		return fmt.Errorf("failed to access preferred app: %w", err)
+	}
+
+	return exec.Command(appPath, file.FilePath).Start()
+}
+
+// OpenFileWithSystemDefault opens a file with the system default application.
+func (a *App) OpenFileWithSystemDefault(id uint) error {
 	file, err := a.fileService.GetFile(id)
 	if err != nil {
 		return err
@@ -352,6 +384,26 @@ func (a *App) openFileLocation(filePath string) error {
 	default:
 		return fmt.Errorf("unsupported platform: %s", std_runtime.GOOS)
 	}
+}
+
+func resolvePreferredApp(fileName, fileType string, config *models.OpenWithConfig) string {
+	if config == nil {
+		return ""
+	}
+
+	extension := strings.ToLower(filepath.Ext(fileName))
+	if extension != "" && config.ByExtension != nil {
+		if appPath := strings.TrimSpace(config.ByExtension[extension]); appPath != "" {
+			return appPath
+		}
+	}
+	if config.ByFileType != nil {
+		if appPath := strings.TrimSpace(config.ByFileType[fileType]); appPath != "" {
+			return appPath
+		}
+	}
+
+	return ""
 }
 
 // AI Methods
@@ -507,6 +559,16 @@ func (a *App) UpdateThemeConfig(config models.ThemeConfig) error {
 	return a.configService.UpdateThemeConfig(config)
 }
 
+// GetOpenWithConfig returns the preferred open configuration.
+func (a *App) GetOpenWithConfig() (*models.OpenWithConfig, error) {
+	return a.configService.GetOpenWithConfig()
+}
+
+// UpdateOpenWithConfig updates the preferred open configuration.
+func (a *App) UpdateOpenWithConfig(config models.OpenWithConfig) error {
+	return a.configService.UpdateOpenWithConfig(config)
+}
+
 // AI Config Methods
 
 // GetAIConfig returns the AI configuration
@@ -535,6 +597,29 @@ func (a *App) SelectFile() (string, error) {
 
 	if err != nil {
 		return "", fmt.Errorf("file selection failed: %w", err)
+	}
+
+	return dialog, nil
+}
+
+// SelectExecutable opens an executable selection dialog.
+func (a *App) SelectExecutable() (string, error) {
+	dialog, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择打开软件",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "可执行文件",
+				Pattern:     "*.exe",
+			},
+			{
+				DisplayName: "所有文件",
+				Pattern:     "*.*",
+			},
+		},
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("executable selection failed: %w", err)
 	}
 
 	return dialog, nil

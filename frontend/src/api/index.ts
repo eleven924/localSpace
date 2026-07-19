@@ -15,11 +15,14 @@ declare global {
 
           // File operations
           ImportFile: (filePath: string, fileName: string, description: string, tags: string[]) => Promise<string>
+          ImportFileWithKeywords: (filePath: string, fileName: string, description: string, tags: string[], keywords: string) => Promise<string>
           GetFiles: (page: number, pageSize: number, fileType: string) => Promise<any[]>
           SearchFiles: (query: string) => Promise<any[]>
           GetFile: (id: number) => Promise<any>
           DeleteFile: (id: number) => Promise<string>
           OpenFile: (id: number) => Promise<string>
+          OpenFileWithPreferredApp: (id: number) => Promise<string>
+          OpenFileWithSystemDefault: (id: number) => Promise<string>
           OpenFileLocation: (id: number) => Promise<string>
           RefreshFile: (id: number) => Promise<any>
           RenameFile: (id: number, newName: string) => Promise<string>
@@ -50,6 +53,8 @@ declare global {
           // Theme
           GetThemeConfig: () => Promise<any>
           UpdateThemeConfig: (config: any) => Promise<string>
+          GetOpenWithConfig: () => Promise<any>
+          UpdateOpenWithConfig: (config: any) => Promise<string>
 
           // AI Config
           GetAIConfig: () => Promise<any>
@@ -58,6 +63,7 @@ declare global {
           // File selection
           SelectFile: () => Promise<string>
           SelectDirectory: () => Promise<string>
+          SelectExecutable: () => Promise<string>
 
           // Metadata
           GetFileMetadata: (filePath: string, fileType: string) => Promise<any>
@@ -197,11 +203,47 @@ export const api = {
         `DeleteFile(${id})`
       ),
     open: (id: number) =>
-      safeWailsCall(
-        () => window.go!.app!.App.OpenFile(id),
-        'success',
-        `OpenFile(${id})`
-      ),
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.OpenFile(id)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+    openPreferred: (id: number) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.OpenFileWithPreferredApp(id)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+    openSystemDefault: (id: number) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.OpenFileWithSystemDefault(id)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
     openLocation: (id: number) =>
       safeWailsCall(
         () => window.go!.app!.App.OpenFileLocation(id),
@@ -349,6 +391,29 @@ export const api = {
       ),
   },
 
+  openWith: {
+    getConfig: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetOpenWithConfig(),
+        { byFileType: {}, byExtension: {} },
+        'GetOpenWithConfig'
+      ),
+    updateConfig: (config: any) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.UpdateOpenWithConfig(config)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+  },
+
   system: {
     selectFile: () =>
       safeWailsCall(
@@ -361,6 +426,12 @@ export const api = {
         () => window.go!.app!.App.SelectDirectory(),
         '',
         'SelectDirectory'
+      ),
+    selectExecutable: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.SelectExecutable(),
+        '',
+        'SelectExecutable'
       ),
     getMetadata: (filePath: string, fileType: string) =>
       safeWailsCall(

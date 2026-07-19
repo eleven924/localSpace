@@ -40,6 +40,8 @@ export function GetMasterDirectories():Promise<Array<models.StorageDir>>;
 
 export function GetMasterStoragePathForFile(arg1:number,arg2:string,arg3:string):Promise<string>;
 
+export function GetOpenWithConfig():Promise<models.OpenWithConfig>;
+
 export function GetStorageDirectories():Promise<Array<models.StorageDir>>;
 
 export function GetThemeConfig():Promise<models.ThemeConfig>;
@@ -58,6 +60,10 @@ export function OpenFile(arg1:number):Promise<void>;
 
 export function OpenFileLocation(arg1:number):Promise<void>;
 
+export function OpenFileWithPreferredApp(arg1:number):Promise<void>;
+
+export function OpenFileWithSystemDefault(arg1:number):Promise<void>;
+
 export function ParseFileType(arg1:string):Promise<models.FileType>;
 
 export function RefreshFile(arg1:number):Promise<models.File>;
@@ -70,6 +76,8 @@ export function SearchFiles(arg1:string):Promise<Array<models.File>>;
 
 export function SelectDirectory():Promise<string>;
 
+export function SelectExecutable():Promise<string>;
+
 export function SelectFile():Promise<string>;
 
 export function SetDefaultMasterDirectory(arg1:number):Promise<void>;
@@ -81,5 +89,7 @@ export function UpdateAIConfig(arg1:models.AIConfig):Promise<void>;
 export function UpdateConfig(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateFileMetadata(arg1:number,arg2:Array<string>,arg3:string):Promise<void>;
+
+export function UpdateOpenWithConfig(arg1:models.OpenWithConfig):Promise<void>;
 
 export function UpdateThemeConfig(arg1:models.ThemeConfig):Promise<void>;
