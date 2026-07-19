@@ -117,3 +117,6 @@ export const DEFAULT_SETTINGS = {
   AI_BASE_URL: 'https://api.openai.com/v1',
   PRIMARY_COLOR: '#2196F3',
 }
+
+export const UNSORTED_COLLECTION_KEY = '__unsorted__'
+export const UNSORTED_COLLECTION_LABEL = '未分合集'

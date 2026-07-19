@@ -103,3 +103,11 @@ export interface ApiResponse<T> {
   data?: T
   error?: string
 }
+
+export interface CollectionSummary {
+  value: string
+  label: string
+  count: number
+  fileTypes: Record<string, number>
+  latestModifiedAt: string
+}
