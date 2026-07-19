@@ -127,9 +127,9 @@ func (s *AIService) buildTagsPrompt(fileName, fileType string) string {
 		"video":     fmt.Sprintf("文件名：%s\n类型：视频\n请为这个视频文件生成 3-5 个相关标签，用逗号分隔。标签应该反映视频的内容、风格或类型。", fileName),
 		"document":  fmt.Sprintf("文件名：%s\n类型：文档\n请为这个文档文件生成 3-5 个相关标签，用逗号分隔。标签应该反映文档的主题或内容类别。", fileName),
 		"music":     fmt.Sprintf("文件名：%s\n类型：音乐\n请为这个音乐文件生成 3-5 个相关标签，用逗号分隔。标签应该反映音乐的风格、情绪或类型。", fileName),
-		"game":      fmt.Sprintf("文件名：%s\n类型：游戏\n请为这个游戏文件生成 3-5 个相关标签，用逗号分隔。标签应该反映游戏的类型或风格。", fileName),
+		"archive":   fmt.Sprintf("文件名：%s\n类型：压缩包\n请为这个压缩包文件生成 3-5 个相关标签，用逗号分隔。标签应该反映内容类别、来源或用途。", fileName),
 		"installer": fmt.Sprintf("文件名：%s\n类型：安装包\n请为这个安装包文件生成 3-5 个相关标签，用逗号分隔。标签应该反映软件的类型或用途。", fileName),
-		"image":     fmt.Sprintf("文件名：%s\n类型：镜像\n请为这个镜像文件生成 3-5 个相关标签，用逗号分隔。标签应该反映镜像的用途或类型。", fileName),
+		"image":     fmt.Sprintf("文件名：%s\n类型：图片\n请为这个图片文件生成 3-5 个相关标签，用逗号分隔。标签应该反映图片的内容、主题或风格。", fileName),
 	}
 
 	if prompt, ok := prompts[fileType]; ok {
@@ -145,9 +145,9 @@ func (s *AIService) buildDescriptionPrompt(fileName, fileType string) string {
 		"video":     fmt.Sprintf("文件名：%s\n类型：视频\n请根据文件名为这个视频生成一个简短的描述（1-2句话）。", fileName),
 		"document":  fmt.Sprintf("文件名：%s\n类型：文档\n请根据文件名为这个文档生成一个简短的描述（1-2句话）。", fileName),
 		"music":     fmt.Sprintf("文件名：%s\n类型：音乐\n请根据文件名为这个音乐生成一个简短的描述（1-2句话）。", fileName),
-		"game":      fmt.Sprintf("文件名：%s\n类型：游戏\n请根据文件名为这个游戏生成一个简短的描述（1-2句话）。", fileName),
+		"archive":   fmt.Sprintf("文件名：%s\n类型：压缩包\n请根据文件名为这个压缩包生成一个简短的描述（1-2句话）。", fileName),
 		"installer": fmt.Sprintf("文件名：%s\n类型：安装包\n请根据文件名为这个安装包生成一个简短的描述（1-2句话）。", fileName),
-		"image":     fmt.Sprintf("文件名：%s\n类型：镜像\n请根据文件名为这个镜像生成一个简短的描述（1-2句话）。", fileName),
+		"image":     fmt.Sprintf("文件名：%s\n类型：图片\n请根据文件名为这个图片生成一个简短的描述（1-2句话）。", fileName),
 	}
 
 	if prompt, ok := prompts[fileType]; ok {

@@ -29,9 +29,9 @@ const FILE_TYPE_EXTENSIONS: Record<string, string[]> = {
   video: ['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm', 'm4v'],
   document: ['pdf', 'doc', 'docx', 'txt', 'md', 'rtf', 'odt', 'xls', 'xlsx', 'ppt', 'pptx'],
   music: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'opus'],
-  game: ['iso', 'zip', 'rar', '7z', 'exe', 'msi', 'dmg', 'app'],
+  archive: ['zip', 'rar', '7z', 'tar', 'gz'],
+  installer: ['exe', 'app', 'msi', 'dmg', 'pkg', 'deb', 'rpm', 'apk', 'ipa', 'iso', 'img', 'vdi', 'vmdk'],
   image: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'],
-  installer: ['exe', 'msi', 'dmg', 'pkg', 'deb', 'rpm', 'apk'],
 }
 
 /**

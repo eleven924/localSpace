@@ -82,7 +82,7 @@ func buildMetadataSystemPrompt(hasWebSearch bool) string {
 	if hasWebSearch {
 		return strings.TrimSpace(`You analyze one file and return strict JSON with keys "tags" and "description".
 
-IMPORTANT: For video, document, music, game, installer, or image files, you MUST use the web_search tool first to gather accurate information before generating tags and description.
+IMPORTANT: For video, document, music, archive, installer, or image files, you MUST use the web_search tool first to gather accurate information before generating tags and description.
 
 WORKFLOW:
 1. Use the web_search tool with the filename or keywords as input

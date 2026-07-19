@@ -279,6 +279,8 @@ func (s *FileService) ListFiles(filter FileFilter) ([]*models.File, error) {
 	}
 
 	for _, file := range files {
+		file.FileType = resolveDisplayFileType(file.FilePath, file.FileType)
+
 		if !supportsGeneratedThumbnail(file.FileType) {
 			file.Thumbnail = ""
 			continue
@@ -306,6 +308,8 @@ func (s *FileService) SearchFiles(query string) ([]*models.File, error) {
 	}
 
 	for _, file := range files {
+		file.FileType = resolveDisplayFileType(file.FilePath, file.FileType)
+
 		if !supportsGeneratedThumbnail(file.FileType) {
 			file.Thumbnail = ""
 			continue
@@ -332,6 +336,8 @@ func (s *FileService) GetFile(id uint) (*models.File, error) {
 		return nil, err
 	}
 
+	file.FileType = resolveDisplayFileType(file.FilePath, file.FileType)
+
 	if !supportsGeneratedThumbnail(file.FileType) {
 		file.Thumbnail = ""
 		return file, nil
@@ -356,12 +362,13 @@ func (s *FileService) GetThumbnail(id uint) (string, error) {
 		return "", fmt.Errorf("failed to get file: %w", err)
 	}
 
-	if !supportsGeneratedThumbnail(file.FileType) {
+	resolvedType := resolveDisplayFileType(file.FilePath, file.FileType)
+	if !supportsGeneratedThumbnail(resolvedType) {
 		return "", fmt.Errorf("thumbnails are only supported for image and video files")
 	}
 
 	if file.Thumbnail == "" || !s.thumbnailIsCurrent(file) {
-		thumbnailPath, err := s.thumbnailService.GetThumbnail(file.FilePath, file.FileType, file.ID)
+		thumbnailPath, err := s.thumbnailService.GetThumbnail(file.FilePath, resolvedType, file.ID)
 		if err != nil {
 			return "", fmt.Errorf("failed to get thumbnail: %w", err)
 		}
@@ -391,12 +398,14 @@ func (s *FileService) DeleteFile(id uint) error {
 		return fmt.Errorf("failed to get file: %w", err)
 	}
 
+	resolvedType := resolveDisplayFileType(file.FilePath, file.FileType)
+
 	if err := os.Remove(file.FilePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
 
 	if file.Thumbnail != "" {
-		_ = s.thumbnailService.RemoveThumbnail(id, file.FileType)
+		_ = s.thumbnailService.RemoveThumbnail(id, resolvedType)
 	}
 
 	if err := s.storageService.UpdateStorageSize(file.FileType, -file.FileSize); err != nil {
@@ -465,7 +474,7 @@ func (s *FileService) DeleteFilesByPath(pathPrefix string) (int64, error) {
 	for _, file := range files {
 		if strings.HasPrefix(file.FilePath, pathPrefix) {
 			if file.Thumbnail != "" {
-				_ = s.thumbnailService.RemoveThumbnail(file.ID, file.FileType)
+				_ = s.thumbnailService.RemoveThumbnail(file.ID, resolveDisplayFileType(file.FilePath, file.FileType))
 			}
 			if err := s.storageService.UpdateStorageSize(file.FileType, -file.FileSize); err != nil {
 				fmt.Printf("Failed to update storage size: %v\n", err)
@@ -690,22 +699,25 @@ func parseFileType(extension string) (string, error) {
 		".m4a":  "music",
 		".wma":  "music",
 
-		".exe": "game",
-		".app": "game",
-		".iso": "game",
-		".zip": "game",
-		".rar": "game",
-		".7z":  "game",
+		".zip": "archive",
+		".rar": "archive",
+		".7z":  "archive",
+		".tar": "archive",
+		".gz":  "archive",
 
+		".exe": "installer",
+		".app": "installer",
 		".msi": "installer",
+		".ipa": "installer",
 		".pkg": "installer",
 		".deb": "installer",
 		".rpm": "installer",
 		".apk": "installer",
 		".dmg": "installer",
-
-		".img":  "image",
-		".vmdk": "image",
+		".iso": "installer",
+		".img": "installer",
+		".vdi": "installer",
+		".vmdk": "installer",
 
 		".jpg":  "image",
 		".jpeg": "image",
@@ -713,6 +725,8 @@ func parseFileType(extension string) (string, error) {
 		".gif":  "image",
 		".bmp":  "image",
 		".webp": "image",
+		".svg":  "image",
+		".ico":  "image",
 	}
 
 	if fileType, ok := typeMap[ext]; ok {
@@ -793,11 +807,13 @@ func (s *FileService) RefreshFile(id uint) (*models.File, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			if file.Checksum == "" {
+				file.FileType = resolveDisplayFileType(file.FilePath, file.FileType)
 				return file, nil
 			}
 
 			newPath, err := s.findRenamedFile(file.FilePath, file.Checksum)
 			if err != nil {
+				file.FileType = resolveDisplayFileType(file.FilePath, file.FileType)
 				return file, nil
 			}
 
@@ -820,6 +836,7 @@ func (s *FileService) RefreshFile(id uint) (*models.File, error) {
 				fmt.Printf("Warning: Failed to update file record: %v\n", err)
 			}
 
+			file.FileType = resolveDisplayFileType(file.FilePath, file.FileType)
 			return file, nil
 		}
 		return nil, fmt.Errorf("failed to stat file: %w", err)
@@ -888,7 +905,17 @@ func (s *FileService) RefreshFile(id uint) (*models.File, error) {
 		}
 	}
 
+	file.FileType = resolveDisplayFileType(file.FilePath, file.FileType)
 	return file, nil
+}
+
+func resolveDisplayFileType(filePath, storedType string) string {
+	resolvedType, err := parseFileType(filepath.Ext(filePath))
+	if err != nil || resolvedType == "other" {
+		return storedType
+	}
+
+	return resolvedType
 }
 
 func (s *FileService) findRenamedFile(oldPath, checksum string) (string, error) {

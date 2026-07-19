@@ -2,7 +2,7 @@
   <div class="file-selector">
     <div class="selector-header">
       <h3>选择要导入的文件</h3>
-      <p class="subtitle">支持视频、文档、音乐、游戏、镜像、安装包等格式</p>
+      <p class="subtitle">支持视频、文档、音乐、压缩包、安装包、图片等格式</p>
     </div>
 
     <button class="select-button" @click="handleSelectFile">

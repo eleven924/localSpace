@@ -171,9 +171,10 @@ func TestConfigRepository_ParseFileType(t *testing.T) {
 		{".mp4", "video"},
 		{".pdf", "document"},
 		{".mp3", "music"},
-		{".exe", "game"},
+		{".zip", "archive"},
+		{".exe", "installer"},
 		{".msi", "installer"},
-		{".vmdk", "image"}, // Using .vmdk instead of .iso as it's unique to image type
+		{".png", "image"},
 	}
 
 	for _, tc := range testCases {

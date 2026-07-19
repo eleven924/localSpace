@@ -113,7 +113,7 @@ func isMetadataSearchCandidate(input *agents.MetadataGenerationInput) bool {
 	}
 	fileType := strings.ToLower(strings.TrimSpace(input.FileType))
 	switch fileType {
-	case "video", "document", "music", "game", "installer", "image":
+	case "video", "document", "music", "archive", "installer", "image":
 		return true
 	}
 

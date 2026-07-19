@@ -27,7 +27,7 @@
           <div class="detail-item">
             <label>文件类型</label>
             <span class="detail-value">
-              {{ file.fileType }}{{ file.fileSubType ? ` / ${file.fileSubType}` : '' }}
+              {{ getFileTypeLabel(file.fileType) }}{{ file.fileSubType ? ` / ${file.fileSubType}` : '' }}
             </span>
           </div>
 
@@ -81,7 +81,7 @@
 
 <script setup lang="ts">
 import { watch } from 'vue'
-import { formatFileSize, formatDate } from '@/utils/constants'
+import { formatFileSize, formatDate, getFileTypeLabel } from '@/utils/constants'
 
 interface File {
   id: number

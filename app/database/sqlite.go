@@ -71,9 +71,13 @@ func insertInitialData(db *sql.DB) error {
 		`INSERT OR IGNORE INTO file_types (name, display_name, extensions, sub_types) VALUES ('video', '视频', '.mp4,.avi,.mkv,.mov,.wmv,.flv,.webm', '["mp4","avi","mkv","mov","wmv","flv","webm"]')`,
 		`INSERT OR IGNORE INTO file_types (name, display_name, extensions, sub_types) VALUES ('document', '文档', '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md', '["pdf","doc","docx","xls","xlsx","ppt","pptx","txt","md"]')`,
 		`INSERT OR IGNORE INTO file_types (name, display_name, extensions, sub_types) VALUES ('music', '音乐', '.mp3,.wav,.flac,.aac,.ogg,.m4a', '["mp3","wav","flac","aac","ogg","m4a"]')`,
-		`INSERT OR IGNORE INTO file_types (name, display_name, extensions, sub_types) VALUES ('game', '游戏', '.exe,.app,.dmg,.iso,.zip,.rar,.7z', '["exe","app","dmg","iso","zip","rar","7z"]')`,
-		`INSERT OR IGNORE INTO file_types (name, display_name, extensions, sub_types) VALUES ('installer', '安装包', '.msi,.pkg,.deb,.rpm,.apk', '["msi","pkg","deb","rpm","apk"]')`,
-		`INSERT OR IGNORE INTO file_types (name, display_name, extensions, sub_types) VALUES ('image', '镜像', '.iso,.img,.dmg,.vdi,.vmdk', '["iso","img","dmg","vdi","vmdk"]')`,
+		`INSERT OR IGNORE INTO file_types (name, display_name, extensions, sub_types) VALUES ('archive', '压缩包', '.zip,.rar,.7z,.tar,.gz', '["zip","rar","7z","tar","gz"]')`,
+		`INSERT OR IGNORE INTO file_types (name, display_name, extensions, sub_types) VALUES ('installer', '安装包', '.exe,.app,.msi,.ipa,.pkg,.deb,.rpm,.apk,.dmg,.iso,.img,.vdi,.vmdk', '["exe","app","msi","ipa","pkg","deb","rpm","apk","dmg","iso","img","vdi","vmdk"]')`,
+		`INSERT OR IGNORE INTO file_types (name, display_name, extensions, sub_types) VALUES ('image', '图片', '.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg,.ico', '["jpg","jpeg","png","gif","bmp","webp","svg","ico"]')`,
+		`DELETE FROM file_types WHERE name = 'game'`,
+		`UPDATE file_types SET display_name = '压缩包', extensions = '.zip,.rar,.7z,.tar,.gz', sub_types = '["zip","rar","7z","tar","gz"]' WHERE name = 'archive'`,
+		`UPDATE file_types SET display_name = '安装包', extensions = '.exe,.app,.msi,.ipa,.pkg,.deb,.rpm,.apk,.dmg,.iso,.img,.vdi,.vmdk', sub_types = '["exe","app","msi","ipa","pkg","deb","rpm","apk","dmg","iso","img","vdi","vmdk"]' WHERE name = 'installer'`,
+		`UPDATE file_types SET display_name = '图片', extensions = '.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg,.ico', sub_types = '["jpg","jpeg","png","gif","bmp","webp","svg","ico"]' WHERE name = 'image'`,
 	}
 
 	for _, sql := range fileTypes {

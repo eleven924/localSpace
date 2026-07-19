@@ -18,7 +18,7 @@ func TestSupportsGeneratedThumbnailOnlyAllowsImageAndVideo(t *testing.T) {
 		}
 	}
 
-	for _, fileType := range []string{"document", "music", "game", "other"} {
+	for _, fileType := range []string{"document", "music", "archive", "installer", "other"} {
 		if supportsGeneratedThumbnail(fileType) {
 			t.Fatalf("expected %q to skip generated thumbnails", fileType)
 		}

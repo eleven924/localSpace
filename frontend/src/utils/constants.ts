@@ -4,9 +4,9 @@ export const FILE_TYPES = [
   { value: 'video', label: '视频', icon: '🎬' },
   { value: 'document', label: '文档', icon: '📄' },
   { value: 'music', label: '音乐', icon: '🎵' },
-  { value: 'game', label: '游戏', icon: '🎮' },
+  { value: 'archive', label: '压缩包', icon: '🗜️' },
   { value: 'installer', label: '安装包', icon: '📦' },
-  { value: 'image', label: '镜像', icon: '💿' },
+  { value: 'image', label: '图片', icon: '🖼️' },
 ] as const
 
 // File extension to type mapping (fallback when API fails)
@@ -44,21 +44,42 @@ export const EXTENSION_TO_TYPE: Record<string, string> = {
   '.m4a': 'music',
   '.wma': 'music',
 
-  // Game files
-  '.exe': 'game',
-  '.app': 'game',
+  // Archive files
+  '.zip': 'archive',
+  '.rar': 'archive',
+  '.7z': 'archive',
+  '.tar': 'archive',
+  '.gz': 'archive',
 
   // Installer files
+  '.exe': 'installer',
+  '.app': 'installer',
   '.msi': 'installer',
   '.apk': 'installer',
   '.ipa': 'installer',
   '.deb': 'installer',
   '.rpm': 'installer',
+  '.pkg': 'installer',
+  '.dmg': 'installer',
+  '.iso': 'installer',
+  '.img': 'installer',
+  '.vdi': 'installer',
+  '.vmdk': 'installer',
 
-  // Image/ISO files
-  '.iso': 'image',
-  '.img': 'image',
-  '.dmg': 'image',
+  // Image files
+  '.jpg': 'image',
+  '.jpeg': 'image',
+  '.png': 'image',
+  '.gif': 'image',
+  '.bmp': 'image',
+  '.webp': 'image',
+  '.svg': 'image',
+  '.ico': 'image',
+}
+
+export const getFileTypeLabel = (fileType: string): string => {
+  const fileTypeInfo = FILE_TYPES.find(type => type.value === fileType)
+  return fileTypeInfo?.label || fileType
 }
 
 // File size format
