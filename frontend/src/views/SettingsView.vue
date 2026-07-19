@@ -8,28 +8,26 @@
         </router-link>
         <div class="header-info">
           <h1>设置</h1>
-          <p class="subtitle">配置 LocalSpace 的各项功能</p>
+          <p class="subtitle">配置 LocalSpace 的存储、AI、主题与内置文档。</p>
         </div>
       </div>
     </header>
 
     <div class="content">
       <div class="settings-grid">
-        <!-- 存储目录设置 -->
-        <div class="settings-section storage-section">
+        <section class="settings-section storage-section">
           <div class="section-header">
             <div class="section-icon">📁</div>
             <h2>存储目录</h2>
           </div>
           <StorageDirSelector
-            @dir-added="handleDirAdded"
-            @dir-removed="handleDirRemoved"
-            @dir-toggled="handleDirToggled"
+            @master-dir-added="handleDirAdded"
+            @master-dir-removed="handleDirRemoved"
+            @master-dir-default-changed="handleDirDefaultChanged"
           />
-        </div>
+        </section>
 
-        <!-- AI 配置 -->
-        <div class="settings-section ai-section">
+        <section class="settings-section ai-section">
           <div class="section-header">
             <div class="section-icon">🤖</div>
             <h2>AI 配置</h2>
@@ -38,10 +36,9 @@
             @config-saved="handleAIConfigSaved"
             @config-reset="handleAIConfigReset"
           />
-        </div>
+        </section>
 
-        <!-- 主题设置 -->
-        <div class="settings-section theme-section">
+        <section class="settings-section theme-section">
           <div class="section-header">
             <div class="section-icon">🎨</div>
             <h2>主题设置</h2>
@@ -50,96 +47,108 @@
             @theme-changed="handleThemeChanged"
             @theme-reset="handleThemeReset"
           />
-        </div>
+        </section>
 
-        <!-- 关于信息 -->
-        <div class="settings-section about-section">
+        <section class="settings-section about-section">
           <div class="section-header">
             <div class="section-icon">ℹ️</div>
-            <h2>关于</h2>
+            <h2>文档与关于</h2>
           </div>
+
           <div class="about-content">
             <div class="app-info">
-              <div class="app-logo">🚀</div>
-              <h3>LocalSpace</h3>
-              <p class="app-version">版本 1.0.0</p>
+              <div class="app-logo">🗂️</div>
+              <div>
+                <h3>LocalSpace</h3>
+                <p class="app-version">版本 1.0.0</p>
+              </div>
             </div>
+
             <div class="app-description">
-              <p>LocalSpace 是一个功能强大的本地文件索引管理软件，帮助您高效管理和查找本地文件。</p>
+              <p>
+                LocalSpace 是一款本地文件索引与整理工具，帮助你统一管理不同类型的素材，
+                并通过标签、描述、缩略图与 AI 辅助提升检索效率。
+              </p>
               <ul class="feature-list">
-                <li>📁 多类型文件支持</li>
-                <li>🔍 智能搜索功能</li>
-                <li>🤖 AI 标签生成</li>
-                <li>🎨 可自定义主题</li>
-                <li>📦 存储目录管理</li>
+                <li>统一导入并归档图片、文档、音视频等常见文件</li>
+                <li>基于标签、描述、关键词与文件类型进行检索</li>
+                <li>支持 AI 自动补全标签与描述</li>
+                <li>支持多主目录、多主题与缩略图缓存管理</li>
+                <li>内置使用文档，随应用一起打包发布</li>
               </ul>
             </div>
+
+            <div class="doc-card">
+              <div>
+                <h4>产品介绍与使用文档</h4>
+                <p>包含核心功能说明、推荐使用流程和关键页面截图。</p>
+              </div>
+              <button class="doc-button" @click="handleViewDocumentation">
+                查看文档
+              </button>
+            </div>
+
             <div class="app-links">
-              <a href="#" class="app-link" @click.prevent="handleViewDocumentation">
-                📚 文档
-              </a>
-              <a href="#" class="app-link" @click.prevent="handleViewLicense">
-                ⚖️ 许可证
-              </a>
-              <a href="#" class="app-link" @click.prevent="handleCheckUpdates">
-                🔄 检查更新
-              </a>
+              <button class="app-link" @click="handleViewLicense">
+                查看许可
+              </button>
+              <button class="app-link" @click="handleCheckUpdates">
+                检查更新
+              </button>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useThemeStore } from '@/store/modules/theme'
+import { useRouter } from 'vue-router'
 import StorageDirSelector from '@/components/StorageDirSelector.vue'
 import AIConfigForm from '@/components/AIConfigForm.vue'
 import ThemeConfig from '@/components/ThemeConfig.vue'
 
-const themeStore = useThemeStore()
+const router = useRouter()
 
-// 事件处理函数
 const handleDirAdded = () => {
-  console.log('存储目录已添加')
+  console.log('Master storage directory added')
 }
 
 const handleDirRemoved = () => {
-  console.log('存储目录已删除')
+  console.log('Master storage directory removed')
 }
 
-const handleDirToggled = () => {
-  console.log('存储目录状态已切换')
+const handleDirDefaultChanged = () => {
+  console.log('Default master storage directory changed')
 }
 
 const handleAIConfigSaved = () => {
-  console.log('AI 配置已保存')
+  console.log('AI config saved')
 }
 
 const handleAIConfigReset = () => {
-  console.log('AI 配置已重置')
+  console.log('AI config reset')
 }
 
 const handleThemeChanged = () => {
-  console.log('主题已更改')
+  console.log('Theme updated')
 }
 
 const handleThemeReset = () => {
-  console.log('主题已重置')
+  console.log('Theme reset')
 }
 
 const handleViewDocumentation = () => {
-  alert('文档功能即将推出')
+  router.push('/documentation')
 }
 
 const handleViewLicense = () => {
-  alert('LocalSpace 是开源软件，使用 MIT 许可证')
+  window.alert('LocalSpace 当前以 MIT 风格开源协议进行分发，具体文本可在发布包中补充。')
 }
 
 const handleCheckUpdates = () => {
-  alert('当前已是最新版本')
+  window.alert('当前版本未接入在线更新服务，请关注后续发布说明。')
 }
 </script>
 
@@ -196,7 +205,7 @@ const handleCheckUpdates = () => {
 .subtitle {
   font-size: 14px;
   color: var(--text-color);
-  opacity: 0.7;
+  opacity: 0.75;
   margin: 0;
 }
 
@@ -238,7 +247,7 @@ const handleCheckUpdates = () => {
 .settings-section {
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
@@ -286,24 +295,19 @@ const handleCheckUpdates = () => {
   display: none;
 }
 
-/* 关于内容样式 */
 .about-content {
   padding: 18px;
 }
 
 .app-info {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 14px;
+  display: flex;
   align-items: center;
+  gap: 14px;
   margin-bottom: 16px;
-  text-align: left;
 }
 
 .app-logo {
-  grid-row: span 2;
   font-size: 36px;
-  margin-bottom: 0;
 }
 
 .app-info h3 {
@@ -327,8 +331,8 @@ const handleCheckUpdates = () => {
 .app-description p {
   font-size: 14px;
   color: var(--text-color);
-  line-height: 1.6;
-  margin: 0 0 16px 0;
+  line-height: 1.7;
+  margin: 0 0 14px 0;
 }
 
 .feature-list {
@@ -340,7 +344,7 @@ const handleCheckUpdates = () => {
 .feature-list li {
   font-size: 14px;
   color: var(--text-color);
-  padding: 7px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -348,9 +352,51 @@ const handleCheckUpdates = () => {
   border-bottom: none;
 }
 
+.doc-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.08), rgba(76, 175, 80, 0.05));
+}
+
+.doc-card h4 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  color: var(--text-color);
+}
+
+.doc-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-color);
+  opacity: 0.78;
+}
+
+.doc-button {
+  min-width: 108px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--primary-color);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.doc-button:hover {
+  opacity: 0.92;
+  box-shadow: 0 2px 8px var(--shadow-color);
+}
+
 .app-links {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
@@ -359,7 +405,7 @@ const handleCheckUpdates = () => {
   padding: 10px 12px;
   background-color: var(--bg-color);
   color: var(--text-color);
-  text-decoration: none;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
@@ -422,12 +468,13 @@ const handleCheckUpdates = () => {
     padding: 16px;
   }
 
-  .app-logo {
-    font-size: 32px;
+  .doc-card {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .app-info h3 {
-    font-size: 20px;
+  .doc-button {
+    width: 100%;
   }
 }
 
@@ -436,26 +483,8 @@ const handleCheckUpdates = () => {
     padding: 10px 12px;
   }
 
-  .header-actions {
-    display: none;
-  }
-
   .content {
     padding: 12px;
-  }
-
-  .section-header {
-    padding: 12px 16px;
-  }
-
-  .section-icon {
-    width: 30px;
-    height: 30px;
-    font-size: 16px;
-  }
-
-  .section-header h2 {
-    font-size: 14px;
   }
 
   .settings-section :deep(.storage-dir-selector),
