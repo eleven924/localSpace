@@ -22,7 +22,7 @@ LocalSpace 是一款面向个人资料库和项目素材库的桌面应用，核
 - 支持文件缩略图、元信息和状态展示，便于快速回看内容。
 - 支持从列表中直接打开文件，并结合设置中的“打开方式”配置提升访问效率。
 
-![LocalSpace 主界面](../frontend/public/docs/home-overview.png)
+![LocalSpace 主界面](./frontend/public/docs/home-overview.png)
 
 上图对应当前主界面：顶部是“导入文件”和“设置”入口，中间是文件类型筛选与搜索框，下面是文件列表区域。即使在尚未导入文件时，也能直观看到软件的核心操作路径。
 
@@ -35,7 +35,7 @@ LocalSpace 是一款面向个人资料库和项目素材库的桌面应用，核
 - 系统会识别文件类型，用于后续分类展示与存储归档。
 - 配置 AI 后，可在导入流程中生成标签和描述建议，再决定是否采用。
 
-![LocalSpace 导入页](../frontend/public/docs/import-workflow.png)
+![LocalSpace 导入页](./frontend/public/docs/import-workflow.png)
 
 上图展示的是导入入口页。用户通常会先在这里选择文件，然后进入下一步完善元数据。AI 相关能力也主要在这一阶段发挥作用，因此如果想让资料后续“更容易搜到”，最值得花时间的就是这里。
 
@@ -50,7 +50,7 @@ LocalSpace 是一款面向个人资料库和项目素材库的桌面应用，核
 - 主题设置：调整主题模式、主色和背景图。
 - 文档与关于：在软件内直接查看产品说明文档。
 
-![LocalSpace 设置页](../frontend/public/docs/settings-documentation-entry.png)
+![LocalSpace 设置页](./frontend/public/docs/settings-documentation-entry.png)
 
 从截图可以看到，设置页已经把“存储目录 / 打开方式 / AI 配置 / 存储规则 / 主题设置 / 文档与关于”集中到一个位置，适合作为首次上手的初始化入口。
 
@@ -75,7 +75,7 @@ LocalSpace 是一款面向个人资料库和项目素材库的桌面应用，核
 
 ## 后续计划
 
-以下内容基于 [2026-07-19-localspace-产品审查与功能建议.md](./2026-07-19-localspace-产品审查与功能建议.md) 做了粗粒度整理，更适合作为产品路线图阅读：
+以下内容基于 [docs/2026-07-19-localspace-产品审查与功能建议.md](./docs/2026-07-19-localspace-%E4%BA%A7%E5%93%81%E5%AE%A1%E6%9F%A5%E4%B8%8E%E5%8A%9F%E8%83%BD%E5%BB%BA%E8%AE%AE.md) 做了粗粒度整理，更适合作为产品路线图阅读：
 
 ### 优先级最高
 
