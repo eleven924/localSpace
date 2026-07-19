@@ -131,7 +131,7 @@ const getFileIcon = (type: string): string => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: var(--bg-color);
+  background-color: var(--app-bg-color, var(--bg-color));
 }
 
 .header {

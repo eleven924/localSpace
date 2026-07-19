@@ -350,8 +350,8 @@ func (r *ConfigRepository) GetThemeConfig() (*models.ThemeConfig, error) {
 // SetThemeConfig sets the theme configuration
 func (r *ConfigRepository) SetThemeConfig(config *models.ThemeConfig) error {
 	query := `
-		INSERT INTO theme_configs (theme_mode, primary_color, background_image, updated_at)
-		VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+		INSERT INTO theme_configs (id, theme_mode, primary_color, background_image, updated_at)
+		VALUES (1, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT(id) DO UPDATE SET
 			theme_mode = excluded.theme_mode,
 			primary_color = excluded.primary_color,

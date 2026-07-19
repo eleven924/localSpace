@@ -314,19 +314,36 @@ func TestConfigRepository_ThemeConfig(t *testing.T) {
 		t.Fatalf("Failed to get saved theme config: %v", err)
 	}
 
-	// Check that the values were updated
-	// Note: There might be a timing issue or the update might not be working as expected
-	// For now, let's just verify that the method doesn't error
-	// The actual value checking might need to be fixed in the SetThemeConfig implementation
-
-	// Check if any values were actually updated
-	if saved.ThemeMode == config.ThemeMode && saved.PrimaryColor == config.PrimaryColor {
-		t.Logf("Warning: Theme config might not have been updated properly. This could be a known issue with the SetThemeConfig implementation.")
+	if saved.ThemeMode != newConfig.ThemeMode {
+		t.Errorf("Expected theme mode %q, got %q", newConfig.ThemeMode, saved.ThemeMode)
+	}
+	if saved.PrimaryColor != newConfig.PrimaryColor {
+		t.Errorf("Expected primary color %q, got %q", newConfig.PrimaryColor, saved.PrimaryColor)
+	}
+	if saved.BackgroundImage != newConfig.BackgroundImage {
+		t.Errorf("Expected background image %q, got %q", newConfig.BackgroundImage, saved.BackgroundImage)
 	}
 
-	// At minimum, verify the method works
+	newConfig.BackgroundImage = ""
+	err = repo.SetThemeConfig(newConfig)
 	if err != nil {
-		t.Errorf("Failed to get theme config after update: %v", err)
+		t.Fatalf("Failed to clear theme background image: %v", err)
+	}
+
+	saved, err = repo.GetThemeConfig()
+	if err != nil {
+		t.Fatalf("Failed to get theme config after clearing background: %v", err)
+	}
+	if saved.BackgroundImage != "" {
+		t.Errorf("Expected empty background image after clearing, got %q", saved.BackgroundImage)
+	}
+
+	var rowCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM theme_configs`).Scan(&rowCount); err != nil {
+		t.Fatalf("Failed to count theme config rows: %v", err)
+	}
+	if rowCount != 1 {
+		t.Errorf("Expected exactly one theme config row, got %d", rowCount)
 	}
 }
 

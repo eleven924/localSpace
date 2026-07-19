@@ -16,6 +16,7 @@
   --error-color: #f44336;
   --warning-color: #ff9800;
   --background-image: none;
+  --app-bg-color: var(--bg-color);
   --shadow-color: rgba(0, 0, 0, 0.1);
 }
 
@@ -35,7 +36,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-color);
+  background-color: var(--app-bg-color, var(--bg-color));
   background-image: var(--background-image);
   background-size: cover;
   background-position: center;
