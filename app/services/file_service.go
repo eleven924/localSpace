@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -10,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"LocalSpace/app/agents"
 	"LocalSpace/app/models"
 	"LocalSpace/app/repositories"
 	"LocalSpace/app/utils"
@@ -38,10 +36,6 @@ type ImportFileRequest struct {
 	Description string   // 用户提供的描述
 	Tags        []string // 用户提供的标签
 	Keywords    string   // 用户输入的关键词
-}
-
-type metadataAnalyzer interface {
-	AnalyzeMetadata(ctx context.Context, input *agents.MetadataGenerationInput) (*agents.MetadataAnalysis, error)
 }
 
 // FileFilter represents filters for file queries
@@ -190,10 +184,11 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 		fmt.Printf("Warning: Failed to extract metadata: %v\n", err)
 	}
 
-	// AI generation using AgentService
-	metadataAnalysis, _ := s.resolveMetadataForImport(context.Background(), s.agentService, &req, fileType, metadata)
-	tags := metadataAnalysis.Tags
-	description := metadataAnalysis.Description
+	// Import persists only the metadata already present in the form.
+	// AI analysis is intentionally limited to the explicit Generate action.
+	formMetadata := s.resolveMetadataForImport(&req)
+	tags := formMetadata.Tags
+	description := formMetadata.Description
 
 	// Create file record
 	originalName := req.FileName
@@ -236,38 +231,18 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 	return nil
 }
 
-func (s *FileService) resolveMetadataForImport(ctx context.Context, analyzer metadataAnalyzer, req *ImportFileRequest, fileType string, metadata models.Metadata) (*agents.MetadataAnalysis, error) {
-	fallback := &agents.MetadataAnalysis{Tags: []string{}}
+type importMetadata struct {
+	Tags        []string
+	Description string
+}
+
+func (s *FileService) resolveMetadataForImport(req *ImportFileRequest) importMetadata {
+	result := importMetadata{Tags: []string{}}
 	if req != nil {
-		fallback.Tags = append(fallback.Tags, req.Tags...)
-		fallback.Description = strings.TrimSpace(req.Description)
+		result.Tags = append(result.Tags, req.Tags...)
+		result.Description = strings.TrimSpace(req.Description)
 	}
-
-	if analyzer == nil || req == nil {
-		return fallback, nil
-	}
-
-	analysis, err := analyzer.AnalyzeMetadata(ctx, &agents.MetadataGenerationInput{
-		FileName:        req.FileName,
-		FileType:        fileType,
-		UserKeywords:    req.Keywords,
-		UserTags:        req.Tags,
-		UserDescription: req.Description,
-		Metadata:        metadata,
-	})
-	if err != nil || analysis == nil {
-		return fallback, nil
-	}
-
-	resolved := agents.NormalizeMetadataAnalysis(analysis)
-	if len(req.Tags) > 0 {
-		resolved.Tags = append([]string{}, req.Tags...)
-	}
-	if strings.TrimSpace(req.Description) != "" {
-		resolved.Description = req.Description
-	}
-
-	return resolved, nil
+	return result
 }
 
 func (s *FileService) normalizeMetadataTags(tags []string) []string {

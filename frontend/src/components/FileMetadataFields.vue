@@ -93,6 +93,7 @@ import type { AIAnalysis } from '@/types'
 const props = defineProps<{
   fileName: string
   fileType: string
+  userKeywords?: string
   modelValueTags: string[]
   modelValueDescription: string
 }>()
@@ -159,7 +160,7 @@ const handleAIAnalyze = async () => {
     aiAnalysis.value = await api.ai.analyze(
       props.fileName,
       props.fileType,
-      '',
+      props.userKeywords || '',
       props.modelValueTags,
       props.modelValueDescription
     )

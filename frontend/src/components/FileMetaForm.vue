@@ -36,6 +36,7 @@
       <FileMetadataFields
         :file-name="fileName"
         :file-type="fileType"
+        :user-keywords="keywords"
         v-model:modelValueTags="parsedTags"
         v-model:modelValueDescription="description"
       />
