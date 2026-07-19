@@ -9,7 +9,7 @@
       v-else
       class="file-list"
       :class="`columns-${columns}`"
-      :style="{ gridTemplateColumns: `repeat(${columns}, 1fr)` }"
+      :style="{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }"
     >
       <FileCard
         v-for="file in files"
@@ -137,7 +137,15 @@ const handleUpdated = (id: number) => {
   overflow-y: auto;
   overflow-x: hidden;
   height: 100%;
+  width: 100%;
+  min-width: 0;
   align-content: start;
+  align-items: stretch;
+  grid-auto-rows: var(--file-card-height, 292px);
+}
+
+.file-list > * {
+  min-width: 0;
 }
 
 .file-list.columns-2 {
@@ -170,6 +178,7 @@ const handleUpdated = (id: number) => {
   .file-list {
     padding: 0 4px;
     gap: 12px;
+    --file-card-height: 260px;
   }
 
   .empty-state {
@@ -181,6 +190,7 @@ const handleUpdated = (id: number) => {
   .file-list {
     padding: 0 2px;
     gap: 8px;
+    --file-card-height: 248px;
   }
 }
 </style>

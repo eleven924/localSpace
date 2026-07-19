@@ -256,7 +256,7 @@ const handleToggleExpanded = (id: number) => {
 }
 
 .selector-header {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .selector-header h4 {
@@ -320,18 +320,22 @@ const handleToggleExpanded = (id: number) => {
 
 .empty-state {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-color);
   color: var(--text-color);
   opacity: 0.6;
-  text-align: center;
+  text-align: left;
 }
 
 .empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
+  font-size: 28px;
+  margin-bottom: 0;
 }
 
 .empty-state h4 {
@@ -348,18 +352,19 @@ const handleToggleExpanded = (id: number) => {
 .storage-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .master-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .add-button {
   width: 100%;
-  padding: 12px 20px;
+  min-height: 40px;
+  padding: 10px 16px;
   background-color: var(--primary-color);
   color: white;
   border: none;
@@ -399,7 +404,7 @@ const handleToggleExpanded = (id: number) => {
 .dialog-content {
   background-color: var(--surface-color);
   border-radius: 12px;
-  padding: 24px;
+  padding: 20px;
   max-width: 500px;
   width: 90%;
   max-height: 90vh;
@@ -498,7 +503,7 @@ const handleToggleExpanded = (id: number) => {
 .dialog-actions {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .dialog-actions .btn {

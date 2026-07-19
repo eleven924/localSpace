@@ -325,8 +325,11 @@ document.addEventListener('click', handleClickOutside)
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 200px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 .file-card:hover {
@@ -401,8 +404,10 @@ document.addEventListener('click', handleClickOutside)
 
 .file-thumbnail {
   width: 100%;
+  min-width: 0;
   aspect-ratio: 16 / 9;
   height: auto;
+  max-height: 132px;
   background-color: var(--bg-color);
   border-radius: 4px;
   display: flex;
@@ -417,6 +422,7 @@ document.addEventListener('click', handleClickOutside)
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .file-icon {
@@ -430,12 +436,14 @@ document.addEventListener('click', handleClickOutside)
   flex-direction: column;
   gap: 8px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .file-name {
   font-size: 14px;
   font-weight: 500;
   margin: 0;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -446,6 +454,10 @@ document.addEventListener('click', handleClickOutside)
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  min-width: 0;
+  max-height: 48px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .tag {
@@ -455,6 +467,9 @@ document.addEventListener('click', handleClickOutside)
   color: white;
   border-radius: 12px;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tag.more {
@@ -501,7 +516,7 @@ document.addEventListener('click', handleClickOutside)
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.4;
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
 }
 
@@ -509,11 +524,21 @@ document.addEventListener('click', handleClickOutside)
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  min-width: 0;
   font-size: 12px;
   color: var(--text-color);
   opacity: 0.7;
   margin-top: auto;
   flex-shrink: 0;
+}
+
+.file-size,
+.file-date {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {

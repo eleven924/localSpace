@@ -447,7 +447,7 @@ const handleResetConfig = () => {
 }
 
 .config-header {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .config-header h4 {
@@ -497,17 +497,18 @@ const handleResetConfig = () => {
 .config-content {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
 }
 
 .toggle-section {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  gap: 16px;
+  padding: 12px 0;
+  background-color: transparent;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
 }
 
 .toggle-info h5 {
@@ -573,17 +574,26 @@ const handleResetConfig = () => {
 .config-fields {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 20px;
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  gap: 0;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.42fr) minmax(220px, 0.58fr);
+  gap: 8px 16px;
+  align-items: center;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.config-fields > .form-group:first-child,
+.search-config-fields,
+.test-section {
+  grid-column: auto;
 }
 
 .form-group label {
@@ -593,6 +603,13 @@ const handleResetConfig = () => {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-color);
+}
+
+.form-group .input-wrapper,
+.form-group > input,
+.form-group > select {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .label-required {
@@ -609,7 +626,8 @@ const handleResetConfig = () => {
 
 .form-group input,
 .form-group select {
-  padding: 10px 12px;
+  min-height: 38px;
+  padding: 8px 11px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background-color: var(--bg-color);
@@ -628,6 +646,16 @@ const handleResetConfig = () => {
   -moz-appearance: textfield;
 }
 
+.form-group input[type="checkbox"] {
+  justify-self: start;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
 .form-group input[type="number"]::-webkit-inner-spin-button,
 .form-group input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -644,7 +672,9 @@ const handleResetConfig = () => {
 }
 
 .toggle-visibility {
-  padding: 10px 12px;
+  width: 42px;
+  min-height: 38px;
+  padding: 8px;
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -658,27 +688,33 @@ const handleResetConfig = () => {
 }
 
 .form-hint {
+  grid-column: 1;
   font-size: 12px;
   color: var(--text-color);
   opacity: 0.6;
   margin: 0;
+  line-height: 1.4;
 }
 
 .search-config-fields {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0;
+  padding-top: 0;
+  border-top: 1px solid var(--border-color);
 }
 
 .test-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-top: 14px;
 }
 
 .test-button {
   width: 100%;
-  padding: 12px 16px;
+  min-height: 40px;
+  padding: 10px 14px;
   background-color: var(--surface-color);
   color: var(--text-color);
   border: 1px solid var(--border-color);
@@ -722,18 +758,22 @@ const handleResetConfig = () => {
 
 .disabled-hint {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  text-align: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 18px;
+  text-align: left;
   color: var(--text-color);
-  opacity: 0.6;
+  background-color: transparent;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
 }
 
 .hint-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
+  font-size: 28px;
+  margin-bottom: 0;
+  opacity: 0.7;
 }
 
 .disabled-hint h5 {
@@ -750,12 +790,13 @@ const handleResetConfig = () => {
 .config-actions {
   display: flex;
   gap: 12px;
-  margin-top: 20px;
+  margin-top: 14px;
 }
 
 .save-button,
 .config-actions .btn {
-  padding: 12px 20px;
+  min-height: 40px;
+  padding: 10px 16px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
@@ -799,6 +840,15 @@ const handleResetConfig = () => {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .config-fields,
+  .search-config-fields,
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
   }
 
   .config-actions {

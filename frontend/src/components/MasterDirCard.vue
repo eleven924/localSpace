@@ -136,7 +136,7 @@ const handleDelete = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  padding: 12px 14px;
   cursor: pointer;
   user-select: none;
 }
@@ -148,7 +148,7 @@ const handleDelete = () => {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex: 1;
   min-width: 0;
 }
@@ -167,7 +167,7 @@ const handleDelete = () => {
 }
 
 .master-icon {
-  font-size: 24px;
+  font-size: 20px;
   flex-shrink: 0;
 }
 
@@ -219,8 +219,9 @@ const handleDelete = () => {
 }
 
 .action-button {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border-radius: 50%;
   background-color: var(--bg-color);
   border: 1px solid var(--border-color);
@@ -228,7 +229,7 @@ const handleDelete = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 14px;
   transition: all 0.2s ease;
 }
 
@@ -244,7 +245,7 @@ const handleDelete = () => {
 
 .subdirs-panel {
   border-top: 1px solid var(--border-color);
-  padding: 12px 16px;
+  padding: 10px 14px;
   background-color: var(--bg-color);
 }
 
@@ -253,7 +254,7 @@ const handleDelete = () => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px;
+  padding: 10px;
   color: var(--text-color);
   opacity: 0.6;
 }
@@ -269,14 +270,14 @@ const handleDelete = () => {
 .subdirs-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .subdir-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
+  padding: 7px 8px;
   background-color: var(--surface-color);
   border-radius: 6px;
 }

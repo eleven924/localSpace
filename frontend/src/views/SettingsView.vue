@@ -16,7 +16,7 @@
     <div class="content">
       <div class="settings-grid">
         <!-- 存储目录设置 -->
-        <div class="settings-section">
+        <div class="settings-section storage-section">
           <div class="section-header">
             <div class="section-icon">📁</div>
             <h2>存储目录</h2>
@@ -29,7 +29,7 @@
         </div>
 
         <!-- AI 配置 -->
-        <div class="settings-section">
+        <div class="settings-section ai-section">
           <div class="section-header">
             <div class="section-icon">🤖</div>
             <h2>AI 配置</h2>
@@ -41,7 +41,7 @@
         </div>
 
         <!-- 主题设置 -->
-        <div class="settings-section">
+        <div class="settings-section theme-section">
           <div class="section-header">
             <div class="section-icon">🎨</div>
             <h2>主题设置</h2>
@@ -53,7 +53,7 @@
         </div>
 
         <!-- 关于信息 -->
-        <div class="settings-section">
+        <div class="settings-section about-section">
           <div class="section-header">
             <div class="section-icon">ℹ️</div>
             <h2>关于</h2>
@@ -202,67 +202,115 @@ const handleCheckUpdates = () => {
 
 .content {
   flex: 1;
-  padding: 24px;
+  padding: 20px 24px 24px;
   overflow-y: auto;
 }
 
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "storage ai"
+    "theme ai"
+    "about ai";
+  align-items: start;
+  gap: 18px;
   max-width: 1400px;
   margin: 0 auto;
+}
+
+.storage-section {
+  grid-area: storage;
+}
+
+.ai-section {
+  grid-area: ai;
+}
+
+.theme-section {
+  grid-area: theme;
+}
+
+.about-section {
+  grid-area: about;
 }
 
 .settings-section {
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 .section-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px 24px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border-color);
   background-color: var(--bg-color);
 }
 
 .section-icon {
-  font-size: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background-color: var(--surface-color);
+  font-size: 19px;
 }
 
 .section-header h2 {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text-color);
   margin: 0;
 }
 
+.settings-section :deep(.storage-dir-selector),
+.settings-section :deep(.ai-config-form),
+.settings-section :deep(.theme-config) {
+  padding: 18px;
+}
+
+.settings-section :deep(.selector-header),
+.settings-section :deep(.config-header) {
+  margin-bottom: 14px;
+}
+
+.settings-section :deep(.selector-header h4),
+.settings-section :deep(.config-header h4) {
+  display: none;
+}
+
 /* 关于内容样式 */
 .about-content {
-  padding: 24px;
+  padding: 18px;
 }
 
 .app-info {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 14px;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  text-align: left;
 }
 
 .app-logo {
-  font-size: 64px;
-  margin-bottom: 16px;
+  grid-row: span 2;
+  font-size: 36px;
+  margin-bottom: 0;
 }
 
 .app-info h3 {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--text-color);
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
 }
 
 .app-version {
@@ -273,7 +321,7 @@ const handleCheckUpdates = () => {
 }
 
 .app-description {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .app-description p {
@@ -292,7 +340,7 @@ const handleCheckUpdates = () => {
 .feature-list li {
   font-size: 14px;
   color: var(--text-color);
-  padding: 8px 0;
+  padding: 7px 0;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -301,13 +349,14 @@ const handleCheckUpdates = () => {
 }
 
 .app-links {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
 .app-link {
-  padding: 12px 16px;
+  justify-content: center;
+  padding: 10px 12px;
   background-color: var(--bg-color);
   color: var(--text-color);
   text-decoration: none;
@@ -322,12 +371,17 @@ const handleCheckUpdates = () => {
 
 .app-link:hover {
   background-color: var(--border-color);
-  transform: translateX(4px);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 1024px) {
   .settings-grid {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "storage"
+      "ai"
+      "theme"
+      "about";
   }
 }
 
@@ -351,11 +405,13 @@ const handleCheckUpdates = () => {
   }
 
   .section-header {
-    padding: 16px 20px;
+    padding: 14px 16px;
   }
 
   .section-icon {
-    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
   }
 
   .section-header h2 {
@@ -363,11 +419,11 @@ const handleCheckUpdates = () => {
   }
 
   .about-content {
-    padding: 20px;
+    padding: 16px;
   }
 
   .app-logo {
-    font-size: 48px;
+    font-size: 32px;
   }
 
   .app-info h3 {
@@ -390,16 +446,27 @@ const handleCheckUpdates = () => {
 
   .section-header {
     padding: 12px 16px;
-    flex-direction: column;
-    align-items: flex-start;
   }
 
   .section-icon {
-    font-size: 18px;
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
   }
 
   .section-header h2 {
     font-size: 14px;
+  }
+
+  .settings-section :deep(.storage-dir-selector),
+  .settings-section :deep(.ai-config-form),
+  .settings-section :deep(.theme-config),
+  .about-content {
+    padding: 14px;
+  }
+
+  .app-links {
+    grid-template-columns: 1fr;
   }
 }
 </style>

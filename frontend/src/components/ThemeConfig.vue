@@ -242,7 +242,7 @@ const handleResetTheme = () => {
 }
 
 .config-header {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .config-header h4 {
@@ -262,42 +262,45 @@ const handleResetTheme = () => {
 .config-content {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 0;
 }
 
 .config-section {
-  padding: 20px;
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  padding: 14px 0;
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
 }
 
 .config-section h5 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-color);
-  margin: 0 0 16px 0;
+  margin: 0 0 10px 0;
 }
 
 /* 主题模式 */
 .theme-modes {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 8px;
 }
 
 .theme-modes button {
-  padding: 16px 20px;
-  background-color: var(--bg-color);
+  min-height: 38px;
+  padding: 8px 12px;
+  background-color: var(--surface-color);
   color: var(--text-color);
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .theme-modes button:hover {
@@ -312,7 +315,7 @@ const handleResetTheme = () => {
 }
 
 .mode-icon {
-  font-size: 32px;
+  font-size: 18px;
 }
 
 .mode-label {
@@ -322,15 +325,15 @@ const handleResetTheme = () => {
 
 /* 主题颜色 */
 .color-options {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 .color-option {
-  width: 100%;
-  aspect-ratio: 1;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   cursor: pointer;
   border: 2px solid transparent;
@@ -353,15 +356,16 @@ const handleResetTheme = () => {
 
 .checkmark {
   color: white;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .custom-color {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) minmax(180px, 0.65fr);
+  gap: 8px 14px;
+  align-items: center;
 }
 
 .custom-color-label {
@@ -384,8 +388,8 @@ const handleResetTheme = () => {
 }
 
 .color-input {
-  width: 50px;
-  height: 40px;
+  width: 44px;
+  height: 38px;
   padding: 2px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -404,7 +408,8 @@ const handleResetTheme = () => {
 
 .color-text-input {
   flex: 1;
-  padding: 10px 12px;
+  min-height: 38px;
+  padding: 8px 11px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background-color: var(--bg-color);
@@ -422,7 +427,7 @@ const handleResetTheme = () => {
 .background-options {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .current-background {
@@ -433,7 +438,7 @@ const handleResetTheme = () => {
 
 .background-preview {
   width: 100%;
-  height: 150px;
+  height: 96px;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -458,19 +463,20 @@ const handleResetTheme = () => {
 
 .no-background {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  border: 2px dashed var(--border-color);
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--border-color);
   border-radius: 8px;
   color: var(--text-color);
   opacity: 0.6;
 }
 
 .no-bg-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
+  font-size: 26px;
+  margin-bottom: 0;
 }
 
 .no-background p {
@@ -479,9 +485,10 @@ const handleResetTheme = () => {
 }
 
 .upload-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(140px, 0.45fr);
+  gap: 8px 12px;
+  align-items: center;
 }
 
 .upload-button {
@@ -489,7 +496,8 @@ const handleResetTheme = () => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 20px;
+  min-height: 38px;
+  padding: 9px 14px;
   background-color: var(--surface-color);
   color: var(--text-color);
   border: 1px solid var(--border-color);
@@ -523,7 +531,8 @@ const handleResetTheme = () => {
 /* 重置按钮 */
 .reset-button {
   width: 100%;
-  padding: 12px 20px;
+  min-height: 38px;
+  padding: 9px 14px;
   background-color: var(--surface-color);
   color: var(--text-color);
   border: 1px solid var(--border-color);
@@ -549,23 +558,23 @@ const handleResetTheme = () => {
 
 /* 预览 */
 .theme-preview {
-  margin-top: 24px;
-  padding: 20px;
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  margin-top: 0;
+  padding: 14px 0 0;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .theme-preview h5 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-color);
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
 }
 
 .preview-card {
-  padding: 20px;
-  background-color: var(--bg-color);
+  padding: 14px;
+  background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 8px;
 }
@@ -574,7 +583,7 @@ const handleResetTheme = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .preview-title {
@@ -593,7 +602,7 @@ const handleResetTheme = () => {
 }
 
 .preview-body {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .preview-body p {
@@ -610,7 +619,8 @@ const handleResetTheme = () => {
 
 .preview-button {
   flex: 1;
-  padding: 10px 16px;
+  min-height: 36px;
+  padding: 8px 12px;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
@@ -639,18 +649,13 @@ const handleResetTheme = () => {
 }
 
 @media (max-width: 768px) {
-  .color-options {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
   .theme-modes {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 480px) {
-  .color-options {
-    grid-template-columns: repeat(2, 1fr);
+  .custom-color,
+  .upload-section {
+    grid-template-columns: 1fr;
   }
 }
 </style>
