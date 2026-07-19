@@ -38,11 +38,13 @@ export function GetFiles(arg1:number,arg2:number,arg3:string):Promise<Array<mode
 
 export function GetMasterDirectories():Promise<Array<models.StorageDir>>;
 
-export function GetMasterStoragePathForFile(arg1:number,arg2:string,arg3:string):Promise<string>;
+export function GetMasterStoragePathForFile(arg1:number,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function GetOpenWithConfig():Promise<models.OpenWithConfig>;
 
 export function GetStorageDirectories():Promise<Array<models.StorageDir>>;
+
+export function GetStorageLayoutConfig():Promise<models.StorageLayoutConfig>;
 
 export function GetThemeConfig():Promise<models.ThemeConfig>;
 
@@ -53,6 +55,8 @@ export function GetThumbnailCacheStats():Promise<Record<string, any>>;
 export function ImportFile(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<void>;
 
 export function ImportFileWithKeywords(arg1:string,arg2:string,arg3:string,arg4:Array<string>,arg5:string):Promise<void>;
+
+export function ImportFileWithMetadata(arg1:string,arg2:string,arg3:string,arg4:Array<string>,arg5:string,arg6:string):Promise<void>;
 
 export function InitConfig(arg1:string):Promise<void>;
 
@@ -91,5 +95,7 @@ export function UpdateConfig(arg1:string,arg2:string):Promise<void>;
 export function UpdateFileMetadata(arg1:number,arg2:Array<string>,arg3:string):Promise<void>;
 
 export function UpdateOpenWithConfig(arg1:models.OpenWithConfig):Promise<void>;
+
+export function UpdateStorageLayoutConfig(arg1:models.StorageLayoutConfig):Promise<void>;
 
 export function UpdateThemeConfig(arg1:models.ThemeConfig):Promise<void>;

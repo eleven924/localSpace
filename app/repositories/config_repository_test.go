@@ -127,6 +127,58 @@ func TestSetOpenWithConfigRoundTrips(t *testing.T) {
 	}
 }
 
+func TestGetStorageLayoutConfigReturnsDefaultWhenMissing(t *testing.T) {
+	db := setupConfigTestDB(t)
+	defer cleanupConfigTestDB(db)
+
+	repo := NewConfigRepository(NewSQLiteDBWrapper(db))
+
+	config, err := repo.GetStorageLayoutConfig()
+	if err != nil {
+		t.Fatalf("GetStorageLayoutConfig returned error: %v", err)
+	}
+	if config.Strategy != "type_collection" {
+		t.Fatalf("expected default strategy type_collection, got %q", config.Strategy)
+	}
+	if config.UnsortedFolderName != "_unsorted" {
+		t.Fatalf("expected default unsorted folder _unsorted, got %q", config.UnsortedFolderName)
+	}
+	if !config.SanitizeFolderName {
+		t.Fatal("expected sanitize flag true by default")
+	}
+}
+
+func TestSetStorageLayoutConfigRoundTrips(t *testing.T) {
+	db := setupConfigTestDB(t)
+	defer cleanupConfigTestDB(db)
+
+	repo := NewConfigRepository(NewSQLiteDBWrapper(db))
+
+	expected := &models.StorageLayoutConfig{
+		Strategy:           "type_only",
+		UnsortedFolderName: "_holding",
+		SanitizeFolderName: false,
+	}
+
+	if err := repo.SetStorageLayoutConfig(expected); err != nil {
+		t.Fatalf("SetStorageLayoutConfig returned error: %v", err)
+	}
+
+	actual, err := repo.GetStorageLayoutConfig()
+	if err != nil {
+		t.Fatalf("GetStorageLayoutConfig returned error: %v", err)
+	}
+	if actual.Strategy != expected.Strategy {
+		t.Fatalf("expected strategy %q, got %q", expected.Strategy, actual.Strategy)
+	}
+	if actual.UnsortedFolderName != expected.UnsortedFolderName {
+		t.Fatalf("expected unsorted folder %q, got %q", expected.UnsortedFolderName, actual.UnsortedFolderName)
+	}
+	if actual.SanitizeFolderName != expected.SanitizeFolderName {
+		t.Fatalf("expected sanitize flag %v, got %v", expected.SanitizeFolderName, actual.SanitizeFolderName)
+	}
+}
+
 func TestConfigRepository_GetAll(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(db)

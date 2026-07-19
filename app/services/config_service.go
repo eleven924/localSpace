@@ -93,6 +93,16 @@ func (s *ConfigService) UpdateOpenWithConfig(config models.OpenWithConfig) error
 	return s.configRepo.SetOpenWithConfig(&config)
 }
 
+// GetStorageLayoutConfig returns the storage layout configuration.
+func (s *ConfigService) GetStorageLayoutConfig() (*models.StorageLayoutConfig, error) {
+	return s.configRepo.GetStorageLayoutConfig()
+}
+
+// UpdateStorageLayoutConfig updates the storage layout configuration.
+func (s *ConfigService) UpdateStorageLayoutConfig(config models.StorageLayoutConfig) error {
+	return s.configRepo.SetStorageLayoutConfig(&config)
+}
+
 // IsStorageInitialized checks if storage is initialized
 func (s *ConfigService) IsStorageInitialized() (bool, error) {
 	value, err := s.configRepo.Get("storage_initialized")

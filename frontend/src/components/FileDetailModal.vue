@@ -31,6 +31,11 @@
             </span>
           </div>
 
+          <div v-if="file.collectionName" class="detail-item">
+            <label>合集 / 项目</label>
+            <span class="detail-value">{{ file.collectionName }}</span>
+          </div>
+
           <div class="detail-item">
             <label>文件大小</label>
             <span class="detail-value">{{ formatFileSize(file.fileSize) }}</span>
@@ -86,6 +91,7 @@ import { formatFileSize, formatDate, getFileTypeLabel } from '@/utils/constants'
 interface File {
   id: number
   fileName: string
+  collectionName?: string
   filePath: string
   fileType: string
   fileSubType?: string

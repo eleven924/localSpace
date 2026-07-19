@@ -14,10 +14,14 @@ func TestImportFileRequestKeywords(t *testing.T) {
 		Description: "test description",
 		Tags:        []string{"tag1", "tag2"},
 		Keywords:    "test keywords",
+		CollectionName: "测试合集",
 	}
 
 	if req.Keywords != "test keywords" {
 		t.Errorf("Expected Keywords to be 'test keywords', got '%s'", req.Keywords)
+	}
+	if req.CollectionName != "测试合集" {
+		t.Errorf("Expected CollectionName to be '测试合集', got '%s'", req.CollectionName)
 	}
 
 	// Test default empty value
@@ -28,6 +32,9 @@ func TestImportFileRequestKeywords(t *testing.T) {
 
 	if emptyReq.Keywords != "" {
 		t.Errorf("Expected default Keywords to be empty string, got '%s'", emptyReq.Keywords)
+	}
+	if emptyReq.CollectionName != "" {
+		t.Errorf("Expected default CollectionName to be empty string, got '%s'", emptyReq.CollectionName)
 	}
 }
 

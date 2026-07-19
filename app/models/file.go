@@ -7,6 +7,7 @@ type File struct {
 	ID          uint      `json:"id"`
 	FileName    string    `json:"fileName"`
 	OriginalName string   `json:"originalName"`
+	CollectionName string `json:"collectionName"`
 	FilePath    string    `json:"filePath"`
 	FileType    string    `json:"fileType"`
 	FileSubType string    `json:"fileSubType"`

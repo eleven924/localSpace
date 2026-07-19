@@ -42,12 +42,13 @@ func (r *FileRepository) Create(file *models.File) error {
 	}
 
 	query := `
-			INSERT INTO files (file_name, original_name, file_path, file_type, file_sub_type, file_size, tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			INSERT INTO files (file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size, tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	result, err := r.db.Exec(query,
 		file.FileName,
 		file.OriginalName,
+		file.CollectionName,
 		file.FilePath,
 		file.FileType,
 		file.FileSubType,
@@ -77,7 +78,7 @@ func (r *FileRepository) Create(file *models.File) error {
 // FindByID finds a file by ID
 func (r *FileRepository) FindByID(id uint) (*models.File, error) {
 	query := `
-			SELECT id, file_name, original_name, file_path, file_type, file_sub_type, file_size,
+			SELECT id, file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size,
 			       tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at, created_at, modified_at
 			FROM files WHERE id = ?`
 
@@ -90,6 +91,7 @@ func (r *FileRepository) FindByID(id uint) (*models.File, error) {
 		&file.ID,
 		&file.FileName,
 		&file.OriginalName,
+		&file.CollectionName,
 		&file.FilePath,
 		&file.FileType,
 		&file.FileSubType,
@@ -127,7 +129,7 @@ func (r *FileRepository) FindByID(id uint) (*models.File, error) {
 // List returns a list of files with filters
 func (r *FileRepository) List(filter FileFilter) ([]*models.File, error) {
 	query := `
-			SELECT id, file_name, original_name, file_path, file_type, file_sub_type, file_size,
+			SELECT id, file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size,
 			       tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at, created_at, modified_at
 			FROM files WHERE 1=1`
 
@@ -174,6 +176,7 @@ func (r *FileRepository) List(filter FileFilter) ([]*models.File, error) {
 			&file.ID,
 			&file.FileName,
 			&file.OriginalName,
+			&file.CollectionName,
 			&file.FilePath,
 			&file.FileType,
 			&file.FileSubType,
@@ -213,16 +216,17 @@ func (r *FileRepository) Search(query string) ([]*models.File, error) {
 	searchQuery := "%" + strings.ToLower(query) + "%"
 
 	sqlQuery := `
-			SELECT id, file_name, original_name, file_path, file_type, file_sub_type, file_size,
+			SELECT id, file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size,
 			       tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at, created_at, modified_at
 			FROM files
 			WHERE LOWER(file_name) LIKE ?
+			   OR LOWER(collection_name) LIKE ?
 			   OR LOWER(tags) LIKE ?
 			   OR LOWER(description) LIKE ?
 			ORDER BY created_at DESC
 			LIMIT 100`
 
-	rows, err := r.db.Query(sqlQuery, searchQuery, searchQuery, searchQuery)
+	rows, err := r.db.Query(sqlQuery, searchQuery, searchQuery, searchQuery, searchQuery)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search files: %w", err)
 	}
@@ -237,6 +241,7 @@ func (r *FileRepository) Search(query string) ([]*models.File, error) {
 			&file.ID,
 			&file.FileName,
 			&file.OriginalName,
+			&file.CollectionName,
 			&file.FilePath,
 			&file.FileType,
 			&file.FileSubType,
@@ -349,13 +354,14 @@ func (r *FileRepository) Update(file *models.File) error {
 
 	query := `
 			UPDATE files
-			SET file_name = ?, file_path = ?, file_type = ?, file_sub_type = ?,
+			SET file_name = ?, collection_name = ?, file_path = ?, file_type = ?, file_sub_type = ?,
 			    file_size = ?, tags = ?, description = ?, metadata = ?, thumbnail = ?,
 			    modified_at = CURRENT_TIMESTAMP
 			WHERE id = ?`
 
 	result, err := r.db.Exec(query,
 		file.FileName,
+		file.CollectionName,
 		file.FilePath,
 		file.FileType,
 		file.FileSubType,
@@ -420,7 +426,7 @@ func (r *FileRepository) ExistsByPath(path string) (bool, error) {
 // FindByChecksum finds a file by its checksum
 func (r *FileRepository) FindByChecksum(checksum string) (*models.File, error) {
 	query := `
-		SELECT id, file_name, original_name, file_path, file_type, file_sub_type, file_size,
+		SELECT id, file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size,
 		       tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at, created_at, modified_at
 		FROM files WHERE checksum = ? AND is_deleted = FALSE`
 
@@ -433,6 +439,7 @@ func (r *FileRepository) FindByChecksum(checksum string) (*models.File, error) {
 		&file.ID,
 		&file.FileName,
 		&file.OriginalName,
+		&file.CollectionName,
 		&file.FilePath,
 		&file.FileType,
 		&file.FileSubType,

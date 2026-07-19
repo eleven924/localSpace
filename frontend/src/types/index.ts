@@ -3,6 +3,7 @@ export interface File {
   id: number
   fileName: string
   originalName: string
+  collectionName: string
   filePath: string
   fileType: string
   fileSubType: string
@@ -62,6 +63,12 @@ export interface ThemeConfig {
 export interface OpenWithConfig {
   byFileType: Record<string, string>
   byExtension: Record<string, string>
+}
+
+export interface StorageLayoutConfig {
+  strategy: 'type_only' | 'type_collection'
+  unsortedFolderName: string
+  sanitizeFolderName: boolean
 }
 
 export interface StorageDir {

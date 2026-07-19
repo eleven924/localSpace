@@ -68,23 +68,50 @@
       </div>
     </div>
     <div class="file-info">
-      <h3 class="file-name" :title="file.fileName">{{ file.fileName }}</h3>
-      <div v-if="file.tags && file.tags.length > 0" class="file-tags">
-        <span v-for="tag in visibleTags" :key="tag" class="tag" :title="tag">
-          {{ tag }}
-        </span>
-        <span v-if="hiddenTags.length > 0" class="tag more more-tags-trigger">
-          +{{ hiddenTags.length }}
-          <span class="hidden-tags-tooltip">
-            <span v-for="tag in hiddenTags" :key="`hidden-${tag}`" class="tag tooltip-tag">
-              {{ tag }}
+      <div
+        ref="hoverZoneRef"
+        class="file-info-hover-zone"
+        @mouseenter="updateHoverPreviewPlacement"
+      >
+        <h3 class="file-name" :title="file.fileName">{{ file.fileName }}</h3>
+        <div v-if="file.tags && file.tags.length > 0" class="file-tags">
+          <span v-for="tag in visibleTags" :key="tag" class="tag" :title="tag">
+            {{ tag }}
+          </span>
+          <span v-if="hiddenTags.length > 0" class="tag more more-tags-trigger">
+            +{{ hiddenTags.length }}
+            <span class="hidden-tags-tooltip">
+              <span v-for="tag in hiddenTags" :key="`hidden-${tag}`" class="tag tooltip-tag">
+                {{ tag }}
+              </span>
             </span>
           </span>
-        </span>
+        </div>
+        <div
+          v-if="hasHoverPreview"
+          class="file-hover-preview"
+          :class="previewPlacementClass"
+          @click.stop
+        >
+          <div class="hover-preview-header">{{ file.fileName }}</div>
+          <div v-if="file.collectionName" class="hover-preview-row">
+            <span class="hover-preview-label">合集</span>
+            <span class="hover-preview-text">{{ file.collectionName }}</span>
+          </div>
+          <div v-if="file.tags && file.tags.length > 0" class="hover-preview-row preview-tags-row">
+            <span class="hover-preview-label">标签</span>
+            <div class="hover-preview-tags">
+              <span v-for="tag in file.tags" :key="`preview-${tag}`" class="hover-preview-tag">
+                {{ tag }}
+              </span>
+            </div>
+          </div>
+          <div v-if="file.description" class="hover-preview-row preview-description-row">
+            <span class="hover-preview-label">简介</span>
+            <p class="hover-preview-description">{{ file.description }}</p>
+          </div>
+        </div>
       </div>
-      <p v-if="file.description" class="file-description" :title="file.description">
-        {{ file.description }}
-      </p>
       <div class="file-meta">
         <span class="file-size">{{ formatFileSize(file.fileSize) }}</span>
         <span class="file-date">{{ formatDate(file.createdAt) }}</span>
@@ -146,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick, watch } from 'vue'
+import { computed, ref, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { FILE_TYPES, formatFileSize, formatDate } from '@/utils/constants'
 import { api } from '@/api/index'
 import FileDetailModal from './FileDetailModal.vue'
@@ -155,6 +182,7 @@ import EditFileMetaModal from './EditFileMetaModal.vue'
 interface File {
   id: number
   fileName: string
+  collectionName?: string
   filePath: string
   fileType: string
   fileSubType?: string
@@ -185,12 +213,54 @@ const showEditMetaDialog = ref(false)
 const newFileName = ref('')
 const isRenaming = ref(false)
 const fileNameInput = ref<HTMLInputElement | null>(null)
+const hoverZoneRef = ref<HTMLElement | null>(null)
+const previewPlacement = ref<{ horizontal: 'right' | 'left'; vertical: 'down' | 'up' }>({
+  horizontal: 'right',
+  vertical: 'down',
+})
 const visibleTags = computed(() => props.file.tags.slice(0, 3))
 const hiddenTags = computed(() => props.file.tags.slice(3))
 const showThumbnail = computed(() => Boolean(props.file.thumbnail) && !thumbnailError.value)
+const hasHoverPreview = computed(() => {
+  return Boolean(props.file.collectionName || props.file.description || props.file.tags.length > 0)
+})
+const previewPlacementClass = computed(() => ({
+  'preview-left': previewPlacement.value.horizontal === 'left',
+  'preview-right': previewPlacement.value.horizontal === 'right',
+  'preview-up': previewPlacement.value.vertical === 'up',
+  'preview-down': previewPlacement.value.vertical === 'down',
+}))
 const thumbnailSrc = computed(() => {
   return props.file.thumbnail || ''
 })
+
+const getPreviewMetrics = () => {
+  const isCompactViewport = window.innerWidth <= 768
+  return {
+    width: Math.min(isCompactViewport ? 320 : 380, window.innerWidth - (isCompactViewport ? 32 : 56)),
+    height: isCompactViewport ? 280 : 320,
+    viewportPadding: isCompactViewport ? 16 : 24,
+  }
+}
+
+const updateHoverPreviewPlacement = () => {
+  if (!hoverZoneRef.value) {
+    return
+  }
+
+  const rect = hoverZoneRef.value.getBoundingClientRect()
+  const { width, height, viewportPadding } = getPreviewMetrics()
+
+  const canOpenRight = rect.left + width <= window.innerWidth - viewportPadding
+  const canOpenLeft = rect.right - width >= viewportPadding
+  const canOpenDown = rect.top + height <= window.innerHeight - viewportPadding
+  const canOpenUp = rect.bottom - height >= viewportPadding
+
+  previewPlacement.value = {
+    horizontal: !canOpenRight && canOpenLeft ? 'left' : 'right',
+    vertical: !canOpenDown && canOpenUp ? 'up' : 'down',
+  }
+}
 
 const handleClick = () => {
   emit('click', props.file)
@@ -342,8 +412,15 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
-// Add click outside listener
-document.addEventListener('click', handleClickOutside)
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+  window.addEventListener('resize', updateHoverPreviewPlacement)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('resize', updateHoverPreviewPlacement)
+})
 </script>
 
 <style scoped>
@@ -369,11 +446,11 @@ document.addEventListener('click', handleClickOutside)
   border-color: var(--primary-color);
   box-shadow: 0 4px 12px var(--shadow-color);
   transform: translateY(-2px);
-  z-index: 20;
+  z-index: 80;
 }
 
 .file-card.menu-open {
-  z-index: 40;
+  z-index: 120;
 }
 
 .menu-button {
@@ -472,9 +549,18 @@ document.addEventListener('click', handleClickOutside)
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.file-info-hover-zone {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: visible;
 }
 
 .file-name {
@@ -545,19 +631,6 @@ document.addEventListener('click', handleClickOutside)
   color: white;
 }
 
-.file-description {
-  font-size: 12px;
-  color: var(--text-color);
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.4;
-  flex: 0 1 auto;
-  min-height: 0;
-}
-
 .file-meta {
   display: flex;
   justify-content: space-between;
@@ -567,8 +640,10 @@ document.addEventListener('click', handleClickOutside)
   font-size: 12px;
   color: var(--text-color);
   opacity: 0.7;
-  margin-top: auto;
+  margin-top: 10px;
   flex-shrink: 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .file-size,
@@ -579,6 +654,146 @@ document.addEventListener('click', handleClickOutside)
   white-space: nowrap;
 }
 
+.file-hover-preview {
+  position: absolute;
+  top: -8px;
+  left: -6px;
+  width: min(380px, calc(100vw - 56px));
+  min-height: 220px;
+  max-height: 320px;
+  padding: 18px 18px 20px;
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.76) 0%, rgba(30, 41, 59, 0.68) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(18px) saturate(165%);
+  -webkit-backdrop-filter: blur(18px) saturate(165%);
+  color: #f8fafc;
+  box-shadow:
+    0 30px 60px rgba(15, 23, 42, 0.28),
+    0 10px 24px rgba(15, 23, 42, 0.16);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transform-origin: top left;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
+  pointer-events: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 220;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+.file-hover-preview.preview-left {
+  left: auto;
+  right: -6px;
+  transform-origin: top right;
+}
+
+.file-hover-preview.preview-up {
+  top: auto;
+  bottom: -8px;
+  transform: translateY(-8px);
+}
+
+.file-hover-preview::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-hover-preview::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 999px;
+}
+
+.file-info-hover-zone:hover .file-hover-preview {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0s;
+  pointer-events: auto;
+}
+
+.file-card.menu-open .file-hover-preview {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
+  pointer-events: none;
+}
+
+.file-card.menu-open .file-hover-preview.preview-up {
+  transform: translateY(-8px);
+}
+
+.hover-preview-header {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  word-break: break-word;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.hover-preview-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.hover-preview-row:last-child {
+  margin-bottom: 0;
+}
+
+.hover-preview-label {
+  flex-shrink: 0;
+  min-width: 34px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: rgba(191, 219, 254, 0.88);
+}
+
+.hover-preview-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(241, 245, 249, 0.96);
+  word-break: break-word;
+}
+
+.hover-preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hover-preview-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(147, 197, 253, 0.16);
+  color: #e0f2fe;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.preview-tags-row,
+.preview-description-row {
+  align-items: flex-start;
+}
+
+.hover-preview-description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(241, 245, 249, 0.92);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (max-width: 768px) {
   .file-thumbnail {
     aspect-ratio: 16 / 9;
@@ -586,6 +801,19 @@ document.addEventListener('click', handleClickOutside)
 
   .file-icon {
     font-size: 48px;
+  }
+
+  .file-hover-preview {
+    left: -4px;
+    width: min(320px, calc(100vw - 32px));
+    min-height: 200px;
+    max-height: 280px;
+    padding: 14px 14px 16px;
+    border-radius: 16px;
+  }
+
+  .file-hover-preview.preview-left {
+    right: -4px;
   }
 }
 

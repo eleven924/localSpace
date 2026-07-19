@@ -31,6 +31,7 @@ import FileCard from './FileCard.vue'
 interface File {
   id: number
   fileName: string
+  collectionName?: string
   filePath: string
   fileType: string
   fileSubType?: string

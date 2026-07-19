@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"LocalSpace/app/models"
 	"LocalSpace/app/repositories"
@@ -23,6 +24,27 @@ func NewStorageService(configRepo *repositories.ConfigRepository) *StorageServic
 // SetStorageBasePath sets the base storage path
 func (s *StorageService) SetStorageBasePath(path string) {
 	s.storageBasePath = path
+}
+
+func sanitizePathSegment(segment string) string {
+	replacer := strings.NewReplacer(
+		`<`, "_",
+		`>`, "_",
+		`:`, "_",
+		`"`, "_",
+		`/`, "_",
+		`\`, "_",
+		`|`, "_",
+		`?`, "_",
+		`*`, "_",
+	)
+
+	cleaned := strings.TrimSpace(replacer.Replace(segment))
+	cleaned = strings.TrimRight(cleaned, ". ")
+	if cleaned == "" {
+		return "_"
+	}
+	return cleaned
 }
 
 // GetStorageBasePath returns the base storage path
@@ -64,6 +86,11 @@ func (s *StorageService) GetStorageBasePath() (string, error) {
 // GetStorageDirectories returns all storage directories
 func (s *StorageService) GetStorageDirectories() ([]models.StorageDir, error) {
 	return s.configRepo.GetStorageDirectories()
+}
+
+// GetStorageLayoutConfig returns the current storage layout configuration.
+func (s *StorageService) GetStorageLayoutConfig() (*models.StorageLayoutConfig, error) {
+	return s.configRepo.GetStorageLayoutConfig()
 }
 
 // AddStorageDirectory adds a new storage directory
@@ -475,7 +502,7 @@ func (s *StorageService) EnsureSubDirectory(masterID uint, fileType string) (uin
 }
 
 // GetStoragePathForFileWithMaster 使用指定主目录获取文件存储路径
-func (s *StorageService) GetStoragePathForFileWithMaster(masterID uint, fileType, fileName string) (string, error) {
+func (s *StorageService) GetStoragePathForFileWithMaster(masterID uint, fileType, collectionName, fileName string) (string, error) {
 	// 获取指定的主目录
 	masters, err := s.configRepo.GetMasterDirectories()
 	if err != nil {
@@ -498,6 +525,22 @@ func (s *StorageService) GetStoragePathForFileWithMaster(masterID uint, fileType
 	_, subPath, err := s.EnsureSubDirectory(masterID, fileType)
 	if err != nil {
 		return "", err
+	}
+
+	layoutConfig, err := s.GetStorageLayoutConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to get storage layout config: %w", err)
+	}
+
+	if layoutConfig.Strategy == "type_collection" {
+		segment := strings.TrimSpace(collectionName)
+		if segment == "" {
+			segment = layoutConfig.UnsortedFolderName
+		}
+		if layoutConfig.SanitizeFolderName {
+			segment = sanitizePathSegment(segment)
+		}
+		subPath = filepath.Join(subPath, segment)
 	}
 
 	return filepath.Join(subPath, fileName), nil

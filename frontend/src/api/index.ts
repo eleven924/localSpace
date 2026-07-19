@@ -16,6 +16,7 @@ declare global {
           // File operations
           ImportFile: (filePath: string, fileName: string, description: string, tags: string[]) => Promise<string>
           ImportFileWithKeywords: (filePath: string, fileName: string, description: string, tags: string[], keywords: string) => Promise<string>
+          ImportFileWithMetadata: (filePath: string, fileName: string, description: string, tags: string[], keywords: string, collectionName: string) => Promise<string>
           GetFiles: (page: number, pageSize: number, fileType: string) => Promise<any[]>
           SearchFiles: (query: string) => Promise<any[]>
           GetFile: (id: number) => Promise<any>
@@ -48,13 +49,15 @@ declare global {
           CheckStorageSpace: (fileSize: number) => Promise<boolean>
           CheckPathConflict: (path: string, excludeID: number) => Promise<boolean>
           CheckMasterStorageSpace: (masterID: number, fileSize: number) => Promise<boolean>
-          GetMasterStoragePathForFile: (masterID: number, fileType: string, fileName: string) => Promise<string>
+          GetMasterStoragePathForFile: (masterID: number, fileType: string, collectionName: string, fileName: string) => Promise<string>
 
           // Theme
           GetThemeConfig: () => Promise<any>
           UpdateThemeConfig: (config: any) => Promise<string>
           GetOpenWithConfig: () => Promise<any>
           UpdateOpenWithConfig: (config: any) => Promise<string>
+          GetStorageLayoutConfig: () => Promise<any>
+          UpdateStorageLayoutConfig: (config: any) => Promise<string>
 
           // AI Config
           GetAIConfig: () => Promise<any>
@@ -216,6 +219,20 @@ export const api = {
           reject(error)
         }
       }),
+    importWithMetadata: (filePath: string, fileName: string, description: string, tags: string[], keywords: string, collectionName: string) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.ImportFileWithMetadata(filePath, fileName, description, tags, keywords, collectionName)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
     openPreferred: (id: number) =>
       new Promise((resolve, reject) => {
         try {
@@ -368,11 +385,11 @@ export const api = {
         true,
         `CheckMasterStorageSpace(${masterID}, ${fileSize})`
       ),
-    getMasterPathForFile: (masterID: number, fileType: string, fileName: string) =>
+    getMasterPathForFile: (masterID: number, fileType: string, collectionName: string, fileName: string) =>
       safeWailsCall(
-        () => window.go!.app!.App.GetMasterStoragePathForFile(masterID, fileType, fileName),
+        () => window.go!.app!.App.GetMasterStoragePathForFile(masterID, fileType, collectionName, fileName),
         '',
-        `GetMasterStoragePathForFile(${masterID}, ${fileType}, ${fileName})`
+        `GetMasterStoragePathForFile(${masterID}, ${fileType}, ${collectionName}, ${fileName})`
       ),
   },
 
@@ -406,6 +423,29 @@ export const api = {
             return
           }
           window.go!.app!.App.UpdateOpenWithConfig(config)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+  },
+
+  storageLayout: {
+    getConfig: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetStorageLayoutConfig(),
+        { strategy: 'type_collection', unsortedFolderName: '_unsorted', sanitizeFolderName: true },
+        'GetStorageLayoutConfig'
+      ),
+    updateConfig: (config: any) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.UpdateStorageLayoutConfig(config)
             .then(() => resolve('success'))
             .catch(reject)
         } catch (error) {

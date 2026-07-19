@@ -39,6 +39,7 @@ type ImportFileRequest struct {
 	Description string   // user-provided description
 	Tags        []string // user-provided tags
 	Keywords    string   // user-provided keywords
+	CollectionName string // user-provided collection / series / project name
 }
 
 // FileFilter represents filters for file queries.
@@ -120,7 +121,18 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 		return fmt.Errorf("not enough storage space for this file")
 	}
 
-	destPath, err := s.storageService.GetStoragePathForFileWithMaster(defaultMaster.ID, fileType, req.FileName)
+	layoutConfig, err := s.storageService.GetStorageLayoutConfig()
+	if err != nil {
+		return fmt.Errorf("failed to get storage layout config: %w", err)
+	}
+
+	trimmedCollectionName := strings.TrimSpace(req.CollectionName)
+	effectiveCollectionName := trimmedCollectionName
+	if layoutConfig.Strategy == "type_collection" && effectiveCollectionName == "" {
+		effectiveCollectionName = layoutConfig.UnsortedFolderName
+	}
+
+	destPath, err := s.storageService.GetStoragePathForFileWithMaster(defaultMaster.ID, fileType, effectiveCollectionName, req.FileName)
 	if err != nil {
 		return fmt.Errorf("failed to get storage path: %w", err)
 	}
@@ -176,6 +188,7 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 	file := &models.File{
 		FileName:     req.FileName,
 		OriginalName: originalName,
+		CollectionName: effectiveCollectionName,
 		FilePath:     destPath,
 		FileType:     fileType,
 		FileSubType:  strings.TrimPrefix(extension, "."),

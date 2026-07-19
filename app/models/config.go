@@ -44,6 +44,13 @@ type OpenWithConfig struct {
 	ByExtension map[string]string `json:"byExtension"`
 }
 
+// StorageLayoutConfig controls how imported files are laid out on disk.
+type StorageLayoutConfig struct {
+	Strategy           string `json:"strategy"`
+	UnsortedFolderName string `json:"unsortedFolderName"`
+	SanitizeFolderName bool   `json:"sanitizeFolderName"`
+}
+
 // StorageDir represents a storage directory
 type StorageDir struct {
 	ID          uint   `json:"id"`

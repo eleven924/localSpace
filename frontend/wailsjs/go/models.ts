@@ -80,6 +80,7 @@ export namespace models {
 	    id: number;
 	    fileName: string;
 	    originalName: string;
+	    collectionName: string;
 	    filePath: string;
 	    fileType: string;
 	    fileSubType: string;
@@ -103,6 +104,7 @@ export namespace models {
 	        this.id = source["id"];
 	        this.fileName = source["fileName"];
 	        this.originalName = source["originalName"];
+	        this.collectionName = source["collectionName"];
 	        this.filePath = source["filePath"];
 	        this.fileType = source["fileType"];
 	        this.fileSubType = source["fileSubType"];
@@ -222,6 +224,22 @@ export namespace models {
 		    }
 		    return a;
 		}
+	}
+	export class StorageLayoutConfig {
+	    strategy: string;
+	    unsortedFolderName: string;
+	    sanitizeFolderName: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new StorageLayoutConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.strategy = source["strategy"];
+	        this.unsortedFolderName = source["unsortedFolderName"];
+	        this.sanitizeFolderName = source["sanitizeFolderName"];
+	    }
 	}
 	export class ThemeConfig {
 	    id: number;

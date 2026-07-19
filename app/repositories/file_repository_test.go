@@ -43,6 +43,7 @@ func TestFileRepository_Create(t *testing.T) {
 	file := &models.File{
 		FileName:     "test.mp4",
 		OriginalName: "original_test.mp4",
+		CollectionName: "电视剧A",
 		FilePath:     "/test/path/test.mp4",
 		FileType:     "video",
 		FileSubType:  "mp4",
@@ -78,6 +79,7 @@ func TestFileRepository_FindByID(t *testing.T) {
 	file := &models.File{
 		FileName:     "test.pdf",
 		OriginalName: "original_test.pdf",
+		CollectionName: "项目资料",
 		FilePath:     "/test/path/test.pdf",
 		FileType:     "document",
 		FileSubType:  "pdf",
@@ -109,6 +111,9 @@ func TestFileRepository_FindByID(t *testing.T) {
 	if found.OriginalName != file.OriginalName {
 		t.Errorf("Expected OriginalName %s, got %s", file.OriginalName, found.OriginalName)
 	}
+	if found.CollectionName != file.CollectionName {
+		t.Errorf("Expected CollectionName %s, got %s", file.CollectionName, found.CollectionName)
+	}
 	if found.FileType != file.FileType {
 		t.Errorf("Expected FileType %s, got %s", file.FileType, found.FileType)
 	}
@@ -128,6 +133,7 @@ func TestFileRepository_List(t *testing.T) {
 		{
 			FileName:     "video1.mp4",
 			OriginalName: "video1.mp4",
+			CollectionName: "剧集A",
 			FilePath:     "/test/video1.mp4",
 			FileType:     "video",
 			FileSubType:  "mp4",
@@ -138,6 +144,7 @@ func TestFileRepository_List(t *testing.T) {
 		{
 			FileName:     "video2.mp4",
 			OriginalName: "video2.mp4",
+			CollectionName: "剧集A",
 			FilePath:     "/test/video2.mp4",
 			FileType:     "video",
 			FileSubType:  "mp4",
@@ -148,6 +155,7 @@ func TestFileRepository_List(t *testing.T) {
 		{
 			FileName:     "doc.pdf",
 			OriginalName: "doc.pdf",
+			CollectionName: "项目A",
 			FilePath:     "/test/doc.pdf",
 			FileType:     "document",
 			FileSubType:  "pdf",
@@ -193,6 +201,7 @@ func TestFileRepository_Search(t *testing.T) {
 		{
 			FileName:     "tutorial_video.mp4",
 			OriginalName: "tutorial_video.mp4",
+			CollectionName: "课程",
 			FilePath:     "/test/tutorial.mp4",
 			FileType:     "video",
 			FileSubType:  "mp4",
@@ -203,6 +212,7 @@ func TestFileRepository_Search(t *testing.T) {
 		{
 			FileName:     "entertainment_video.mp4",
 			OriginalName: "entertainment_video.mp4",
+			CollectionName: "娱乐",
 			FilePath:     "/test/entertainment.mp4",
 			FileType:     "video",
 			FileSubType:  "mp4",
@@ -244,6 +254,14 @@ func TestFileRepository_Search(t *testing.T) {
 	if len(results) != 1 {
 		t.Errorf("Expected 1 result for 'education', got %d", len(results))
 	}
+
+	results, err = repo.Search("课程")
+	if err != nil {
+		t.Fatalf("Failed to search files by collection: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("Expected 1 result for collection search, got %d", len(results))
+	}
 }
 
 func TestFileRepository_Delete(t *testing.T) {
@@ -256,6 +274,7 @@ func TestFileRepository_Delete(t *testing.T) {
 	file := &models.File{
 		FileName:     "to_delete.mp4",
 		OriginalName: "to_delete.mp4",
+		CollectionName: "临时合集",
 		FilePath:     "/test/to_delete.mp4",
 		FileType:     "video",
 		FileSubType:  "mp4",
@@ -292,6 +311,7 @@ func TestFileRepository_Update(t *testing.T) {
 	file := &models.File{
 		FileName:     "to_update.mp4",
 		OriginalName: "to_update.mp4",
+		CollectionName: "旧合集",
 		FilePath:     "/test/to_update.mp4",
 		FileType:     "video",
 		FileSubType:  "mp4",
@@ -308,6 +328,7 @@ func TestFileRepository_Update(t *testing.T) {
 	// Update file
 	file.Tags = []string{"new", "updated"}
 	file.Description = "New description"
+	file.CollectionName = "新合集"
 	err = repo.Update(file)
 	if err != nil {
 		t.Fatalf("Failed to update file: %v", err)
@@ -325,6 +346,9 @@ func TestFileRepository_Update(t *testing.T) {
 	if updated.Description != "New description" {
 		t.Errorf("Expected description 'New description', got '%s'", updated.Description)
 	}
+	if updated.CollectionName != "新合集" {
+		t.Errorf("Expected collection name '新合集', got '%s'", updated.CollectionName)
+	}
 }
 
 func TestFileRepository_ExistsByPath(t *testing.T) {
@@ -337,6 +361,7 @@ func TestFileRepository_ExistsByPath(t *testing.T) {
 	file := &models.File{
 		FileName:     "check_exist.mp4",
 		OriginalName: "check_exist.mp4",
+		CollectionName: "测试合集",
 		FilePath:     "/test/check_exist.mp4",
 		FileType:     "video",
 		FileSubType:  "mp4",
@@ -442,6 +467,7 @@ func TestFileRepository_CheckDuplicateByChecksum(t *testing.T) {
 	file := &models.File{
 		FileName:     "original_file.txt",
 		OriginalName: "original_file.txt",
+		CollectionName: "文档合集",
 		FilePath:     "/test/original.txt",
 		FileType:     "document",
 		FileSubType:  "txt",

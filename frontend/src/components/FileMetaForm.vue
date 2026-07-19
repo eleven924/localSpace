@@ -33,6 +33,19 @@
         />
       </div>
 
+      <div class="form-group">
+        <label for="file-collection-name">
+          <span class="label-text">系列 / 项目 / 合集</span>
+          <span class="label-hint">可选</span>
+        </label>
+        <input
+          id="file-collection-name"
+          v-model="collectionName"
+          type="text"
+          placeholder="例如：甄嬛传 / 项目A / 旅行素材"
+        />
+      </div>
+
       <FileMetadataFields
         :file-name="fileName"
         :file-type="fileType"
@@ -88,6 +101,7 @@ const fileName = ref(props.file.name)
 const parsedTags = ref<string[]>([])
 const description = ref('')
 const keywords = ref('')
+const collectionName = ref('')
 const importing = ref(false)
 const progressText = ref('准备中...')
 
@@ -100,6 +114,7 @@ watch(() => props.file, (newFile) => {
   parsedTags.value = []
   description.value = ''
   keywords.value = ''
+  collectionName.value = ''
 })
 
 const handleFileNameChange = () => {
@@ -115,12 +130,13 @@ const handleImport = async () => {
   try {
     const tags = parsedTags.value.length > 0 ? parsedTags.value : undefined
 
-    await api.file.importWithKeywords(
+    await api.file.importWithMetadata(
       props.file.path,
       fileName.value,
       description.value,
       tags || [],
-      keywords.value.trim()
+      keywords.value.trim(),
+      collectionName.value.trim()
     )
 
     progressText.value = '导入成功！'

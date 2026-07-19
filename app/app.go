@@ -209,6 +209,18 @@ func (a *App) ImportFileWithKeywords(filePath, fileName, description string, tag
 	})
 }
 
+// ImportFileWithMetadata imports a file with keywords and collection metadata.
+func (a *App) ImportFileWithMetadata(filePath, fileName, description string, tags []string, keywords, collectionName string) error {
+	return a.fileService.ImportFile(services.ImportFileRequest{
+		FilePath:       filePath,
+		FileName:       fileName,
+		Description:    description,
+		Tags:           tags,
+		Keywords:       keywords,
+		CollectionName: collectionName,
+	})
+}
+
 // GetFiles returns a list of files
 func (a *App) GetFiles(page, pageSize int, fileType string) ([]*models.File, error) {
 	if !a.waitForInitialization(5 * time.Second) {
@@ -530,8 +542,8 @@ func (a *App) CheckPathConflict(path string, excludeID uint) (bool, error) {
 }
 
 // GetMasterStoragePathForFile returns the storage path for a file using master directory structure
-func (a *App) GetMasterStoragePathForFile(masterID uint, fileType, fileName string) (string, error) {
-	return a.storageService.GetStoragePathForFileWithMaster(masterID, fileType, fileName)
+func (a *App) GetMasterStoragePathForFile(masterID uint, fileType, collectionName, fileName string) (string, error) {
+	return a.storageService.GetStoragePathForFileWithMaster(masterID, fileType, collectionName, fileName)
 }
 
 // CheckMasterStorageSpace checks storage space for a master directory
@@ -567,6 +579,16 @@ func (a *App) GetOpenWithConfig() (*models.OpenWithConfig, error) {
 // UpdateOpenWithConfig updates the preferred open configuration.
 func (a *App) UpdateOpenWithConfig(config models.OpenWithConfig) error {
 	return a.configService.UpdateOpenWithConfig(config)
+}
+
+// GetStorageLayoutConfig returns the storage layout configuration.
+func (a *App) GetStorageLayoutConfig() (*models.StorageLayoutConfig, error) {
+	return a.configService.GetStorageLayoutConfig()
+}
+
+// UpdateStorageLayoutConfig updates the storage layout configuration.
+func (a *App) UpdateStorageLayoutConfig(config models.StorageLayoutConfig) error {
+	return a.configService.UpdateStorageLayoutConfig(config)
 }
 
 // AI Config Methods

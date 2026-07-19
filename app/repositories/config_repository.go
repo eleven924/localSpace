@@ -60,6 +60,14 @@ func defaultOpenWithConfig() *models.OpenWithConfig {
 	}
 }
 
+func defaultStorageLayoutConfig() *models.StorageLayoutConfig {
+	return &models.StorageLayoutConfig{
+		Strategy:           "type_collection",
+		UnsortedFolderName: "_unsorted",
+		SanitizeFolderName: true,
+	}
+}
+
 // GetAll returns all configurations
 func (r *ConfigRepository) GetAll() (map[string]string, error) {
 	query := `SELECT key, value FROM configs`
@@ -127,6 +135,53 @@ func (r *ConfigRepository) SetOpenWithConfig(config *models.OpenWithConfig) erro
 	}
 
 	return r.Set("open_with_config", string(data))
+}
+
+// GetStorageLayoutConfig returns the storage layout configuration.
+func (r *ConfigRepository) GetStorageLayoutConfig() (*models.StorageLayoutConfig, error) {
+	value, err := r.Get("storage_layout_config")
+	if err != nil {
+		if strings.Contains(err.Error(), "config key not found") {
+			return defaultStorageLayoutConfig(), nil
+		}
+		return nil, err
+	}
+
+	config := defaultStorageLayoutConfig()
+	if strings.TrimSpace(value) == "" {
+		return config, nil
+	}
+	if err := json.Unmarshal([]byte(value), config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal storage layout config: %w", err)
+	}
+	if config.Strategy == "" {
+		config.Strategy = "type_collection"
+	}
+	if strings.TrimSpace(config.UnsortedFolderName) == "" {
+		config.UnsortedFolderName = "_unsorted"
+	}
+
+	return config, nil
+}
+
+// SetStorageLayoutConfig saves the storage layout configuration.
+func (r *ConfigRepository) SetStorageLayoutConfig(config *models.StorageLayoutConfig) error {
+	if config == nil {
+		config = defaultStorageLayoutConfig()
+	}
+	if strings.TrimSpace(config.Strategy) == "" {
+		config.Strategy = "type_collection"
+	}
+	if strings.TrimSpace(config.UnsortedFolderName) == "" {
+		config.UnsortedFolderName = "_unsorted"
+	}
+
+	data, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal storage layout config: %w", err)
+	}
+
+	return r.Set("storage_layout_config", string(data))
 }
 
 // GetFileTypes returns all file types

@@ -74,8 +74,8 @@ export function GetMasterDirectories() {
   return window['go']['app']['App']['GetMasterDirectories']();
 }
 
-export function GetMasterStoragePathForFile(arg1, arg2, arg3) {
-  return window['go']['app']['App']['GetMasterStoragePathForFile'](arg1, arg2, arg3);
+export function GetMasterStoragePathForFile(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['GetMasterStoragePathForFile'](arg1, arg2, arg3, arg4);
 }
 
 export function GetOpenWithConfig() {
@@ -84,6 +84,10 @@ export function GetOpenWithConfig() {
 
 export function GetStorageDirectories() {
   return window['go']['app']['App']['GetStorageDirectories']();
+}
+
+export function GetStorageLayoutConfig() {
+  return window['go']['app']['App']['GetStorageLayoutConfig']();
 }
 
 export function GetThemeConfig() {
@@ -104,6 +108,10 @@ export function ImportFile(arg1, arg2, arg3, arg4) {
 
 export function ImportFileWithKeywords(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['ImportFileWithKeywords'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function ImportFileWithMetadata(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['app']['App']['ImportFileWithMetadata'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function InitConfig(arg1) {
@@ -180,6 +188,10 @@ export function UpdateFileMetadata(arg1, arg2, arg3) {
 
 export function UpdateOpenWithConfig(arg1) {
   return window['go']['app']['App']['UpdateOpenWithConfig'](arg1);
+}
+
+export function UpdateStorageLayoutConfig(arg1) {
+  return window['go']['app']['App']['UpdateStorageLayoutConfig'](arg1);
 }
 
 export function UpdateThemeConfig(arg1) {

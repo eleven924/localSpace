@@ -51,6 +51,12 @@ var migrations = []Migration{
 		Up:      migration006_Up,
 		Down:    migration006_Down,
 	},
+	{
+		Version: 7,
+		Name:    "add_file_collection_name",
+		Up:      migration007_Up,
+		Down:    migration007_Down,
+	},
 }
 
 // RunMigrations 运行数据库迁移
@@ -525,5 +531,31 @@ func migration006_Up(db *sql.DB) error {
 }
 
 func migration006_Down(db *sql.DB) error {
+	return fmt.Errorf("SQLite rollback not supported for column additions")
+}
+
+// migration007_Up: add file collection name column
+func migration007_Up(db *sql.DB) error {
+	var exists bool
+	err := db.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('files')
+		WHERE name = 'collection_name'
+	`).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check collection_name column existence: %w", err)
+	}
+	if exists {
+		return nil
+	}
+
+	if _, err := db.Exec(`ALTER TABLE files ADD COLUMN collection_name TEXT DEFAULT ''`); err != nil {
+		return fmt.Errorf("failed to add collection_name column: %w", err)
+	}
+
+	return nil
+}
+
+func migration007_Down(db *sql.DB) error {
 	return fmt.Errorf("SQLite rollback not supported for column additions")
 }

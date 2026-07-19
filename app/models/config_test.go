@@ -71,3 +71,21 @@ func TestOpenWithConfigSupportsTypeAndExtensionMappings(t *testing.T) {
 		t.Fatal("expected .mkv mapping to be present")
 	}
 }
+
+func TestStorageLayoutConfigSupportsTypeAndCollectionStrategy(t *testing.T) {
+	config := StorageLayoutConfig{
+		Strategy:           "type_collection",
+		UnsortedFolderName: "_unsorted",
+		SanitizeFolderName: true,
+	}
+
+	if config.Strategy != "type_collection" {
+		t.Fatalf("expected strategy type_collection, got %q", config.Strategy)
+	}
+	if config.UnsortedFolderName != "_unsorted" {
+		t.Fatalf("expected unsorted folder name _unsorted, got %q", config.UnsortedFolderName)
+	}
+	if !config.SanitizeFolderName {
+		t.Fatal("expected sanitize flag to be true")
+	}
+}
