@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"LocalSpace/app/models"
@@ -27,6 +28,8 @@ type FileService struct {
 	aiService        *AIService
 	agentService     *AgentService
 	thumbnailService *ThumbnailService
+	thumbnailMu      sync.Mutex
+	thumbnailPending map[uint]struct{}
 }
 
 // ImportFileRequest represents a file import request.
@@ -60,6 +63,7 @@ func NewFileService(
 		storageService:   storageService,
 		aiService:        aiService,
 		thumbnailService: thumbnailService,
+		thumbnailPending: make(map[uint]struct{}),
 	}
 }
 
@@ -191,7 +195,8 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 	}
 
 	if supportsGeneratedThumbnail(fileType) {
-		go s.generateThumbnailForFile(file.ID, destPath, fileType)
+		// Generate during import so the first file listing can use the cached thumbnail.
+		s.generateThumbnailForFile(file.ID, destPath, fileType)
 	}
 
 	if err := s.storageService.UpdateMasterDirectorySize(defaultMaster.ID, fileType, fileInfo.Size()); err != nil {
@@ -279,8 +284,9 @@ func (s *FileService) ListFiles(filter FileFilter) ([]*models.File, error) {
 			continue
 		}
 
-		if file.Thumbnail == "" || !s.thumbnailIsCurrent(file) {
-			go s.generateThumbnailForFile(file.ID, file.FilePath, file.FileType)
+		if !s.thumbnailIsCurrent(file) {
+			file.Thumbnail = ""
+			s.scheduleThumbnailGeneration(file.ID, file.FilePath, file.FileType)
 			continue
 		}
 
@@ -305,8 +311,9 @@ func (s *FileService) SearchFiles(query string) ([]*models.File, error) {
 			continue
 		}
 
-		if file.Thumbnail == "" || !s.thumbnailIsCurrent(file) {
-			go s.generateThumbnailForFile(file.ID, file.FilePath, file.FileType)
+		if !s.thumbnailIsCurrent(file) {
+			file.Thumbnail = ""
+			s.scheduleThumbnailGeneration(file.ID, file.FilePath, file.FileType)
 			continue
 		}
 
@@ -330,8 +337,8 @@ func (s *FileService) GetFile(id uint) (*models.File, error) {
 		return file, nil
 	}
 
-	if file.Thumbnail == "" || !s.thumbnailIsCurrent(file) {
-		go s.generateThumbnailForFile(file.ID, file.FilePath, file.FileType)
+	if !s.thumbnailIsCurrent(file) {
+		file.Thumbnail = ""
 		return file, nil
 	}
 
@@ -568,6 +575,33 @@ func (s *FileService) generateThumbnailForFile(fileID uint, filePath, fileType s
 	if err := s.fileRepo.UpdateThumbnail(fileID, thumbnailPath); err != nil {
 		fmt.Printf("Warning: Failed to update thumbnail path for file %d: %v\n", fileID, err)
 	}
+}
+
+func (s *FileService) scheduleThumbnailGeneration(fileID uint, filePath, fileType string) {
+	if !supportsGeneratedThumbnail(fileType) {
+		return
+	}
+
+	s.thumbnailMu.Lock()
+	if s.thumbnailPending == nil {
+		s.thumbnailPending = make(map[uint]struct{})
+	}
+	if _, pending := s.thumbnailPending[fileID]; pending {
+		s.thumbnailMu.Unlock()
+		return
+	}
+	s.thumbnailPending[fileID] = struct{}{}
+	s.thumbnailMu.Unlock()
+
+	go func() {
+		defer func() {
+			s.thumbnailMu.Lock()
+			delete(s.thumbnailPending, fileID)
+			s.thumbnailMu.Unlock()
+		}()
+
+		s.generateThumbnailForFile(fileID, filePath, fileType)
+	}()
 }
 
 func (s *FileService) thumbnailExists(thumbnailPath string) bool {
