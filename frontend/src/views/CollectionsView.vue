@@ -1,22 +1,6 @@
 <template>
   <div class="collections-view">
-    <header class="header">
-      <div class="header-left">
-        <div class="brand-block">
-          <h1>LocalSpace</h1>
-          <p class="subtitle">从“系列 / 剧集 / 课程 / 项目”角度浏览你的内容库</p>
-        </div>
-        <nav class="header-nav">
-          <router-link to="/files" class="nav-pill">文件</router-link>
-          <router-link to="/collections" class="nav-pill active">合集</router-link>
-        </nav>
-      </div>
-
-      <div class="header-actions">
-        <router-link to="/import" class="btn primary">导入文件</router-link>
-        <router-link to="/settings" class="btn secondary">设置</router-link>
-      </div>
-    </header>
+    <AppHeader />
 
     <div class="content">
       <section class="hero-panel">
@@ -49,11 +33,7 @@
         <div class="toolbar-bottom">
           <div class="collection-search">
             <span class="collection-search-icon">⌕</span>
-            <input
-              v-model="collectionQuery"
-              type="text"
-              placeholder="搜索合集名称"
-            />
+            <input v-model="collectionQuery" type="text" placeholder="搜索合集名称" />
           </div>
         </div>
       </section>
@@ -92,6 +72,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppHeader from '@/components/AppHeader.vue'
 import CollectionCard from '@/components/CollectionCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import FileTypeFilter from '@/components/FileTypeFilter.vue'
@@ -169,77 +150,13 @@ const handleRetry = async () => {
     var(--app-bg-color, var(--bg-color));
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  padding: 16px 24px;
-  background-color: color-mix(in srgb, var(--surface-color) 92%, transparent);
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  min-width: 0;
-}
-
-.brand-block h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-color);
-}
-
-.subtitle {
-  margin: 0;
-  color: var(--text-color);
-  opacity: 0.7;
-  font-size: 13px;
-}
-
-.header-nav {
-  display: inline-flex;
-  gap: 8px;
-  padding: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-color) 82%, transparent);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-}
-
-.nav-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 72px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  color: var(--text-color);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.nav-pill.active,
-.nav-pill.router-link-active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, color-mix(in srgb, var(--primary-color) 78%, #0f172a) 100%);
-  color: #fff;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   min-height: 0;
-  padding: 20px 24px 24px;
+  padding: 14px 18px 18px;
 }
 
 .hero-panel {
@@ -252,7 +169,11 @@ const handleRetry = async () => {
   border: 1px solid rgba(148, 163, 184, 0.18);
   background:
     radial-gradient(circle at top right, rgba(33, 150, 243, 0.14), transparent 28%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-color) 90%, white 10%) 0%, var(--surface-color) 100%);
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface-color) 90%, white 10%) 0%,
+      var(--surface-color) 100%
+    );
 }
 
 .hero-copy h2 {
@@ -302,9 +223,9 @@ const handleRetry = async () => {
 .toolbar-panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px 20px;
-  border-radius: 22px;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 18px;
   background-color: color-mix(in srgb, var(--surface-color) 90%, transparent);
   border: 1px solid rgba(148, 163, 184, 0.16);
 }
@@ -330,9 +251,31 @@ const handleRetry = async () => {
 
 .collection-search input {
   width: 100%;
-  padding: 12px 16px 12px 38px;
-  border-radius: 16px;
+  padding: 10px 16px 10px 38px;
+  border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.toolbar-panel :deep(.file-type-filter) {
+  gap: 6px;
+  padding: 0;
+}
+
+.toolbar-panel :deep(.file-type-filter button) {
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+}
+
+.toolbar-panel :deep(.filter-icon) {
+  font-size: 14px;
+}
+
+.toolbar-panel :deep(.filter-count) {
+  min-width: 18px;
+  padding: 1px 5px;
+  font-size: 11px;
 }
 
 .loading-state,
@@ -365,22 +308,6 @@ const handleRetry = async () => {
 }
 
 @media (max-width: 900px) {
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .header-left {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .header-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
   .hero-panel {
     flex-direction: column;
   }
@@ -392,26 +319,13 @@ const handleRetry = async () => {
 
 @media (max-width: 640px) {
   .content {
-    padding: 16px;
-  }
-
-  .header {
-    padding: 14px 16px;
-  }
-
-  .header-actions {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  .header-actions .btn {
-    width: 100%;
+    padding: 12px 14px 14px;
   }
 
   .hero-panel,
   .toolbar-panel {
-    padding: 18px;
-    border-radius: 18px;
+    padding: 14px;
+    border-radius: 16px;
   }
 
   .hero-stats {

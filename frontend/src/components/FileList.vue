@@ -1,9 +1,34 @@
 <template>
   <div class="file-list-container">
     <div v-if="files.length === 0" class="empty-state">
-      <div class="empty-icon">馃搧</div>
-      <h3>暂无文件</h3>
-      <p>点击上方“导入文件”开始添加内容</p>
+      <div class="empty-icon" :class="`is-${emptyStateMode}`">
+        <svg
+          v-if="emptyStateMode === 'search'"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="6"></circle>
+          <line x1="20" y1="20" x2="15.8" y2="15.8"></line>
+          <line x1="8.5" y1="11" x2="13.5" y2="11"></line>
+        </svg>
+        <svg
+          v-else
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2h7A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"></path>
+        </svg>
+      </div>
+      <h3>{{ emptyTitle }}</h3>
+      <p>{{ emptyDescription }}</p>
     </div>
 
     <div
@@ -74,8 +99,14 @@ interface FileGroup {
 const props = withDefaults(defineProps<{
   files: LibraryFile[]
   groupByCollection?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
+  emptyStateMode?: 'library' | 'search'
 }>(), {
   groupByCollection: false,
+  emptyTitle: '暂无文件',
+  emptyDescription: '点击上方“导入文件”开始添加内容',
+  emptyStateMode: 'library',
 })
 
 const emit = defineEmits<{
@@ -177,20 +208,38 @@ const handleUpdated = (id: number) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   padding: 60px 20px;
   color: var(--text-color);
-  opacity: 0.6;
+  opacity: 0.72;
   height: 100%;
+  text-align: center;
 }
 
 .empty-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 24px;
+  background: rgba(148, 163, 184, 0.08);
+  color: rgba(100, 116, 139, 0.88);
+}
+
+.empty-icon.is-search {
+  background: rgba(33, 150, 243, 0.08);
+  color: color-mix(in srgb, var(--primary-color) 70%, #0f172a);
+}
+
+.empty-icon svg {
+  width: 42px;
+  height: 42px;
 }
 
 .empty-state h3 {
   font-size: 20px;
-  margin: 0 0 8px 0;
+  margin: 0;
 }
 
 .empty-state p {
@@ -321,6 +370,11 @@ const handleUpdated = (id: number) => {
 
   .empty-state {
     padding: 40px 20px;
+  }
+
+  .empty-icon {
+    width: 76px;
+    height: 76px;
   }
 }
 

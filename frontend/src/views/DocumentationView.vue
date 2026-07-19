@@ -1,19 +1,19 @@
 <template>
   <div class="documentation-view">
-    <header class="header">
-      <div class="header-left">
-        <router-link to="/settings" class="back-link">
-          <span class="back-icon">←</span>
-          返回设置
-        </router-link>
-        <div class="header-info">
-          <h1>LocalSpace 介绍与使用文档</h1>
-          <p class="subtitle">随应用一起打包，可在桌面版中离线查看。</p>
-        </div>
-      </div>
-    </header>
+    <AppHeader />
 
     <div ref="contentRef" class="content">
+      <section class="page-intro">
+        <div class="page-intro-copy">
+          <router-link to="/settings" class="doc-back-link">返回设置</router-link>
+          <p class="eyebrow">内置文档</p>
+          <h1>LocalSpace 介绍与使用文档</h1>
+          <p class="subtitle">随应用一起打包，可以在桌面版中离线查看，适合交付给最终使用者直接阅读。</p>
+        </div>
+
+        <p class="intro-meta">你可以把这里理解成产品手册、操作说明和展示页的结合体。</p>
+      </section>
+
       <div class="layout">
         <aside class="toc">
           <div class="toc-card">
@@ -37,9 +37,10 @@
             <p class="eyebrow">产品概览</p>
             <h2>围绕本地资料整理、检索和复用打造的轻量桌面工作台</h2>
             <p class="hero-text">
-              LocalSpace 用于管理本地文件资料，支持导入归档、标签描述、搜索筛选、
-              缩略图预览、AI 辅助标注以及目录与主题配置，适合个人资料库和项目素材库使用。
+              LocalSpace 用于管理本地文件资料，支持导入归档、标签描述、搜索筛选、缩略图预览、AI
+              辅助标注，以及目录与主题配置，适合个人资料库和项目素材库使用。
             </p>
+
             <div class="hero-stats">
               <div class="stat-card">
                 <span class="stat-value">4+</span>
@@ -91,11 +92,7 @@
             </ol>
 
             <div v-if="section.screenshots?.length" class="screenshot-grid">
-              <figure
-                v-for="shot in section.screenshots"
-                :key="shot.src"
-                class="shot-card"
-              >
+              <figure v-for="shot in section.screenshots" :key="shot.src" class="shot-card">
                 <img :src="shot.src" :alt="shot.alt" />
                 <figcaption>
                   <strong>{{ shot.title }}</strong>
@@ -112,6 +109,7 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import AppHeader from '@/components/AppHeader.vue'
 
 interface SectionStep {
   title: string
@@ -145,10 +143,10 @@ const sections: DocSection[] = [
     bullets: [
       '文件导入与归档：从本地选择文件后导入 LocalSpace，并记录名称、描述、标签和关键词。',
       '统一索引与浏览：在主列表中按文件类型筛选，集中查看已导入文件的缩略图、元信息和状态。',
-      '搜索与检索：支持按关键字搜索，并结合描述、标签和文件类型快速定位资料。',
+      '搜索与检索：支持按关键词搜索，并结合描述、标签、文件类型与合集快速定位资料。',
       'AI 元数据辅助：可在设置中配置模型参数，为文件自动生成标签与描述。',
       '多主目录管理：支持设置主存储目录、默认目录和容量约束，便于规划资料落盘结构。',
-      '缩略图与元信息提取：针对图片、文档、视频等文件生成预览并提取基础元信息。'
+      '缩略图与元信息提取：针对图片、文档、视频等文件生成预览，并提取基础元信息。'
     ],
     screenshots: [
       {
@@ -171,7 +169,7 @@ const sections: DocSection[] = [
       },
       {
         title: '按需开启 AI 配置',
-        description: '如果你希望导入时自动生成标签与描述，可填写 API Key、模型名、Base URL 等参数。'
+        description: '如果你希望导入时自动生成标签与描述，可以填写 API Key、模型名、Base URL 等参数。'
       },
       {
         title: '导入第一批文件',
@@ -185,7 +183,7 @@ const sections: DocSection[] = [
     screenshots: [
       {
         src: '/docs/import-workflow.png',
-        alt: 'LocalSpace 导入页面截图',
+        alt: 'LocalSpace 导入页截图',
         title: '导入流程页',
         caption: '导入页聚焦单文件处理，适合在落库前补全描述、标签和关键词。'
       }
@@ -225,9 +223,9 @@ const sections: DocSection[] = [
     id: 'settings-docs',
     index: '04',
     title: '设置中的文档入口',
-    summary: '本次新增了“设置 -> 文档与关于 -> 查看文档”入口，方便在发布版中直接查看说明。',
+    summary: '现在可以通过“设置 -> 文档与关于 -> 查看文档”直接进入，不需要再打开外部网页。',
     paragraphs: [
-      '文档页面属于前端静态资源的一部分，构建后会进入 frontend/dist，再由 Wails 使用 embed 打包进桌面程序，因此最终生成的 exe 可以离线查看文档。',
+      '文档页面属于前端静态资源的一部分，构建后会进入 frontend/dist，再由 Wails 使用 embed 打包进桌面程序，因此最终生成的可执行文件可以离线查看文档。',
       '为了增强可读性，文档页除了结构化说明外，还会展示主界面、导入页和设置页截图，帮助用户快速建立操作心智。'
     ],
     screenshots: [
@@ -235,7 +233,7 @@ const sections: DocSection[] = [
         src: '/docs/settings-documentation-entry.png',
         alt: '设置页中的文档入口截图',
         title: '设置页文档入口',
-        caption: '用户可从设置页直接进入文档，不需要额外打开外部网页或独立说明文件。'
+        caption: '用户可以从设置页直接进入文档，不需要额外打开外部网页或独立说明文件。'
       }
     ]
   },
@@ -243,7 +241,7 @@ const sections: DocSection[] = [
     id: 'tips',
     index: '05',
     title: '使用建议',
-    summary: '这些建议有助于让资料库更稳定、更容易检索。',
+    summary: '这些建议有助于让资料库更稳定，也更容易检索。',
     bullets: [
       '主目录尽量放在容量充足、路径稳定的位置，避免频繁迁移。',
       '如果资料类型很多，建议在导入时统一标签命名规则，例如按项目名、年份或主题分组。',
@@ -280,7 +278,7 @@ const updateActiveSection = () => {
   const container = contentRef.value
   if (!container) return
 
-  const containerTop = container.getBoundingClientRect().top + 120
+  const containerTop = container.getBoundingClientRect().top + 140
   let currentSectionId = sections[0].id
 
   for (const section of sections) {
@@ -310,60 +308,85 @@ onBeforeUnmount(() => {
 .documentation-view {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
   min-height: 0;
-  background-color: var(--app-bg-color, var(--bg-color));
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--surface-color);
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 11px;
-  border-radius: 8px;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-}
-
-.back-icon {
-  font-size: 14px;
-}
-
-.header-info h1 {
-  margin: 0 0 4px 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.subtitle {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-color);
-  opacity: 0.68;
+  background:
+    radial-gradient(circle at top left, rgba(33, 150, 243, 0.08), transparent 22%),
+    var(--app-bg-color, var(--bg-color));
 }
 
 .content {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+}
+
+.page-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(1220px, calc(100% - 32px));
+  margin: 18px auto 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background-color: color-mix(in srgb, var(--surface-color) 90%, transparent);
+}
+
+.page-intro-copy {
+  min-width: 0;
+}
+
+.doc-back-link {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--bg-color) 84%, var(--surface-color));
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  color: var(--text-color);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.eyebrow {
+  display: inline-block;
+  width: fit-content;
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background-color: rgba(33, 150, 243, 0.08);
+  color: var(--primary-color);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.page-intro h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+  color: var(--text-color);
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-color);
+  opacity: 0.74;
+}
+
+.intro-meta {
+  margin: 0;
+  max-width: 280px;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-color);
+  opacity: 0.66;
 }
 
 .layout {
@@ -392,7 +415,7 @@ onBeforeUnmount(() => {
 }
 
 .toc-card h2 {
-  margin: 0 0 4px 0;
+  margin: 0 0 4px;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-color);
@@ -449,18 +472,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.eyebrow {
-  display: inline-block;
-  width: fit-content;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background-color: rgba(33, 150, 243, 0.08);
-  color: var(--primary-color);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 
 .hero h2 {
@@ -528,7 +539,7 @@ onBeforeUnmount(() => {
 }
 
 .section-heading h2 {
-  margin: 0 0 6px 0;
+  margin: 0 0 6px;
   font-size: 18px;
   font-weight: 600;
   color: var(--text-color);
@@ -623,6 +634,16 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1024px) {
+  .page-intro {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .intro-meta {
+    max-width: none;
+    text-align: left;
+  }
+
   .layout {
     grid-template-columns: 1fr;
   }
@@ -633,18 +654,21 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  .header {
-    padding: 12px 16px;
+  .page-intro,
+  .layout {
+    width: calc(100% - 24px);
   }
 
-  .header-left {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+  .page-intro {
+    margin-top: 12px;
+    padding: 14px;
+  }
+
+  .page-intro h1 {
+    font-size: 22px;
   }
 
   .layout {
-    width: calc(100% - 24px);
     padding: 12px 0 20px;
     gap: 14px;
   }

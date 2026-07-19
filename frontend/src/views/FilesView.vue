@@ -1,23 +1,6 @@
 <template>
   <div class="files-view">
-    <header class="header">
-      <div class="header-left">
-        <div class="brand-block">
-          <h1>LocalSpace</h1>
-          <p class="subtitle">按文件类型管理，也能从合集维度连续浏览</p>
-        </div>
-
-        <nav class="header-nav">
-          <router-link to="/files" class="nav-pill active">文件</router-link>
-          <router-link to="/collections" class="nav-pill">合集</router-link>
-        </nav>
-      </div>
-
-      <div class="header-actions">
-        <router-link to="/import" class="btn primary">导入文件</router-link>
-        <router-link to="/settings" class="btn secondary">设置</router-link>
-      </div>
-    </header>
+    <AppHeader />
 
     <div class="content">
       <section class="toolbar-panel">
@@ -40,24 +23,26 @@
         <div class="search-row">
           <SearchBar
             v-model="searchQuery"
+            class="toolbar-search"
             :debounce="300"
             @search="handleSearch"
             @clear="handleClearSearch"
           />
 
-          <ListDisplayModeToggle v-model="listMode" />
-        </div>
-
-        <div class="results-bar">
           <p class="results-summary">{{ resultsSummary }}</p>
-          <button
-            v-if="filesStore.currentCollectionName !== 'all'"
-            type="button"
-            class="link-button"
-            @click="clearCollectionFilter"
-          >
-            清除合集筛选
-          </button>
+
+          <div class="search-row-actions">
+            <button
+              v-if="filesStore.currentCollectionName !== 'all'"
+              type="button"
+              class="link-button"
+              @click="clearCollectionFilter"
+            >
+              清除合集筛选
+            </button>
+
+            <ListDisplayModeToggle v-model="listMode" />
+          </div>
         </div>
       </section>
 
@@ -77,6 +62,9 @@
         v-else
         :files="filesStore.files"
         :group-by-collection="listMode === 'grouped'"
+        :empty-title="emptyStateTitle"
+        :empty-description="emptyStateDescription"
+        :empty-state-mode="emptyStateMode"
         @open="handleOpenFile"
         @click="handleClickFile"
         @delete="handleDeleteFile"
@@ -90,6 +78,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, isWailsAvailable } from '@/api/index'
+import AppHeader from '@/components/AppHeader.vue'
 import CollectionFilter from '@/components/CollectionFilter.vue'
 import FileList from '@/components/FileList.vue'
 import FileTypeFilter from '@/components/FileTypeFilter.vue'
@@ -203,6 +192,26 @@ const resultsSummary = computed(() => {
   return `当前显示 ${fileCount} 个文件`
 })
 
+const emptyStateTitle = computed(() => {
+  if (searchQuery.value.trim()) {
+    return '没有找到匹配文件'
+  }
+
+  return '暂无文件'
+})
+
+const emptyStateDescription = computed(() => {
+  if (searchQuery.value.trim()) {
+    return '试试更换关键词，或者清空搜索后查看全部文件。'
+  }
+
+  return '点击上方“导入文件”开始添加内容。'
+})
+
+const emptyStateMode = computed<'library' | 'search'>(() => {
+  return searchQuery.value.trim() ? 'search' : 'library'
+})
+
 onMounted(() => {
   applyRouteState()
   void loadInitialFiles()
@@ -217,12 +226,9 @@ onUnmounted(() => {
   checkIntervals.clear()
 })
 
-watch(
-  [() => filesStore.currentFileType, () => filesStore.currentCollectionName, listMode],
-  () => {
-    void persistRouteState()
-  }
-)
+watch([() => filesStore.currentFileType, () => filesStore.currentCollectionName, listMode], () => {
+  void persistRouteState()
+})
 
 const handleFilter = async (fileType: string) => {
   searchQuery.value = ''
@@ -239,8 +245,15 @@ const clearCollectionFilter = () => {
 }
 
 const handleSearch = async (query: string) => {
-  searchQuery.value = query
-  await filesStore.searchFiles(query.trim())
+  const trimmedQuery = query.trim()
+  searchQuery.value = trimmedQuery
+
+  if (!trimmedQuery) {
+    await handleClearSearch()
+    return
+  }
+
+  await filesStore.searchFiles(trimmedQuery)
   await persistRouteState()
 }
 
@@ -356,86 +369,22 @@ const handleRetry = async () => {
     var(--app-bg-color, var(--bg-color));
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  padding: 16px 24px;
-  background-color: color-mix(in srgb, var(--surface-color) 92%, transparent);
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  min-width: 0;
-}
-
-.brand-block h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-color);
-}
-
-.subtitle {
-  margin: 0;
-  color: var(--text-color);
-  opacity: 0.7;
-  font-size: 13px;
-}
-
-.header-nav {
-  display: inline-flex;
-  gap: 8px;
-  padding: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-color) 82%, transparent);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-}
-
-.nav-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 72px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  color: var(--text-color);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.nav-pill.active,
-.nav-pill.router-link-active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, color-mix(in srgb, var(--primary-color) 78%, #0f172a) 100%);
-  color: #fff;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 20px 24px 24px;
+  padding: 14px 18px 18px;
   overflow: hidden;
   min-height: 0;
-  gap: 16px;
+  gap: 12px;
 }
 
 .toolbar-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 18px 20px;
-  border-radius: 22px;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 18px;
   background-color: color-mix(in srgb, var(--surface-color) 90%, transparent);
   border: 1px solid rgba(148, 163, 184, 0.16);
 }
@@ -443,28 +392,23 @@ const handleRetry = async () => {
 .filters-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 
 .search-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-}
-
-.results-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
 
 .results-summary {
   margin: 0;
-  font-size: 13px;
+  flex-shrink: 0;
+  font-size: 12px;
   color: var(--text-color);
-  opacity: 0.72;
+  opacity: 0.68;
 }
 
 .link-button {
@@ -472,8 +416,87 @@ const handleRetry = async () => {
   border: none;
   background: transparent;
   color: var(--primary-color);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+}
+
+.search-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.toolbar-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.toolbar-panel :deep(.file-type-filter) {
+  gap: 6px;
+  padding: 0;
+}
+
+.toolbar-panel :deep(.file-type-filter button) {
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+}
+
+.toolbar-panel :deep(.filter-icon) {
+  font-size: 14px;
+}
+
+.toolbar-panel :deep(.filter-count) {
+  min-width: 18px;
+  padding: 1px 5px;
+  font-size: 11px;
+}
+
+.toolbar-panel :deep(.collection-filter) {
+  gap: 8px;
+  padding: 0 0 4px;
+}
+
+.toolbar-panel :deep(.collection-filter button) {
+  padding: 7px 11px;
+}
+
+.toolbar-panel :deep(.collection-filter-label) {
+  font-size: 12px;
+}
+
+.toolbar-panel :deep(.collection-filter-count) {
+  min-width: 20px;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+.toolbar-panel :deep(.search-bar) {
+  max-width: none;
+  margin: 0;
+}
+
+.toolbar-panel :deep(.search-input) {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  border-radius: 16px;
+}
+
+.toolbar-panel :deep(.search-button) {
+  padding: 9px 16px;
+  border-radius: 16px;
+}
+
+.toolbar-panel :deep(.display-mode-toggle) {
+  padding: 3px;
+}
+
+.toolbar-panel :deep(.display-mode-toggle button) {
+  min-width: 84px;
+  padding: 7px 12px;
+  font-size: 12px;
 }
 
 .loading-state,
@@ -494,53 +517,31 @@ const handleRetry = async () => {
 }
 
 @media (max-width: 900px) {
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .header-left {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .header-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
   .search-row {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .results-summary {
+    flex-shrink: 1;
+  }
+
+  .search-row-actions {
+    justify-content: space-between;
+  }
 }
 
 @media (max-width: 640px) {
-  .header {
-    padding: 14px 16px;
-  }
-
   .content {
-    padding: 16px;
+    padding: 12px 14px 14px;
   }
 
   .toolbar-panel {
-    padding: 16px;
-    border-radius: 18px;
+    padding: 10px 12px;
+    border-radius: 16px;
   }
 
-  .results-bar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .header-actions {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  .header-actions .btn {
+  .search-row-actions {
     width: 100%;
   }
 }

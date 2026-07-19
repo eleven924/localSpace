@@ -1,7 +1,7 @@
 <template>
   <div class="search-bar">
     <div class="search-input-wrapper">
-      <span class="search-icon">🔍</span>
+      <span class="search-icon">⌕</span>
       <input
         v-model="query"
         type="text"
@@ -13,13 +13,14 @@
       <button
         v-if="query"
         class="clear-button"
+        type="button"
+        title="清空搜索"
         @click="handleClear"
-        title="清除搜索"
       >
-        ✕
+        ×
       </button>
     </div>
-    <button class="search-button" @click="handleSearch">
+    <button class="search-button" type="button" @click="handleSearch">
       搜索
     </button>
   </div>
@@ -46,23 +47,40 @@ watch(() => props.modelValue, (newValue) => {
   query.value = newValue || ''
 })
 
-const handleSearch = () => {
-  if (query.value.trim()) {
-    emit('search', query.value)
+const clearDebounceTimer = () => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
   }
+}
+
+const handleSearch = () => {
+  const trimmedQuery = query.value.trim()
+  emit('update:modelValue', query.value)
+
+  if (!trimmedQuery) {
+    emit('clear')
+    return
+  }
+
+  emit('search', trimmedQuery)
 }
 
 const handleInput = () => {
   emit('update:modelValue', query.value)
 
-  if (props.debounce && props.debounce > 0) {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-    }
+  if (!query.value.trim()) {
+    clearDebounceTimer()
+    emit('clear')
+    return
+  }
 
+  if (props.debounce && props.debounce > 0) {
+    clearDebounceTimer()
     debounceTimer = window.setTimeout(() => {
-      if (query.value.trim()) {
-        emit('search', query.value)
+      const trimmedQuery = query.value.trim()
+      if (trimmedQuery) {
+        emit('search', trimmedQuery)
       }
     }, props.debounce)
   }
@@ -72,11 +90,7 @@ const handleClear = () => {
   query.value = ''
   emit('update:modelValue', '')
   emit('clear')
-
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
-    debounceTimer = null
-  }
+  clearDebounceTimer()
 }
 
 const focus = () => {
@@ -146,8 +160,9 @@ defineExpose({
   color: var(--text-color);
   opacity: 0.5;
   cursor: pointer;
-  padding: 4px;
-  font-size: 16px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
   border-radius: 50%;
   display: flex;
   align-items: center;
