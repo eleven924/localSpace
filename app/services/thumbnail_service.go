@@ -10,7 +10,7 @@ import (
 	"LocalSpace/app/utils"
 )
 
-// ThumbnailService 缩略图缓存服务
+// ThumbnailService manages cached thumbnails for supported file types.
 type ThumbnailService struct {
 	cacheDir      string
 	cache         map[string]*ThumbnailCacheEntry
@@ -22,7 +22,7 @@ type ThumbnailService struct {
 	maxAge        time.Duration
 }
 
-// ThumbnailCacheEntry 缓存条目
+// ThumbnailCacheEntry represents one cached thumbnail file.
 type ThumbnailCacheEntry struct {
 	Path         string
 	LastAccessed time.Time
@@ -30,9 +30,17 @@ type ThumbnailCacheEntry struct {
 	Size         int64
 }
 
-// NewThumbnailService 创建新的缩略图服务
+func supportsGeneratedThumbnail(fileType string) bool {
+	switch fileType {
+	case "image", "video":
+		return true
+	default:
+		return false
+	}
+}
+
+// NewThumbnailService creates a new thumbnail service.
 func NewThumbnailService(cacheDir string) *ThumbnailService {
-	// 确保缓存目录存在
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		panic(fmt.Sprintf("failed to create thumbnail cache directory: %v", err))
 	}
@@ -40,28 +48,27 @@ func NewThumbnailService(cacheDir string) *ThumbnailService {
 	service := &ThumbnailService{
 		cacheDir:      cacheDir,
 		cache:         make(map[string]*ThumbnailCacheEntry),
-		maxCacheSize:  100 * 1024 * 1024, // 100MB 默认缓存大小
+		maxCacheSize:  100 * 1024 * 1024,
 		defaultWidth:  300,
 		defaultHeight: 300,
-		maxAge:        7 * 24 * time.Hour, // 7天最大缓存时间
+		maxAge:        7 * 24 * time.Hour,
 	}
 
-	// 启动缓存清理协程
 	go service.cleanupExpiredEntries()
-
-	// 加载现有缓存
 	service.loadExistingCache()
 
 	return service
 }
 
-// GetThumbnail 获取或生成缩略图
+// GetThumbnail returns a cached thumbnail path or generates one on demand.
 func (s *ThumbnailService) GetThumbnail(filePath, fileType string, fileID uint) (string, error) {
-	// 生成缓存键
+	if !supportsGeneratedThumbnail(fileType) {
+		return "", fmt.Errorf("thumbnail generation is only supported for image and video files")
+	}
+
 	cacheKey := s.generateCacheKey(fileID, fileType)
 	cachePath := filepath.Join(s.cacheDir, cacheKey)
 
-	// 检查缓存
 	s.cacheMutex.RLock()
 	entry, exists := s.cache[cacheKey]
 	if exists {
@@ -71,18 +78,15 @@ func (s *ThumbnailService) GetThumbnail(filePath, fileType string, fileID uint) 
 	}
 	s.cacheMutex.RUnlock()
 
-	// 缓存不存在，生成缩略图
 	if err := s.generateThumbnail(filePath, fileType, cachePath); err != nil {
 		return "", fmt.Errorf("failed to generate thumbnail: %w", err)
 	}
 
-	// 获取文件信息
 	fileInfo, err := os.Stat(cachePath)
 	if err != nil {
-		return cachePath, nil // 文件信息获取失败不影响返回
+		return cachePath, nil
 	}
 
-	// 添加到缓存
 	s.cacheMutex.Lock()
 	s.cache[cacheKey] = &ThumbnailCacheEntry{
 		Path:         cachePath,
@@ -93,20 +97,18 @@ func (s *ThumbnailService) GetThumbnail(filePath, fileType string, fileID uint) 
 	s.currentSize += fileInfo.Size()
 	s.cacheMutex.Unlock()
 
-	// 检查缓存大小，必要时清理
 	s.checkCacheSize()
 
 	return cachePath, nil
 }
 
-// GetThumbnailAsync 异步获取或生成缩略图
+// GetThumbnailAsync returns the thumbnail path through a channel.
 func (s *ThumbnailService) GetThumbnailAsync(filePath, fileType string, fileID uint) <-chan string {
 	resultChan := make(chan string, 1)
 
 	go func() {
 		thumbnailPath, err := s.GetThumbnail(filePath, fileType, fileID)
 		if err != nil {
-			// 生成失败，返回空字符串
 			resultChan <- ""
 		} else {
 			resultChan <- thumbnailPath
@@ -117,11 +119,10 @@ func (s *ThumbnailService) GetThumbnailAsync(filePath, fileType string, fileID u
 	return resultChan
 }
 
-// RemoveThumbnail 移除指定文件的缩略图
+// RemoveThumbnail removes current and legacy cache files for a file.
 func (s *ThumbnailService) RemoveThumbnail(fileID uint, fileType string) error {
 	cacheKey := s.generateCacheKey(fileID, fileType)
 
-	// 从缓存中移除
 	s.cacheMutex.Lock()
 	if entry, exists := s.cache[cacheKey]; exists {
 		s.currentSize -= entry.Size
@@ -136,7 +137,6 @@ func (s *ThumbnailService) RemoveThumbnail(fileID uint, fileType string) error {
 	}
 	s.cacheMutex.Unlock()
 
-	// 删除文件
 	for _, key := range append([]string{cacheKey}, legacyCacheKeys...) {
 		cachePath := filepath.Join(s.cacheDir, key)
 		if err := os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
@@ -147,27 +147,24 @@ func (s *ThumbnailService) RemoveThumbnail(fileID uint, fileType string) error {
 	return nil
 }
 
-// ClearCache 清空所有缓存
+// ClearCache removes all cached thumbnails.
 func (s *ThumbnailService) ClearCache() error {
 	s.cacheMutex.Lock()
 	defer s.cacheMutex.Unlock()
 
-	// 删除所有缓存文件
 	for _, entry := range s.cache {
 		if err := os.Remove(entry.Path); err != nil && !os.IsNotExist(err) {
-			// 记录错误但继续
 			fmt.Printf("Warning: Failed to remove thumbnail file %s: %v\n", entry.Path, err)
 		}
 	}
 
-	// 清空缓存
 	s.cache = make(map[string]*ThumbnailCacheEntry)
 	s.currentSize = 0
 
 	return nil
 }
 
-// GetCacheInfo 获取缓存信息
+// GetCacheInfo returns cache count, size, and limit.
 func (s *ThumbnailService) GetCacheInfo() (count int, size int64, maxSize int64) {
 	s.cacheMutex.RLock()
 	defer s.cacheMutex.RUnlock()
@@ -175,7 +172,7 @@ func (s *ThumbnailService) GetCacheInfo() (count int, size int64, maxSize int64)
 	return len(s.cache), s.currentSize, s.maxCacheSize
 }
 
-// SetMaxCacheSize 设置最大缓存大小
+// SetMaxCacheSize updates the max cache size.
 func (s *ThumbnailService) SetMaxCacheSize(maxSize int64) {
 	s.cacheMutex.Lock()
 	defer s.cacheMutex.Unlock()
@@ -183,7 +180,7 @@ func (s *ThumbnailService) SetMaxCacheSize(maxSize int64) {
 	s.checkCacheSize()
 }
 
-// SetMaxAge 设置最大缓存时间
+// SetMaxAge updates the max cache age.
 func (s *ThumbnailService) SetMaxAge(maxAge time.Duration) {
 	s.cacheMutex.Lock()
 	defer s.cacheMutex.Unlock()
@@ -191,23 +188,17 @@ func (s *ThumbnailService) SetMaxAge(maxAge time.Duration) {
 	go s.cleanupExpiredEntries()
 }
 
-// generateThumbnail 生成缩略图
 func (s *ThumbnailService) generateThumbnail(filePath, fileType, outputPath string) error {
 	switch fileType {
 	case "image":
 		return utils.GenerateThumbnail(filePath, outputPath, s.defaultWidth, s.defaultHeight)
 	case "video":
 		return utils.GenerateVideoThumbnail(filePath, outputPath, s.defaultWidth, s.defaultHeight)
-	case "document":
-		return utils.GenerateDocumentThumbnail(filePath, outputPath, s.defaultWidth, s.defaultHeight)
-	case "music":
-		return utils.GenerateAudioThumbnail(filePath, outputPath, s.defaultWidth, s.defaultHeight)
 	default:
-		return utils.GeneratePlaceholderThumbnail(outputPath, s.defaultWidth, s.defaultHeight)
+		return fmt.Errorf("thumbnail generation is only supported for image and video files")
 	}
 }
 
-// generateCacheKey 生成缓存键
 func (s *ThumbnailService) generateCacheKey(fileID uint, fileType string) string {
 	return fmt.Sprintf("%d_%s_wide.png", fileID, fileType)
 }
@@ -220,24 +211,20 @@ func (s *ThumbnailService) generateLegacyCacheKeys(fileID uint, fileType string)
 	}
 }
 
-// checkCacheSize 检查缓存大小，必要时清理
 func (s *ThumbnailService) checkCacheSize() {
 	s.cacheMutex.Lock()
 	defer s.cacheMutex.Unlock()
 
-	// 如果缓存大小超过限制，清理最少使用的条目
 	if s.currentSize > s.maxCacheSize {
 		s.evictLeastRecentlyUsed()
 	}
 }
 
-// evictLeastRecentlyUsed 清除最少使用的缓存条目
 func (s *ThumbnailService) evictLeastRecentlyUsed() {
 	if len(s.cache) == 0 {
 		return
 	}
 
-	// 找到最少使用的条目
 	var lruKey string
 	var lruTime time.Time
 	first := true
@@ -250,7 +237,6 @@ func (s *ThumbnailService) evictLeastRecentlyUsed() {
 		}
 	}
 
-	// 删除 LRU 条目
 	if lruKey != "" {
 		if entry, exists := s.cache[lruKey]; exists {
 			if err := os.Remove(entry.Path); err != nil && !os.IsNotExist(err) {
@@ -262,7 +248,6 @@ func (s *ThumbnailService) evictLeastRecentlyUsed() {
 	}
 }
 
-// cleanupExpiredEntries 清理过期条目
 func (s *ThumbnailService) cleanupExpiredEntries() {
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
@@ -272,7 +257,6 @@ func (s *ThumbnailService) cleanupExpiredEntries() {
 	}
 }
 
-// removeExpiredEntries 移除过期条目
 func (s *ThumbnailService) removeExpiredEntries() {
 	s.cacheMutex.Lock()
 	defer s.cacheMutex.Unlock()
@@ -286,7 +270,6 @@ func (s *ThumbnailService) removeExpiredEntries() {
 		}
 	}
 
-	// 删除过期条目
 	for _, key := range expiredKeys {
 		if entry, exists := s.cache[key]; exists {
 			if err := os.Remove(entry.Path); err != nil && !os.IsNotExist(err) {
@@ -298,7 +281,6 @@ func (s *ThumbnailService) removeExpiredEntries() {
 	}
 }
 
-// loadExistingCache 加载现有缓存
 func (s *ThumbnailService) loadExistingCache() {
 	entries, err := os.ReadDir(s.cacheDir)
 	if err != nil {
@@ -316,13 +298,11 @@ func (s *ThumbnailService) loadExistingCache() {
 			continue
 		}
 
-		// 检查是否过期
 		if time.Since(fileInfo.ModTime()) > s.maxAge {
-			os.Remove(filePath)
+			_ = os.Remove(filePath)
 			continue
 		}
 
-		// 添加到缓存
 		s.cache[entry.Name()] = &ThumbnailCacheEntry{
 			Path:         filePath,
 			LastAccessed: fileInfo.ModTime(),
@@ -333,7 +313,7 @@ func (s *ThumbnailService) loadExistingCache() {
 	}
 }
 
-// GetCacheStats 获取缓存统计信息
+// GetCacheStats returns detailed cache stats.
 func (s *ThumbnailService) GetCacheStats() map[string]interface{} {
 	s.cacheMutex.RLock()
 	defer s.cacheMutex.RUnlock()
@@ -349,7 +329,7 @@ func (s *ThumbnailService) GetCacheStats() map[string]interface{} {
 	}
 }
 
-// WarmupCache 预热缓存（为指定文件生成缩略图）
+// WarmupCache pre-generates thumbnails for the provided files.
 func (s *ThumbnailService) WarmupCache(files []struct {
 	FilePath string
 	FileType string

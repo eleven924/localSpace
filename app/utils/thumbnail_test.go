@@ -55,3 +55,19 @@ func TestGenerateThumbnailOutputsRequestedCanvasSize(t *testing.T) {
 		t.Fatalf("expected output height %d, got %d", DefaultThumbnailHeight, got)
 	}
 }
+
+func TestIsThumbnailSupportedOnlyIncludesImageAndVideoFiles(t *testing.T) {
+	supported := []string{"photo.jpg", "clip.mp4", "movie.webm"}
+	for _, filePath := range supported {
+		if !IsThumbnailSupported(filePath) {
+			t.Fatalf("expected %q to support thumbnails", filePath)
+		}
+	}
+
+	unsupported := []string{"report.pdf", "song.mp3", "archive.zip"}
+	for _, filePath := range unsupported {
+		if IsThumbnailSupported(filePath) {
+			t.Fatalf("expected %q to skip thumbnails", filePath)
+		}
+	}
+}

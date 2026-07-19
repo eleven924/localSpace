@@ -11,6 +11,35 @@ import (
 	"LocalSpace/app/models"
 )
 
+func TestSupportsGeneratedThumbnailOnlyAllowsImageAndVideo(t *testing.T) {
+	for _, fileType := range []string{"image", "video"} {
+		if !supportsGeneratedThumbnail(fileType) {
+			t.Fatalf("expected %q to support generated thumbnails", fileType)
+		}
+	}
+
+	for _, fileType := range []string{"document", "music", "game", "other"} {
+		if supportsGeneratedThumbnail(fileType) {
+			t.Fatalf("expected %q to skip generated thumbnails", fileType)
+		}
+	}
+}
+
+func TestGetThumbnailRejectsUnsupportedFileTypes(t *testing.T) {
+	service := &ThumbnailService{
+		cacheDir: t.TempDir(),
+		cache:    make(map[string]*ThumbnailCacheEntry),
+	}
+
+	_, err := service.GetThumbnail("missing.txt", "document", 1)
+	if err == nil {
+		t.Fatal("expected unsupported file type error")
+	}
+	if !strings.Contains(err.Error(), "only supported for image and video") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestThumbnailCacheKeyUsesPNGExtension(t *testing.T) {
 	service := &ThumbnailService{}
 

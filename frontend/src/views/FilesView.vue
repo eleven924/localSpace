@@ -69,33 +69,53 @@ import SearchBar from '@/components/SearchBar.vue'
 const filesStore = useFilesStore()
 const searchQuery = ref('')
 const checkIntervals = new Map<number, NodeJS.Timeout>()
+let isUnmounted = false
 
-// Wait for Wails to be ready before loading files
-const waitForWailsAndLoad = async () => {
-  let attempts = 0
-  const maxAttempts = 20 // Wait up to 10 seconds (20 * 500ms)
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-  const checkInterval = setInterval(() => {
-    attempts++
+const refreshCurrentResults = async () => {
+  if (searchQuery.value.trim()) {
+    await filesStore.searchFiles(searchQuery.value)
+    return
+  }
+  await filesStore.loadFiles(filesStore.currentFileType)
+}
 
-    if (isWailsAvailable()) {
-      clearInterval(checkInterval)
-      console.log('Wails is ready, loading files...')
-      filesStore.loadFiles('all')
-    } else if (attempts >= maxAttempts) {
-      clearInterval(checkInterval)
-      console.warn('Wails not available after timeout, trying to load anyway...')
-      filesStore.loadFiles('all')
+const waitForWails = async (timeoutMs = 5000, intervalMs = 100) => {
+  const deadline = Date.now() + timeoutMs
+
+  while (!isWailsAvailable() && Date.now() < deadline) {
+    if (isUnmounted) {
+      return false
     }
-  }, 500)
+    await sleep(intervalMs)
+  }
+
+  return isWailsAvailable()
+}
+
+const loadInitialFiles = async () => {
+  const wailsReady = await waitForWails()
+  if (!wailsReady) {
+    console.warn('Wails not available after timeout, loading with current API fallback behavior...')
+  } else {
+    console.log('Wails is ready, loading files...')
+  }
+
+  if (isUnmounted) {
+    return
+  }
+
+  await refreshCurrentResults()
 }
 
 onMounted(() => {
-  // Wait for Wails backend to be ready before loading files
-  waitForWailsAndLoad()
+  void loadInitialFiles()
 })
 
 onUnmounted(() => {
+  isUnmounted = true
+
   // Clean up all file update check intervals
   checkIntervals.forEach((interval) => {
     clearInterval(interval)
@@ -217,14 +237,6 @@ const stopFileUpdateCheck = (fileId: number) => {
 const handleClickFile = (file: any) => {
   // Handle file click (can be used for future features like file details view)
   console.log('File clicked:', file.fileName)
-}
-
-const refreshCurrentResults = async () => {
-  if (searchQuery.value.trim()) {
-    await filesStore.searchFiles(searchQuery.value)
-    return
-  }
-  await filesStore.loadFiles(filesStore.currentFileType)
 }
 
 const handleUpdateFileMetadata = async (_id: number) => {

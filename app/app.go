@@ -44,6 +44,24 @@ func (a *App) isInitialized() bool {
 	return a.configService != nil && a.fileService != nil
 }
 
+// waitForInitialization gives startup a short window to finish before
+// file-related calls fall back to an empty result.
+func (a *App) waitForInitialization(timeout time.Duration) bool {
+	if a.isInitialized() {
+		return true
+	}
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+		if a.isInitialized() {
+			return true
+		}
+	}
+
+	return a.isInitialized()
+}
+
 // Startup is called when the app starts
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
@@ -192,9 +210,8 @@ func (a *App) ImportFileWithKeywords(filePath, fileName, description string, tag
 
 // GetFiles returns a list of files
 func (a *App) GetFiles(page, pageSize int, fileType string) ([]*models.File, error) {
-	if !a.isInitialized() {
-		// Return empty list if not yet initialized
-		return []*models.File{}, nil
+	if !a.waitForInitialization(5 * time.Second) {
+		return []*models.File{}, fmt.Errorf("app not initialized")
 	}
 	return a.fileService.ListFiles(services.FileFilter{
 		Page:     page,
