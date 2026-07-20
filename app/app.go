@@ -30,6 +30,7 @@ type App struct {
 	agentService     *services.AgentService
 	configService    *services.ConfigService
 	thumbnailService *services.ThumbnailService
+	jobService       *services.JobService
 }
 
 // NewApp creates a new App application struct
@@ -71,9 +72,48 @@ func (a *App) Startup(ctx context.Context) {
 
 // Shutdown is called when the app is closing
 func (a *App) Shutdown(ctx context.Context) {
+	if a.jobService != nil {
+		if err := a.jobService.PrepareForShutdown(); err != nil {
+			fmt.Printf("Failed to prepare jobs for shutdown: %v\n", err)
+		}
+	}
 	if a.db != nil {
 		a.db.Close()
 	}
+}
+
+// BeforeClose intercepts app shutdown when a recoverable job is still active.
+func (a *App) BeforeClose(ctx context.Context) (prevent bool) {
+	if a.jobService == nil {
+		return false
+	}
+
+	hasJobs, count, err := a.jobService.HasBackgroundJobsForCloseProtection()
+	if err != nil || !hasJobs {
+		return false
+	}
+
+	response, dialogErr := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
+		Type:          runtime.QuestionDialog,
+		Title:         "批量导入仍在运行",
+		Message:       fmt.Sprintf("当前有 %d 个后台任务仍在运行，关闭程序可能中断导入。是否仍然退出？", count),
+		Buttons:       []string{"继续运行", "仍然退出"},
+		DefaultButton: "继续运行",
+		CancelButton:  "继续运行",
+	})
+	if dialogErr != nil {
+		fmt.Printf("Failed to show before-close dialog: %v\n", dialogErr)
+		return false
+	}
+
+	if response == "继续运行" {
+		return true
+	}
+
+	if err := a.jobService.PrepareForShutdown(); err != nil {
+		fmt.Printf("Failed to update jobs before close: %v\n", err)
+	}
+	return false
 }
 
 // initializeApp initializes the application
@@ -120,6 +160,20 @@ func (a *App) initializeApp() {
 	a.fileService = services.NewFileService(fileRepo, a.storageService, a.aiService, a.thumbnailService)
 	a.fileService.SetAgentService(a.agentService)
 	a.configService = services.NewConfigService(configRepo)
+	a.jobService = services.NewJobService(
+		repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db)),
+		a.fileService,
+		a.aiService,
+		a.agentService,
+	)
+	a.jobService.SetEventEmitter(func(eventName string, data interface{}) {
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, eventName, data)
+		}
+	})
+	if err := a.jobService.NormalizeUnfinishedJobs(); err != nil {
+		fmt.Printf("Failed to normalize unfinished jobs: %v\n", err)
+	}
 
 	fmt.Printf("LocalSpace initialized\n")
 	fmt.Printf("Database: %s\n", dbPath)
@@ -624,6 +678,37 @@ func (a *App) SelectFile() (string, error) {
 	return dialog, nil
 }
 
+// SelectFiles opens a multi-file selection dialog and returns file info.
+func (a *App) SelectFiles() ([]models.SelectedFile, error) {
+	paths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择要导入的文件",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "所有文件",
+				Pattern:     "*.*",
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("file selection failed: %w", err)
+	}
+
+	files := make([]models.SelectedFile, 0, len(paths))
+	for _, path := range paths {
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			continue
+		}
+		files = append(files, models.SelectedFile{
+			Name: filepath.Base(path),
+			Path: path,
+			Size: info.Size(),
+		})
+	}
+
+	return files, nil
+}
+
 // SelectExecutable opens an executable selection dialog.
 func (a *App) SelectExecutable() (string, error) {
 	dialog, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
@@ -728,6 +813,62 @@ func (a *App) GetDuplicateFiles() (map[string][]map[string]interface{}, error) {
 	}
 
 	return result, nil
+}
+
+// Job Methods
+
+func (a *App) SubmitBatchImportJob(req models.BatchImportJobRequest) (*models.Job, error) {
+	if a.jobService == nil {
+		return nil, fmt.Errorf("job service not initialized")
+	}
+	return a.jobService.SubmitBatchImportJob(req)
+}
+
+func (a *App) GetActiveJobs() ([]*models.Job, error) {
+	if a.jobService == nil {
+		return []*models.Job{}, nil
+	}
+	return a.jobService.GetActiveJobs()
+}
+
+func (a *App) GetResumableJobs() ([]*models.Job, error) {
+	if a.jobService == nil {
+		return []*models.Job{}, nil
+	}
+	return a.jobService.GetResumableJobs()
+}
+
+func (a *App) GetJob(jobID uint) (*models.Job, error) {
+	if a.jobService == nil {
+		return nil, fmt.Errorf("job service not initialized")
+	}
+	return a.jobService.GetJob(jobID)
+}
+
+func (a *App) ListJobs(page, pageSize int, jobType string) (*models.JobListResponse, error) {
+	if a.jobService == nil {
+		return &models.JobListResponse{
+			Items:    []*models.Job{},
+			Page:     page,
+			PageSize: pageSize,
+			Total:    0,
+		}, nil
+	}
+	return a.jobService.ListJobs(page, pageSize, jobType)
+}
+
+func (a *App) ResumeJob(jobID uint) error {
+	if a.jobService == nil {
+		return fmt.Errorf("job service not initialized")
+	}
+	return a.jobService.ResumeJob(jobID)
+}
+
+func (a *App) CancelJob(jobID uint) error {
+	if a.jobService == nil {
+		return fmt.Errorf("job service not initialized")
+	}
+	return a.jobService.CancelJob(jobID)
 }
 
 // Helper method to get current timestamp

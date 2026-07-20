@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
+import { useJobsStore } from './store/modules/jobs'
 import { useThemeStore } from './store/modules/theme'
 import './assets/styles/main.css'
 
@@ -16,3 +17,6 @@ app.mount('#app')
 // Initialize theme after app is mounted
 const themeStore = useThemeStore()
 themeStore.loadThemeFromBackend()
+
+const jobsStore = useJobsStore()
+jobsStore.initialize()

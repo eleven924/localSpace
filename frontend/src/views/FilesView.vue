@@ -1,75 +1,80 @@
 <template>
-  <div class="files-view">
+  <div class="page-shell files-view">
     <AppHeader />
 
-    <div class="content">
-      <section class="toolbar-panel">
-        <div class="filters-section">
-          <FileTypeFilter
-            v-model="filesStore.currentFileType"
-            :counts="filesStore.fileTypeCounts"
-            @filter="handleFilter"
-          />
-
-          <CollectionFilter
-            v-if="filesStore.collectionSummaries.length > 0"
-            v-model="filesStore.currentCollectionName"
-            :options="filesStore.collectionSummaries"
-            :total-count="filesStore.collectionCounts.all"
-            @filter="handleCollectionFilter"
-          />
-        </div>
-
-        <div class="search-row">
-          <SearchBar
-            v-model="searchQuery"
-            class="toolbar-search"
-            :debounce="300"
-            @search="handleSearch"
-            @clear="handleClearSearch"
-          />
-
-          <p class="results-summary">{{ resultsSummary }}</p>
-
-          <div class="search-row-actions">
-            <button
-              v-if="filesStore.currentCollectionName !== 'all'"
-              type="button"
-              class="link-button"
-              @click="clearCollectionFilter"
-            >
-              清除合集筛选
-            </button>
-
-            <ListDisplayModeToggle v-model="listMode" />
+    <div class="page-content">
+      <div class="page-stack">
+        <section class="toolbar-panel library-toolbar">
+          <div class="toolbar-top">
+            <FileTypeFilter
+              v-model="filesStore.currentFileType"
+              :counts="filesStore.fileTypeCounts"
+              @filter="handleFilter"
+            />
           </div>
+
+          <div v-if="filesStore.collectionSummaries.length > 0" class="toolbar-middle">
+            <CollectionFilter
+              v-model="filesStore.currentCollectionName"
+              :options="filesStore.collectionSummaries"
+              :total-count="filesStore.collectionCounts.all"
+              @filter="handleCollectionFilter"
+            />
+          </div>
+
+          <div class="toolbar-bottom">
+            <SearchBar
+              v-model="searchQuery"
+              class="toolbar-search"
+              :debounce="300"
+              @search="handleSearch"
+              @clear="handleClearSearch"
+            />
+
+            <div class="toolbar-side">
+              <p class="results-summary">{{ resultsSummary }}</p>
+
+              <div class="search-row-actions">
+                <button
+                  v-if="filesStore.currentCollectionName !== 'all'"
+                  type="button"
+                  class="btn secondary compact-button"
+                  @click="clearCollectionFilter"
+                >
+                  清除合集筛选
+                </button>
+
+                <ListDisplayModeToggle v-model="listMode" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div v-if="filesStore.loading" class="state-panel">
+          <div class="spinner"></div>
+          <p>正在加载资料库...</p>
         </div>
-      </section>
 
-      <div v-if="filesStore.loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>加载中...</p>
+        <div v-else-if="filesStore.error" class="state-panel error-state">
+          <h3>加载失败</h3>
+          <p>{{ filesStore.error }}</p>
+          <button class="btn primary" @click="handleRetry">重试</button>
+        </div>
+
+        <section v-else class="file-list-panel">
+          <FileList
+            :files="filesStore.files"
+            :group-by-collection="listMode === 'grouped'"
+            :empty-title="emptyStateTitle"
+            :empty-description="emptyStateDescription"
+            :empty-state-mode="emptyStateMode"
+            @open="handleOpenFile"
+            @click="handleClickFile"
+            @delete="handleDeleteFile"
+            @updated="handleUpdateFileMetadata"
+          />
+        </section>
       </div>
-
-      <div v-else-if="filesStore.error" class="error-state">
-        <div class="error-icon">⚠️</div>
-        <h3>加载失败</h3>
-        <p>{{ filesStore.error }}</p>
-        <button class="btn primary" @click="handleRetry">重试</button>
-      </div>
-
-      <FileList
-        v-else
-        :files="filesStore.files"
-        :group-by-collection="listMode === 'grouped'"
-        :empty-title="emptyStateTitle"
-        :empty-description="emptyStateDescription"
-        :empty-state-mode="emptyStateMode"
-        @open="handleOpenFile"
-        @click="handleClickFile"
-        @delete="handleDeleteFile"
-        @updated="handleUpdateFileMetadata"
-      />
     </div>
   </div>
 </template>
@@ -115,21 +120,10 @@ const applyRouteState = () => {
 const persistRouteState = async () => {
   const query: Record<string, string> = {}
 
-  if (filesStore.currentFileType !== 'all') {
-    query.type = filesStore.currentFileType
-  }
-
-  if (filesStore.currentCollectionName !== 'all') {
-    query.collection = filesStore.currentCollectionName
-  }
-
-  if (listMode.value !== 'flat') {
-    query.view = listMode.value
-  }
-
-  if (searchQuery.value.trim()) {
-    query.q = searchQuery.value.trim()
-  }
+  if (filesStore.currentFileType !== 'all') query.type = filesStore.currentFileType
+  if (filesStore.currentCollectionName !== 'all') query.collection = filesStore.currentCollectionName
+  if (listMode.value !== 'flat') query.view = listMode.value
+  if (searchQuery.value.trim()) query.q = searchQuery.value.trim()
 
   await router.replace({ name: 'Files', query })
 }
@@ -147,10 +141,7 @@ const waitForWails = async (timeoutMs = 5000, intervalMs = 100) => {
   const deadline = Date.now() + timeoutMs
 
   while (!isWailsAvailable() && Date.now() < deadline) {
-    if (isUnmounted) {
-      return false
-    }
-
+    if (isUnmounted) return false
     await sleep(intervalMs)
   }
 
@@ -159,18 +150,13 @@ const waitForWails = async (timeoutMs = 5000, intervalMs = 100) => {
 
 const loadInitialFiles = async () => {
   const wailsReady = await waitForWails()
-
   if (!wailsReady) {
-    console.warn('Wails not available after timeout, loading with current API fallback behavior...')
-  } else {
-    console.log('Wails is ready, loading files...')
+    console.warn('Wails not available after timeout, loading with fallback behavior...')
   }
 
-  if (isUnmounted) {
-    return
+  if (!isUnmounted) {
+    await refreshCurrentResults()
   }
-
-  await refreshCurrentResults()
 }
 
 const resultsSummary = computed(() => {
@@ -178,11 +164,11 @@ const resultsSummary = computed(() => {
   const collectionCount = filesStore.collectionSummaries.length
 
   if (searchQuery.value.trim()) {
-    return `搜索结果 ${fileCount} 个文件`
+    return `搜索到 ${fileCount} 个文件`
   }
 
   if (listMode.value === 'grouped') {
-    return `当前共 ${fileCount} 个文件，按 ${collectionCount} 个合集分组展示`
+    return `当前共 ${fileCount} 个文件，按 ${collectionCount} 个合集分组`
   }
 
   if (filesStore.currentCollectionName !== 'all') {
@@ -193,19 +179,13 @@ const resultsSummary = computed(() => {
 })
 
 const emptyStateTitle = computed(() => {
-  if (searchQuery.value.trim()) {
-    return '没有找到匹配文件'
-  }
-
-  return '暂无文件'
+  return searchQuery.value.trim() ? '没有匹配的文件' : '资料库还是空的'
 })
 
 const emptyStateDescription = computed(() => {
-  if (searchQuery.value.trim()) {
-    return '试试更换关键词，或者清空搜索后查看全部文件。'
-  }
-
-  return '点击上方“导入文件”开始添加内容。'
+  return searchQuery.value.trim()
+    ? '试试更换关键词，或者清空搜索后查看全部资料。'
+    : '从导入页面添加文件后，会在这里形成你的资料库。'
 })
 
 const emptyStateMode = computed<'library' | 'search'>(() => {
@@ -219,10 +199,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   isUnmounted = true
-
-  checkIntervals.forEach((interval) => {
-    clearInterval(interval)
-  })
+  checkIntervals.forEach((interval) => clearInterval(interval))
   checkIntervals.clear()
 })
 
@@ -269,7 +246,7 @@ const handleOpenFile = async (id: number) => {
     startFileUpdateCheck(id)
   } catch (error) {
     console.error('Failed to open file:', error)
-    alert('打开文件失败')
+    window.alert('打开文件失败')
   }
 }
 
@@ -281,16 +258,12 @@ const startFileUpdateCheck = (fileId: number) => {
   let originalFile: any = null
 
   checkFileUpdate(fileId, originalFile).then((updatedFile) => {
-    if (updatedFile) {
-      originalFile = updatedFile
-    }
+    if (updatedFile) originalFile = updatedFile
   })
 
   const interval = setInterval(async () => {
     const updatedFile = await checkFileUpdate(fileId, originalFile)
-    if (updatedFile) {
-      originalFile = updatedFile
-    }
+    if (updatedFile) originalFile = updatedFile
   }, 3000)
 
   checkIntervals.set(fileId, interval)
@@ -303,20 +276,14 @@ const startFileUpdateCheck = (fileId: number) => {
 const checkFileUpdate = async (fileId: number, originalFile: any | null): Promise<any> => {
   try {
     const updatedFile = await api.file.refresh(fileId)
-    if (!updatedFile) {
-      return null
-    }
-
-    if (!originalFile) {
-      return updatedFile
-    }
+    if (!updatedFile) return null
+    if (!originalFile) return updatedFile
 
     const hasChanges =
       updatedFile.fileName !== originalFile.fileName ||
       updatedFile.fileSize !== originalFile.fileSize
 
     if (hasChanges) {
-      console.log('File updated:', updatedFile.fileName, updatedFile.fileSize)
       await refreshCurrentResults()
       return updatedFile
     }
@@ -324,7 +291,6 @@ const checkFileUpdate = async (fileId: number, originalFile: any | null): Promis
     return null
   } catch (error: any) {
     if (error.message && error.message.includes('file no longer exists')) {
-      console.log('File no longer exists, stopping check and refreshing list')
       stopFileUpdateCheck(fileId)
       await refreshCurrentResults()
     } else {
@@ -361,188 +327,98 @@ const handleRetry = async () => {
 
 <style scoped>
 .files-view {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(33, 150, 243, 0.08), transparent 22%),
-    var(--app-bg-color, var(--bg-color));
+  background: transparent;
 }
 
-.content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 14px 18px 18px;
+.files-view .page-content {
   overflow: hidden;
+}
+
+.files-view .page-stack {
+  height: 100%;
   min-height: 0;
-  gap: 12px;
 }
 
-.toolbar-panel {
-  display: flex;
-  flex-direction: column;
+.library-toolbar {
+  display: grid;
   gap: 10px;
-  padding: 12px 16px;
-  border-radius: 18px;
-  background-color: color-mix(in srgb, var(--surface-color) 90%, transparent);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  flex-shrink: 0;
+  padding: 14px 16px;
 }
 
-.filters-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.search-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.toolbar-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  min-width: 0;
+  align-items: end;
+}
+
+.toolbar-side {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
 }
 
 .results-summary {
-  margin: 0;
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--text-color);
-  opacity: 0.68;
-}
-
-.link-button {
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--primary-color);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-faint);
 }
 
 .search-row-actions {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 10px;
-  flex-shrink: 0;
 }
 
-.toolbar-search {
+.compact-button {
+  min-width: 124px;
+}
+
+.file-list-panel {
+  display: flex;
   flex: 1;
-  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.toolbar-panel :deep(.file-type-filter) {
-  gap: 6px;
-  padding: 0;
-}
-
-.toolbar-panel :deep(.file-type-filter button) {
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 13px;
-}
-
-.toolbar-panel :deep(.filter-icon) {
-  font-size: 14px;
-}
-
-.toolbar-panel :deep(.filter-count) {
-  min-width: 18px;
-  padding: 1px 5px;
-  font-size: 11px;
-}
-
-.toolbar-panel :deep(.collection-filter) {
-  gap: 8px;
-  padding: 0 0 4px;
-}
-
-.toolbar-panel :deep(.collection-filter button) {
-  padding: 7px 11px;
-}
-
-.toolbar-panel :deep(.collection-filter-label) {
-  font-size: 12px;
-}
-
-.toolbar-panel :deep(.collection-filter-count) {
-  min-width: 20px;
-  padding: 1px 6px;
-  font-size: 11px;
-}
-
-.toolbar-panel :deep(.search-bar) {
-  max-width: none;
-  margin: 0;
-}
-
-.toolbar-panel :deep(.search-input) {
-  padding-top: 9px;
-  padding-bottom: 9px;
-  border-radius: 16px;
-}
-
-.toolbar-panel :deep(.search-button) {
-  padding: 9px 16px;
-  border-radius: 16px;
-}
-
-.toolbar-panel :deep(.display-mode-toggle) {
-  padding: 3px;
-}
-
-.toolbar-panel :deep(.display-mode-toggle button) {
-  min-width: 84px;
-  padding: 7px 12px;
-  font-size: 12px;
-}
-
-.loading-state,
-.error-state {
+.state-panel {
   display: flex;
   flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  gap: 14px;
+  min-height: 0;
+  border-radius: 28px;
+  border: 1px solid rgba(146, 165, 192, 0.18);
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--text-soft);
+}
+
+.error-state h3 {
+  font-size: 22px;
   color: var(--text-color);
-  gap: 16px;
-  text-align: center;
 }
 
-.error-icon {
-  font-size: 48px;
-}
-
-@media (max-width: 900px) {
-  .search-row {
-    flex-direction: column;
-    align-items: stretch;
+@media (max-width: 980px) {
+  .toolbar-bottom {
+    grid-template-columns: 1fr;
   }
 
-  .results-summary {
-    flex-shrink: 1;
-  }
-
-  .search-row-actions {
-    justify-content: space-between;
+  .toolbar-side {
+    justify-items: stretch;
   }
 }
 
 @media (max-width: 640px) {
-  .content {
-    padding: 12px 14px 14px;
-  }
-
-  .toolbar-panel {
-    padding: 10px 12px;
-    border-radius: 16px;
+  .library-toolbar {
+    padding: 12px;
   }
 
   .search-row-actions {
     width: 100%;
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

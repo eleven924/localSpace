@@ -4,7 +4,7 @@ import { api } from '@/api/index'
 import type { ThemeConfig } from '@/types'
 
 const DEFAULT_THEME_MODE = 'light'
-const DEFAULT_PRIMARY_COLOR = '#2196F3'
+const DEFAULT_PRIMARY_COLOR = '#6F8FD8'
 
 export const useThemeStore = defineStore('theme', () => {
   const themeMode = ref<'light' | 'dark'>(DEFAULT_THEME_MODE)

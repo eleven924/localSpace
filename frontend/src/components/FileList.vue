@@ -31,10 +31,7 @@
       <p>{{ emptyDescription }}</p>
     </div>
 
-    <div
-      v-else-if="groupByCollection"
-      class="grouped-file-list"
-    >
+    <div v-else-if="groupByCollection" class="grouped-file-list scroll-soft">
       <section
         v-for="group in groupedFiles"
         :key="group.key"
@@ -67,7 +64,7 @@
 
     <div
       v-else
-      class="file-list"
+      class="file-list scroll-soft"
       :class="`columns-${columns}`"
       :style="{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }"
     >
@@ -105,7 +102,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   groupByCollection: false,
   emptyTitle: '暂无文件',
-  emptyDescription: '点击上方“导入文件”开始添加内容',
+  emptyDescription: '从导入页面添加文件后，会在这里展示。',
   emptyStateMode: 'library',
 })
 
@@ -138,30 +135,20 @@ const groupedFiles = computed<FileGroup[]>(() => {
   })
 
   return Array.from(groups.values()).sort((left, right) => {
-    if (left.key === UNSORTED_COLLECTION_KEY) {
-      return 1
-    }
-
-    if (right.key === UNSORTED_COLLECTION_KEY) {
-      return -1
-    }
-
-    if (right.files.length !== left.files.length) {
-      return right.files.length - left.files.length
-    }
-
+    if (left.key === UNSORTED_COLLECTION_KEY) return 1
+    if (right.key === UNSORTED_COLLECTION_KEY) return -1
+    if (right.files.length !== left.files.length) return right.files.length - left.files.length
     return left.label.localeCompare(right.label, 'zh-CN')
   })
 })
 
 const updateColumns = () => {
   const width = window.innerWidth
-
-  if (width < 600) {
+  if (width < 620) {
     columns.value = 2
-  } else if (width < 900) {
+  } else if (width < 920) {
     columns.value = 3
-  } else if (width < 1200) {
+  } else if (width < 1240) {
     columns.value = 4
   } else {
     columns.value = 5
@@ -177,21 +164,10 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateColumns)
 })
 
-const handleOpen = (id: number) => {
-  emit('open', id)
-}
-
-const handleClick = (file: LibraryFile) => {
-  emit('click', file)
-}
-
-const handleDelete = (id: number) => {
-  emit('delete', id)
-}
-
-const handleUpdated = (id: number) => {
-  emit('updated', id)
-}
+const handleOpen = (id: number) => emit('open', id)
+const handleClick = (file: LibraryFile) => emit('click', file)
+const handleDelete = (id: number) => emit('delete', id)
+const handleUpdated = (id: number) => emit('updated', id)
 </script>
 
 <style scoped>
@@ -200,197 +176,120 @@ const handleUpdated = (id: number) => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-height: 0;
 }
 
 .empty-state {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 60px 20px;
-  color: var(--text-color);
-  opacity: 0.72;
-  height: 100%;
+  gap: 12px;
+  padding: 56px 24px;
   text-align: center;
+  color: var(--text-soft);
 }
 
 .empty-icon {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 88px;
-  height: 88px;
-  border-radius: 24px;
-  background: rgba(148, 163, 184, 0.08);
-  color: rgba(100, 116, 139, 0.88);
+  width: 86px;
+  height: 86px;
+  border-radius: 18px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
+  color: var(--text-faint);
 }
 
 .empty-icon.is-search {
-  background: rgba(33, 150, 243, 0.08);
-  color: color-mix(in srgb, var(--primary-color) 70%, #0f172a);
+  background: rgba(235, 241, 250, 0.88);
 }
 
 .empty-icon svg {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
 }
 
 .empty-state h3 {
-  font-size: 20px;
-  margin: 0;
+  font-size: 24px;
+  color: var(--text-color);
 }
 
 .empty-state p {
-  font-size: 14px;
-  margin: 0;
+  max-width: 420px;
+  line-height: 1.7;
 }
 
 .grouped-file-list {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0 8px 8px;
+  overflow-x: clip;
+  padding-right: 4px;
 }
 
 .file-group {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .file-group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at top right, rgba(33, 150, 243, 0.12), transparent 36%),
-    color-mix(in srgb, var(--surface-color) 90%, transparent);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-}
-
-.file-group-title-wrap {
-  min-width: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  box-shadow: 0 4px 14px var(--shadow-color);
 }
 
 .file-group-title {
-  margin: 0 0 4px;
   font-size: 18px;
   color: var(--text-color);
-  word-break: break-word;
 }
 
 .file-group-subtitle {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-color);
-  opacity: 0.68;
+  margin-top: 4px;
+  color: var(--text-faint);
+  font-size: 12px;
 }
 
 .file-list {
   display: grid;
-  gap: 16px;
-  padding: 0 8px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  height: 100%;
-  width: 100%;
-  min-width: 0;
+  gap: 12px;
   align-content: start;
   align-items: stretch;
-  grid-auto-rows: var(--file-card-height, 292px);
+  overflow-y: auto;
+  overflow-x: clip;
+  padding-right: 4px;
 }
 
 .grouped-file-list .file-list {
-  height: auto;
   overflow: visible;
-  padding: 0;
-}
-
-.file-list > * {
-  min-width: 0;
-}
-
-.file-list.columns-2 {
-  gap: 12px;
 }
 
 .file-list.columns-5 {
-  gap: 20px;
+  gap: 12px;
 }
 
-.grouped-file-list::-webkit-scrollbar,
-.file-list::-webkit-scrollbar {
-  width: 8px;
-}
-
-.grouped-file-list::-webkit-scrollbar-track,
-.file-list::-webkit-scrollbar-track {
-  background: var(--surface-color);
-}
-
-.grouped-file-list::-webkit-scrollbar-thumb,
-.file-list::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 4px;
-}
-
-.grouped-file-list::-webkit-scrollbar-thumb:hover,
-.file-list::-webkit-scrollbar-thumb:hover {
-  background: var(--text-color);
-}
-
-@media (max-width: 600px) {
-  .file-list {
-    padding: 0 4px;
-    gap: 12px;
-    --file-card-height: 260px;
+@media (max-width: 640px) {
+  .empty-state {
+    padding: 36px 18px;
   }
 
-  .grouped-file-list {
-    gap: 16px;
-    padding: 0 4px 8px;
-  }
-
-  .grouped-file-list .file-list {
-    padding: 0;
+  .empty-state h3 {
+    font-size: 24px;
   }
 
   .file-group-header {
     padding: 12px 14px;
-    border-radius: 16px;
   }
 
-  .empty-state {
-    padding: 40px 20px;
-  }
-
-  .empty-icon {
-    width: 76px;
-    height: 76px;
-  }
-}
-
-@media (max-width: 480px) {
   .file-list {
-    padding: 0 2px;
-    gap: 8px;
-    --file-card-height: 248px;
-  }
-
-  .grouped-file-list {
-    padding: 0 2px 8px;
-  }
-
-  .file-group-title {
-    font-size: 16px;
+    gap: 10px;
   }
 }
 </style>

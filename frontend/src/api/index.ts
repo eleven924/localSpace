@@ -65,8 +65,18 @@ declare global {
 
           // File selection
           SelectFile: () => Promise<string>
+          SelectFiles: () => Promise<any[]>
           SelectDirectory: () => Promise<string>
           SelectExecutable: () => Promise<string>
+
+          // Jobs
+          SubmitBatchImportJob: (payload: any) => Promise<any>
+          GetActiveJobs: () => Promise<any[]>
+          GetResumableJobs: () => Promise<any[]>
+          ListJobs: (page: number, pageSize: number, jobType: string) => Promise<any>
+          GetJob: (jobID: number) => Promise<any>
+          ResumeJob: (jobID: number) => Promise<string>
+          CancelJob: (jobID: number) => Promise<string>
 
           // Metadata
           GetFileMetadata: (filePath: string, fileType: string) => Promise<any>
@@ -461,6 +471,12 @@ export const api = {
         '',
         'SelectFile'
       ),
+    selectFiles: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.SelectFiles(),
+        [],
+        'SelectFiles'
+      ),
     selectDirectory: () =>
       safeWailsCall(
         () => window.go!.app!.App.SelectDirectory(),
@@ -479,6 +495,75 @@ export const api = {
         {},
         `GetFileMetadata(${filePath})`
       ),
+  },
+
+  jobs: {
+    submitBatchImportJob: (payload: any) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.SubmitBatchImportJob(payload)
+            .then(resolve)
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+    getActiveJobs: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetActiveJobs(),
+        [],
+        'GetActiveJobs'
+      ),
+    getResumableJobs: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetResumableJobs(),
+        [],
+        'GetResumableJobs'
+      ),
+    listJobs: (page: number, pageSize: number, jobType = '') =>
+      safeWailsCall(
+        () => window.go!.app!.App.ListJobs(page, pageSize, jobType),
+        { items: [], page, pageSize, total: 0 },
+        `ListJobs(${page}, ${pageSize}, ${jobType})`
+      ),
+    getJob: (jobID: number) =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetJob(jobID),
+        null,
+        `GetJob(${jobID})`
+      ),
+    resume: (jobID: number) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.ResumeJob(jobID)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+    cancel: (jobID: number) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.CancelJob(jobID)
+            .then(() => resolve('success'))
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
   },
 
   thumbnail: {

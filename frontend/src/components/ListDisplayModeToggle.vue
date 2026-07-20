@@ -1,10 +1,6 @@
 <template>
-  <div class="display-mode-toggle" role="tablist" aria-label="List display mode">
-    <button
-      type="button"
-      :class="{ active: modelValue === 'flat' }"
-      @click="emit('update:modelValue', 'flat')"
-    >
+  <div class="display-mode-toggle" role="tablist" aria-label="列表展示模式">
+    <button type="button" :class="{ active: modelValue === 'flat' }" @click="emit('update:modelValue', 'flat')">
       平铺
     </button>
     <button
@@ -30,29 +26,26 @@ const emit = defineEmits<{
 <style scoped>
 .display-mode-toggle {
   display: inline-flex;
-  align-items: center;
   gap: 4px;
-  padding: 4px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-color) 88%, transparent);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--surface-color);
 }
 
 .display-mode-toggle button {
-  min-width: 96px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-color);
-  font-size: 13px;
+  min-width: 84px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 600;
+  color: var(--text-soft);
 }
 
 .display-mode-toggle button.active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, color-mix(in srgb, var(--primary-color) 78%, #0f172a) 100%);
-  color: #fff;
-  box-shadow: 0 10px 20px rgba(33, 150, 243, 0.2);
+  background-color: rgba(45, 140, 240, 0.08);
+  color: var(--primary-color);
 }
 
 @media (max-width: 640px) {

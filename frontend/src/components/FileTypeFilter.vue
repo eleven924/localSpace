@@ -3,26 +3,21 @@
     <button
       v-for="type in fileTypes"
       :key="type.value"
+      type="button"
       :class="{ active: currentType === type.value }"
-      @click="handleFilter(type.value)"
       :title="type.label"
+      @click="handleFilter(type.value)"
     >
       <span class="filter-icon">{{ type.icon }}</span>
       <span class="filter-label">{{ type.label }}</span>
-      <span v-if="counts[type.value]" class="filter-count">{{ counts[type.value] }}</span>
+      <span v-if="counts?.[type.value]" class="filter-count">{{ counts[type.value] }}</span>
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { FILE_TYPES } from '@/utils/constants'
-
-interface FileType {
-  value: string
-  label: string
-  icon: string
-}
 
 const props = defineProps<{
   modelValue: string
@@ -36,9 +31,7 @@ const emit = defineEmits<{
 
 const currentType = computed({
   get: () => props.modelValue,
-  set: (value) => {
-    emit('update:modelValue', value)
-  }
+  set: (value) => emit('update:modelValue', value),
 })
 
 const fileTypes = FILE_TYPES
@@ -52,105 +45,55 @@ const handleFilter = (type: string) => {
 <style scoped>
 .file-type-filter {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
-  padding: 8px 0;
+  gap: 8px;
 }
 
 .file-type-filter button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background-color: var(--surface-color);
-  color: var(--text-color);
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 16px;
   border: 1px solid var(--border-color);
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 14px;
-  white-space: nowrap;
+  background-color: var(--surface-color);
+  color: var(--text-soft);
 }
 
 .file-type-filter button:hover {
-  background-color: var(--border-color);
-  transform: translateY(-1px);
-}
-
-.file-type-filter button:active {
-  transform: translateY(0);
+  background-color: var(--surface-muted);
+  color: var(--text-color);
 }
 
 .file-type-filter button.active {
-  background-color: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-  box-shadow: 0 2px 8px var(--shadow-color);
+  background-color: rgba(45, 140, 240, 0.08);
+  border-color: rgba(45, 140, 240, 0.28);
+  color: var(--primary-color);
 }
 
 .filter-icon {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .filter-label {
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .filter-count {
-  background-color: rgba(0, 0, 0, 0.2);
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
   min-width: 20px;
-  text-align: center;
-}
-
-.file-type-filter button.active .filter-count {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-@media (max-width: 768px) {
-  .file-type-filter {
-    gap: 6px;
-  }
-
-  .file-type-filter button {
-    padding: 6px 12px;
-    font-size: 13px;
-  }
-
-  .filter-icon {
-    font-size: 14px;
-  }
-
-  .filter-count {
-    font-size: 11px;
-    padding: 1px 5px;
-    min-width: 18px;
-  }
+  padding: 1px 6px;
+  border-radius: 10px;
+  background-color: var(--surface-muted);
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 @media (max-width: 480px) {
-  .file-type-filter {
-    gap: 4px;
-  }
-
-  .file-type-filter button {
-    padding: 5px 10px;
-    font-size: 12px;
-  }
-
   .filter-label {
     display: none;
-  }
-
-  .filter-icon {
-    font-size: 16px;
-  }
-
-  .filter-count {
-    margin-left: -2px;
   }
 }
 </style>

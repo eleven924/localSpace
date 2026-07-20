@@ -6,6 +6,8 @@ export function AddMasterDirectory(arg1:string,arg2:number):Promise<void>;
 
 export function AddStorageDirectory(arg1:string,arg2:string):Promise<void>;
 
+export function CancelJob(arg1:number):Promise<void>;
+
 export function CheckDuplicate(arg1:string):Promise<Record<string, any>>;
 
 export function CheckMasterStorageSpace(arg1:number,arg2:number):Promise<boolean>;
@@ -24,6 +26,8 @@ export function GetAIAnalysis(arg1:string,arg2:string,arg3:string,arg4:Array<str
 
 export function GetAIConfig():Promise<models.AIConfig>;
 
+export function GetActiveJobs():Promise<Array<models.Job>>;
+
 export function GetConfig(arg1:string):Promise<string>;
 
 export function GetDuplicateFiles():Promise<Record<string, Array<Record<string, any>>>>;
@@ -36,11 +40,15 @@ export function GetFileTypes():Promise<Array<models.FileType>>;
 
 export function GetFiles(arg1:number,arg2:number,arg3:string):Promise<Array<models.File>>;
 
+export function GetJob(arg1:number):Promise<models.Job>;
+
 export function GetMasterDirectories():Promise<Array<models.StorageDir>>;
 
 export function GetMasterStoragePathForFile(arg1:number,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function GetOpenWithConfig():Promise<models.OpenWithConfig>;
+
+export function GetResumableJobs():Promise<Array<models.Job>>;
 
 export function GetStorageDirectories():Promise<Array<models.StorageDir>>;
 
@@ -60,6 +68,8 @@ export function ImportFileWithMetadata(arg1:string,arg2:string,arg3:string,arg4:
 
 export function InitConfig(arg1:string):Promise<void>;
 
+export function ListJobs(arg1:number,arg2:number,arg3:string):Promise<models.JobListResponse>;
+
 export function OpenFile(arg1:number):Promise<void>;
 
 export function OpenFileLocation(arg1:number):Promise<void>;
@@ -76,6 +86,8 @@ export function RemoveStorageDirectory(arg1:number):Promise<void>;
 
 export function RenameFile(arg1:number,arg2:string):Promise<void>;
 
+export function ResumeJob(arg1:number):Promise<void>;
+
 export function SearchFiles(arg1:string):Promise<Array<models.File>>;
 
 export function SelectDirectory():Promise<string>;
@@ -84,7 +96,11 @@ export function SelectExecutable():Promise<string>;
 
 export function SelectFile():Promise<string>;
 
+export function SelectFiles():Promise<Array<models.SelectedFile>>;
+
 export function SetDefaultMasterDirectory(arg1:number):Promise<void>;
+
+export function SubmitBatchImportJob(arg1:models.BatchImportJobRequest):Promise<models.Job>;
 
 export function ToggleStorageDirectory(arg1:number,arg2:boolean):Promise<void>;
 

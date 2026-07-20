@@ -28,6 +28,7 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        appInstance.Startup,
+		OnBeforeClose:    appInstance.BeforeClose,
 		OnShutdown:       appInstance.Shutdown,
 		Bind: []interface{}{
 			appInstance,
@@ -49,6 +50,6 @@ func main() {
 	})
 
 	if err != nil {
-			println("Error:", err.Error())
+		println("Error:", err.Error())
 	}
 }

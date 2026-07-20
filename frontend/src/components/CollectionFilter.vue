@@ -1,10 +1,6 @@
 <template>
   <div v-if="options.length > 0" class="collection-filter">
-    <button
-      type="button"
-      :class="{ active: currentValue === 'all' }"
-      @click="handleFilter('all')"
-    >
+    <button type="button" :class="{ active: currentValue === 'all' }" @click="handleFilter('all')">
       <span class="collection-filter-label">全部合集</span>
       <span class="collection-filter-count">{{ totalCount }}</span>
     </button>
@@ -40,9 +36,7 @@ const emit = defineEmits<{
 
 const currentValue = computed({
   get: () => props.modelValue,
-  set: (value: string) => {
-    emit('update:modelValue', value)
-  },
+  set: (value: string) => emit('update:modelValue', value),
 })
 
 const totalCount = computed(() => {
@@ -58,11 +52,9 @@ const handleFilter = (value: string) => {
 <style scoped>
 .collection-filter {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
-  overflow-y: hidden;
-  padding: 4px 0 10px;
-  scrollbar-width: thin;
+  padding-bottom: 2px;
 }
 
 .collection-filter button {
@@ -70,30 +62,27 @@ const handleFilter = (value: string) => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  min-width: 0;
-  padding: 9px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: color-mix(in srgb, var(--surface-color) 84%, transparent);
-  color: var(--text-color);
-  transition: all 0.2s ease;
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  background-color: var(--surface-color);
+  color: var(--text-soft);
 }
 
 .collection-filter button:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+  background-color: var(--surface-muted);
+  color: var(--text-color);
 }
 
 .collection-filter button.active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, color-mix(in srgb, var(--primary-color) 78%, #0f172a) 100%);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 12px 26px rgba(33, 150, 243, 0.24);
+  background-color: rgba(45, 140, 240, 0.08);
+  border-color: rgba(45, 140, 240, 0.28);
+  color: var(--primary-color);
 }
 
 .collection-filter-label {
-  max-width: 160px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -102,31 +91,16 @@ const handleFilter = (value: string) => {
 }
 
 .collection-filter-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
-  font-size: 12px;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background-color: var(--surface-muted);
+  color: var(--text-faint);
+  font-size: 11px;
   font-weight: 700;
 }
 
-.collection-filter button.active .collection-filter-count {
-  background: rgba(255, 255, 255, 0.18);
-}
-
 @media (max-width: 768px) {
-  .collection-filter {
-    gap: 8px;
-    padding-bottom: 8px;
-  }
-
-  .collection-filter button {
-    padding: 8px 12px;
-  }
-
   .collection-filter-label {
     max-width: 120px;
   }

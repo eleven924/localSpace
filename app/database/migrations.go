@@ -57,6 +57,12 @@ var migrations = []Migration{
 		Up:      migration007_Up,
 		Down:    migration007_Down,
 	},
+	{
+		Version: 8,
+		Name:    "add_job_system_tables",
+		Up:      migration008_Up,
+		Down:    migration008_Down,
+	},
 }
 
 // RunMigrations 运行数据库迁移
@@ -558,4 +564,80 @@ func migration007_Up(db *sql.DB) error {
 
 func migration007_Down(db *sql.DB) error {
 	return fmt.Errorf("SQLite rollback not supported for column additions")
+}
+
+func migration008_Up(db *sql.DB) error {
+	jobsTable := `
+		CREATE TABLE IF NOT EXISTS jobs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			job_type TEXT NOT NULL,
+			status TEXT NOT NULL,
+			title TEXT NOT NULL,
+			payload TEXT,
+			result TEXT,
+			progress_total INTEGER NOT NULL DEFAULT 0,
+			progress_completed INTEGER NOT NULL DEFAULT 0,
+			progress_message TEXT NOT NULL DEFAULT '',
+			exclusive_key TEXT NOT NULL DEFAULT '',
+			can_resume BOOLEAN NOT NULL DEFAULT 0,
+			started_at TEXT,
+			heartbeat_at TEXT,
+			finished_at TEXT,
+			timeout_at TEXT,
+			error_message TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);`
+	if _, err := db.Exec(jobsTable); err != nil {
+		return fmt.Errorf("failed to create jobs table: %w", err)
+	}
+
+	itemsTable := `
+		CREATE TABLE IF NOT EXISTS batch_import_items (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			job_id INTEGER NOT NULL,
+			source_path TEXT NOT NULL,
+			display_name TEXT NOT NULL,
+			detected_file_type TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL,
+			item_index INTEGER NOT NULL,
+			temp_path TEXT NOT NULL DEFAULT '',
+			final_path TEXT NOT NULL DEFAULT '',
+			expected_size INTEGER NOT NULL DEFAULT 0,
+			bytes_copied INTEGER NOT NULL DEFAULT 0,
+			checksum TEXT NOT NULL DEFAULT '',
+			error_message TEXT NOT NULL DEFAULT '',
+			started_at TEXT,
+			finished_at TEXT,
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+		);`
+	if _, err := db.Exec(itemsTable); err != nil {
+		return fmt.Errorf("failed to create batch_import_items table: %w", err)
+	}
+
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)`); err != nil {
+		return fmt.Errorf("failed to create jobs status index: %w", err)
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_jobs_type_status ON jobs(job_type, status)`); err != nil {
+		return fmt.Errorf("failed to create jobs type/status index: %w", err)
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_jobs_exclusive_status ON jobs(exclusive_key, status)`); err != nil {
+		return fmt.Errorf("failed to create jobs exclusive/status index: %w", err)
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_batch_import_items_job_index ON batch_import_items(job_id, item_index)`); err != nil {
+		return fmt.Errorf("failed to create batch_import_items job/index index: %w", err)
+	}
+
+	return nil
+}
+
+func migration008_Down(db *sql.DB) error {
+	_, _ = db.Exec(`DROP INDEX IF EXISTS idx_batch_import_items_job_index`)
+	_, _ = db.Exec(`DROP INDEX IF EXISTS idx_jobs_exclusive_status`)
+	_, _ = db.Exec(`DROP INDEX IF EXISTS idx_jobs_type_status`)
+	_, _ = db.Exec(`DROP INDEX IF EXISTS idx_jobs_status`)
+	_, _ = db.Exec(`DROP TABLE IF EXISTS batch_import_items`)
+	_, _ = db.Exec(`DROP TABLE IF EXISTS jobs`)
+	return nil
 }

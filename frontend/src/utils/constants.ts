@@ -1,17 +1,14 @@
-// File types
 export const FILE_TYPES = [
-  { value: 'all', label: '全部', icon: '📁' },
-  { value: 'video', label: '视频', icon: '🎬' },
-  { value: 'document', label: '文档', icon: '📄' },
-  { value: 'music', label: '音乐', icon: '🎵' },
-  { value: 'archive', label: '压缩包', icon: '🗜️' },
-  { value: 'installer', label: '安装包', icon: '📦' },
-  { value: 'image', label: '图片', icon: '🖼️' },
+  { value: 'all', label: '全部', icon: '◌' },
+  { value: 'video', label: '视频', icon: '▶' },
+  { value: 'document', label: '文档', icon: '▤' },
+  { value: 'music', label: '音频', icon: '♪' },
+  { value: 'archive', label: '压缩包', icon: '⬚' },
+  { value: 'installer', label: '安装包', icon: '⌘' },
+  { value: 'image', label: '图片', icon: '◧' },
 ] as const
 
-// File extension to type mapping (fallback when API fails)
 export const EXTENSION_TO_TYPE: Record<string, string> = {
-  // Video files
   '.mp4': 'video',
   '.avi': 'video',
   '.mkv': 'video',
@@ -20,8 +17,6 @@ export const EXTENSION_TO_TYPE: Record<string, string> = {
   '.flv': 'video',
   '.webm': 'video',
   '.m4v': 'video',
-
-  // Document files
   '.pdf': 'document',
   '.doc': 'document',
   '.docx': 'document',
@@ -34,8 +29,7 @@ export const EXTENSION_TO_TYPE: Record<string, string> = {
   '.odt': 'document',
   '.ods': 'document',
   '.odp': 'document',
-
-  // Music files
+  '.md': 'document',
   '.mp3': 'music',
   '.wav': 'music',
   '.flac': 'music',
@@ -43,15 +37,11 @@ export const EXTENSION_TO_TYPE: Record<string, string> = {
   '.ogg': 'music',
   '.m4a': 'music',
   '.wma': 'music',
-
-  // Archive files
   '.zip': 'archive',
   '.rar': 'archive',
   '.7z': 'archive',
   '.tar': 'archive',
   '.gz': 'archive',
-
-  // Installer files
   '.exe': 'installer',
   '.app': 'installer',
   '.msi': 'installer',
@@ -65,8 +55,6 @@ export const EXTENSION_TO_TYPE: Record<string, string> = {
   '.img': 'installer',
   '.vdi': 'installer',
   '.vmdk': 'installer',
-
-  // Image files
   '.jpg': 'image',
   '.jpeg': 'image',
   '.png': 'image',
@@ -78,11 +66,10 @@ export const EXTENSION_TO_TYPE: Record<string, string> = {
 }
 
 export const getFileTypeLabel = (fileType: string): string => {
-  const fileTypeInfo = FILE_TYPES.find(type => type.value === fileType)
+  const fileTypeInfo = FILE_TYPES.find((type) => type.value === fileType)
   return fileTypeInfo?.label || fileType
 }
 
-// File size format
 export const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 B'
 
@@ -93,7 +80,6 @@ export const formatFileSize = (bytes: number): string => {
   return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`
 }
 
-// Date format
 export const formatDate = (dateString: string): string => {
   const date = new Date(dateString)
   return date.toLocaleDateString('zh-CN', {
@@ -105,18 +91,16 @@ export const formatDate = (dateString: string): string => {
   })
 }
 
-// Theme modes
 export const THEME_MODES = [
-  { value: 'light', label: '浅色', icon: '☀️' },
-  { value: 'dark', label: '深色', icon: '🌙' },
+  { value: 'light', label: '浅色', icon: '◐' },
+  { value: 'dark', label: '深色', icon: '◑' },
 ] as const
 
-// Default settings
 export const DEFAULT_SETTINGS = {
   AI_MODEL: 'gpt-3.5-turbo',
   AI_BASE_URL: 'https://api.openai.com/v1',
-  PRIMARY_COLOR: '#2196F3',
+  PRIMARY_COLOR: '#6F8FD8',
 }
 
 export const UNSORTED_COLLECTION_KEY = '__unsorted__'
-export const UNSORTED_COLLECTION_LABEL = '未分合集'
+export const UNSORTED_COLLECTION_LABEL = '未分配合集'

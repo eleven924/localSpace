@@ -1,17 +1,19 @@
 <template>
   <header class="app-header">
     <div class="header-left">
-      <h1 class="brand-title">LocalSpace</h1>
+      <router-link to="/files" class="brand-title">LocalSpace</router-link>
 
       <nav class="header-nav" aria-label="主导航">
         <router-link to="/files" class="nav-pill">文件</router-link>
         <router-link to="/collections" class="nav-pill">合集</router-link>
+        <router-link to="/tasks" class="nav-pill">任务</router-link>
       </nav>
     </div>
 
     <div class="header-actions">
+      <TaskStatusIndicator />
       <router-link to="/import" :class="['btn', isImportActive ? 'primary' : 'secondary']">
-        导入文件
+        导入
       </router-link>
       <router-link to="/settings" :class="['btn', isSettingsActive ? 'primary' : 'secondary']">
         设置
@@ -23,6 +25,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import TaskStatusIndicator from '@/components/TaskStatusIndicator.vue'
 
 const route = useRoute()
 
@@ -50,7 +53,6 @@ const isSettingsActive = computed(() => ['Settings', 'Documentation'].includes(S
 }
 
 .brand-title {
-  margin: 0;
   font-size: 20px;
   font-weight: 700;
   color: var(--text-color);
@@ -78,16 +80,13 @@ const isSettingsActive = computed(() => ['Settings', 'Documentation'].includes(S
 }
 
 .nav-pill.router-link-active {
-  background: linear-gradient(
-    135deg,
-    var(--primary-color) 0%,
-    color-mix(in srgb, var(--primary-color) 78%, #0f172a) 100%
-  );
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   color: #fff;
 }
 
 .header-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -117,10 +116,6 @@ const isSettingsActive = computed(() => ['Settings', 'Documentation'].includes(S
   .header-actions {
     width: 100%;
     flex-direction: column;
-  }
-
-  .header-actions .btn {
-    width: 100%;
   }
 }
 </style>

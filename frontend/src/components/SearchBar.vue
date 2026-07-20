@@ -6,7 +6,7 @@
         v-model="query"
         type="text"
         class="search-input"
-        placeholder="搜索文件名、标签、描述..."
+        placeholder="搜索文件名、标签、描述或合集"
         @keyup.enter="handleSearch"
         @input="handleInput"
       />
@@ -20,9 +20,7 @@
         ×
       </button>
     </div>
-    <button class="search-button" type="button" @click="handleSearch">
-      搜索
-    </button>
+    <button class="btn primary search-button" type="button" @click="handleSearch">搜索</button>
   </div>
 </template>
 
@@ -43,9 +41,12 @@ const emit = defineEmits<{
 const query = ref(props.modelValue || '')
 let debounceTimer: number | null = null
 
-watch(() => props.modelValue, (newValue) => {
-  query.value = newValue || ''
-})
+watch(
+  () => props.modelValue,
+  (newValue) => {
+    query.value = newValue || ''
+  }
+)
 
 const clearDebounceTimer = () => {
   if (debounceTimer) {
@@ -79,9 +80,7 @@ const handleInput = () => {
     clearDebounceTimer()
     debounceTimer = window.setTimeout(() => {
       const trimmedQuery = query.value.trim()
-      if (trimmedQuery) {
-        emit('search', trimmedQuery)
-      }
+      if (trimmedQuery) emit('search', trimmedQuery)
     }, props.debounce)
   }
 }
@@ -94,10 +93,8 @@ const handleClear = () => {
 }
 
 const focus = () => {
-  const input = document.querySelector('.search-input') as HTMLInputElement
-  if (input) {
-    input.focus()
-  }
+  const input = document.querySelector('.search-input') as HTMLInputElement | null
+  input?.focus()
 }
 
 defineExpose({
@@ -108,120 +105,58 @@ defineExpose({
 <style scoped>
 .search-bar {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  max-width: 800px;
-  margin: 0 auto;
 }
 
 .search-input-wrapper {
-  flex: 1;
   position: relative;
-  display: flex;
-  align-items: center;
+  flex: 1;
 }
 
 .search-icon {
   position: absolute;
   left: 12px;
-  font-size: 16px;
-  opacity: 0.5;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  font-size: 15px;
   pointer-events: none;
-  z-index: 1;
 }
 
 .search-input {
-  width: 100%;
-  padding: 10px 40px 10px 36px;
-  border: 1px solid var(--border-color);
-  border-radius: 20px;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-}
-
-.search-input::placeholder {
-  color: var(--text-color);
-  opacity: 0.5;
+  padding-left: 34px;
+  padding-right: 36px;
+  min-height: 40px;
+  border-radius: 10px;
 }
 
 .clear-button {
   position: absolute;
-  right: 12px;
-  background: none;
-  border: none;
-  color: var(--text-color);
-  opacity: 0.5;
-  cursor: pointer;
-  padding: 0;
-  font-size: 18px;
-  line-height: 1;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  display: flex;
+  color: var(--text-faint);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  transition: all 0.2s ease;
 }
 
 .clear-button:hover {
-  opacity: 1;
-  background-color: var(--border-color);
+  background-color: var(--surface-muted);
+  color: var(--text-color);
 }
 
 .search-button {
-  padding: 10px 20px;
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 20px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.search-button:hover {
-  opacity: 0.9;
-  box-shadow: 0 2px 8px var(--shadow-color);
-}
-
-.search-button:active {
-  transform: scale(0.98);
+  min-width: 84px;
 }
 
 @media (max-width: 768px) {
   .search-bar {
     flex-direction: column;
-    gap: 8px;
-  }
-
-  .search-input-wrapper {
-    width: 100%;
-  }
-
-  .search-button {
-    width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .search-input {
-    padding: 8px 36px 8px 32px;
-    font-size: 13px;
-  }
-
-  .search-button {
-    padding: 8px 16px;
-    font-size: 13px;
   }
 }
 </style>

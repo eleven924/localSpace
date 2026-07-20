@@ -1,100 +1,119 @@
 <template>
-  <div class="settings-view">
+  <div class="page-shell settings-view">
     <AppHeader />
 
-    <div class="content">
-      <div class="settings-grid">
-        <div class="settings-column">
-          <section class="settings-section">
-            <div class="section-header">
-              <div class="section-icon">📁</div>
-              <h2>存储目录</h2>
-            </div>
-            <StorageDirSelector
-              @master-dir-added="handleDirAdded"
-              @master-dir-removed="handleDirRemoved"
-              @master-dir-default-changed="handleDirDefaultChanged"
-            />
-          </section>
-
-          <section class="settings-section">
-            <div class="section-header">
-              <div class="section-icon">▶</div>
-              <h2>打开方式</h2>
-            </div>
-            <OpenWithConfig />
-          </section>
-
-          <section class="settings-section">
-            <div class="section-header">
-              <div class="section-icon">🎨</div>
-              <h2>主题设置</h2>
-            </div>
-            <ThemeConfig @theme-changed="handleThemeChanged" @theme-reset="handleThemeReset" />
-          </section>
-        </div>
-
-        <div class="settings-column">
-          <section class="settings-section">
-            <div class="section-header">
-              <div class="section-icon">🤖</div>
-              <h2>AI 配置</h2>
-            </div>
-            <AIConfigForm @config-saved="handleAIConfigSaved" @config-reset="handleAIConfigReset" />
-          </section>
-
-          <section class="settings-section">
-            <div class="section-header">
-              <div class="section-icon">🗂</div>
-              <h2>存储规则</h2>
-            </div>
-            <StorageLayoutConfig />
-          </section>
-
-          <section class="settings-section">
-            <div class="section-header">
-              <div class="section-icon">ℹ</div>
-              <h2>文档与关于</h2>
-            </div>
-
-            <div class="about-content">
-              <div class="app-info">
-                <div class="app-logo">🛰</div>
+    <div class="page-content">
+      <div class="page-stack">
+        <div class="settings-grid">
+          <div class="settings-column">
+            <section class="settings-section">
+              <div class="section-header">
+                <div class="section-icon">📁</div>
                 <div>
-                  <h3>LocalSpace</h3>
-                  <p class="app-version">版本 0.1.0</p>
+                  <h2>存储目录</h2>
+                  <p>管理主目录与默认目录</p>
+                </div>
+              </div>
+              <StorageDirSelector
+                @master-dir-added="handleDirAdded"
+                @master-dir-removed="handleDirRemoved"
+                @master-dir-default-changed="handleDirDefaultChanged"
+              />
+            </section>
+
+            <section class="settings-section">
+              <div class="section-header">
+                <div class="section-icon">▶</div>
+                <div>
+                  <h2>打开方式</h2>
+                  <p>为不同类型的文件指定打开应用</p>
+                </div>
+              </div>
+              <OpenWithConfig />
+            </section>
+
+            <section class="settings-section">
+              <div class="section-header">
+                <div class="section-icon">🎨</div>
+                <div>
+                  <h2>主题设置</h2>
+                  <p>控制主题模式、主色与背景</p>
+                </div>
+              </div>
+              <ThemeConfig @theme-changed="handleThemeChanged" @theme-reset="handleThemeReset" />
+            </section>
+          </div>
+
+          <div class="settings-column">
+            <section class="settings-section">
+              <div class="section-header">
+                <div class="section-icon">🤖</div>
+                <div>
+                  <h2>AI 配置</h2>
+                  <p>为导入流程提供标签和描述辅助</p>
+                </div>
+              </div>
+              <AIConfigForm @config-saved="handleAIConfigSaved" @config-reset="handleAIConfigReset" />
+            </section>
+
+            <section class="settings-section">
+              <div class="section-header">
+                <div class="section-icon">🗂</div>
+                <div>
+                  <h2>存储规则</h2>
+                  <p>控制归档结构与文件夹命名</p>
+                </div>
+              </div>
+              <StorageLayoutConfig />
+            </section>
+
+            <section class="settings-section">
+              <div class="section-header">
+                <div class="section-icon">ℹ</div>
+                <div>
+                  <h2>文档与关于</h2>
+                  <p>查看说明、许可与版本信息</p>
                 </div>
               </div>
 
-              <div class="app-description">
-                <p>
-                  LocalSpace 是一个本地文件整理与检索工具，帮助你把不同类型的素材放到统一入口中，
-                  再通过标签、简介、合集和缩略图快速回看与管理。
-                </p>
-
-                <ul class="feature-list">
-                  <li>统一导入并归档图片、文档、音视频等常见文件</li>
-                  <li>基于标签、简介、关键词、文件类型和合集进行检索</li>
-                  <li>支持 AI 自动补全标签与描述信息</li>
-                  <li>支持多主目录、默认打开方式和缩略图缓存管理</li>
-                  <li>内置使用文档，便于后续打包和交付</li>
-                </ul>
-              </div>
-
-              <div class="doc-card">
-                <div>
-                  <h4>产品介绍与使用文档</h4>
-                  <p>查看核心功能说明、推荐使用流程和页面示意。</p>
+              <div class="about-content">
+                <div class="app-info">
+                  <div class="app-logo">🛰</div>
+                  <div>
+                    <h3>LocalSpace</h3>
+                    <p class="app-version">版本 0.1.0</p>
+                  </div>
                 </div>
-                <button class="doc-button" @click="handleViewDocumentation">查看文档</button>
-              </div>
 
-              <div class="app-links">
-                <button class="app-link" @click="handleViewLicense">查看许可</button>
-                <button class="app-link" @click="handleCheckUpdates">检查更新</button>
+                <div class="app-description">
+                  <p>
+                    LocalSpace 是一个面向本地资料整理与回看的桌面工具，适合把图片、文档、音视频和项目素材统一收进一个入口。
+                  </p>
+
+                  <ul class="feature-list">
+                    <li>支持单文件导入与批量后台导入</li>
+                    <li>支持标签、描述、关键词、合集等元信息整理</li>
+                    <li>支持 AI 生成标签与描述辅助</li>
+                    <li>支持多存储目录、打开方式与存储规则管理</li>
+                    <li>内置说明文档，方便交付与演示</li>
+                  </ul>
+                </div>
+
+                <div class="doc-card">
+                  <div>
+                    <h4>产品介绍与使用文档</h4>
+                    <p>查看核心功能说明、推荐使用流程和页面介绍。</p>
+                  </div>
+                  <button class="btn primary doc-button" @click="handleViewDocumentation">查看文档</button>
+                </div>
+
+                <div class="app-links">
+                  <button class="btn secondary" @click="handleViewLicense">查看许可</button>
+                  <button class="btn secondary" @click="handleCheckUpdates">检查更新</button>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
         </div>
       </div>
     </div>
@@ -145,7 +164,7 @@ const handleViewDocumentation = () => {
 }
 
 const handleViewLicense = () => {
-  window.alert('LocalSpace 当前以 MIT 风格开源协议进行分发，具体文本可在发布包中补充。')
+  window.alert('LocalSpace 当前以 MIT 风格开源协议分发，具体文本可在发布包中补充。')
 }
 
 const handleCheckUpdates = () => {
@@ -154,27 +173,10 @@ const handleCheckUpdates = () => {
 </script>
 
 <style scoped>
-.settings-view {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(33, 150, 243, 0.08), transparent 22%),
-    var(--app-bg-color, var(--bg-color));
-}
-
-.content {
-  flex: 1;
-  padding: 12px 18px 18px;
-  overflow-y: auto;
-}
-
 .settings-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   gap: 18px;
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 .settings-column {
@@ -213,10 +215,14 @@ const handleCheckUpdates = () => {
 }
 
 .section-header h2 {
-  margin: 0;
   font-size: 17px;
-  font-weight: 600;
   color: var(--text-color);
+}
+
+.section-header p {
+  margin-top: 4px;
+  color: var(--text-faint);
+  font-size: 12px;
 }
 
 .settings-section :deep(.storage-dir-selector),
@@ -253,34 +259,24 @@ const handleCheckUpdates = () => {
 }
 
 .app-info h3 {
-  margin: 0 0 4px;
   font-size: 20px;
-  font-weight: 600;
   color: var(--text-color);
 }
 
 .app-version {
-  margin: 0;
+  margin-top: 4px;
   font-size: 14px;
-  color: var(--text-color);
-  opacity: 0.7;
-}
-
-.app-description {
-  margin-bottom: 16px;
+  color: var(--text-faint);
 }
 
 .app-description p {
-  margin: 0 0 14px;
-  font-size: 14px;
+  color: var(--text-soft);
   line-height: 1.7;
-  color: var(--text-color);
 }
 
 .feature-list {
   list-style: none;
-  padding: 0;
-  margin: 0;
+  margin-top: 14px;
 }
 
 .feature-list li {
@@ -299,41 +295,27 @@ const handleCheckUpdates = () => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin: 16px 0;
   padding: 16px;
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(33, 150, 243, 0.08), rgba(76, 175, 80, 0.05));
+  background: linear-gradient(135deg, rgba(45, 140, 240, 0.08), rgba(76, 175, 80, 0.05));
 }
 
 .doc-card h4 {
-  margin: 0 0 6px;
   font-size: 16px;
   color: var(--text-color);
 }
 
 .doc-card p {
-  margin: 0;
+  margin-top: 6px;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--text-color);
-  opacity: 0.78;
+  color: var(--text-faint);
 }
 
 .doc-button {
-  min-width: 108px;
-  padding: 10px 16px;
-  border: none;
-  border-radius: 10px;
-  background-color: var(--primary-color);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.doc-button:hover {
-  opacity: 0.92;
-  box-shadow: 0 2px 8px var(--shadow-color);
+  width: auto;
 }
 
 .app-links {
@@ -342,81 +324,26 @@ const handleCheckUpdates = () => {
   gap: 8px;
 }
 
-.app-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background-color: color-mix(in srgb, var(--bg-color) 78%, var(--surface-color));
-  color: var(--text-color);
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.app-link:hover {
-  background-color: var(--border-color);
-  transform: translateY(-1px);
-}
-
-@media (max-width: 1024px) {
+@media (max-width: 1080px) {
   .settings-grid {
     grid-template-columns: 1fr;
   }
-
-  .settings-column {
-    gap: 18px;
-  }
 }
 
-@media (max-width: 768px) {
-  .content {
-    padding: 12px 14px 14px;
-  }
-
-  .section-header {
-    padding: 14px 16px;
-  }
-
-  .section-icon {
-    width: 32px;
-    height: 32px;
-    font-size: 17px;
-  }
-
-  .section-header h2 {
-    font-size: 16px;
-  }
-
-  .about-content {
+@media (max-width: 640px) {
+  .section-header,
+  .about-content,
+  .settings-section :deep(.storage-dir-selector),
+  .settings-section :deep(.ai-config-form),
+  .settings-section :deep(.open-with-config),
+  .settings-section :deep(.storage-layout-config),
+  .settings-section :deep(.theme-config) {
     padding: 16px;
   }
 
   .doc-card {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .doc-button {
-    width: 100%;
-  }
-}
-
-@media (max-width: 640px) {
-  .content {
-    padding: 12px;
-  }
-
-  .settings-section :deep(.storage-dir-selector),
-  .settings-section :deep(.ai-config-form),
-  .settings-section :deep(.open-with-config),
-  .settings-section :deep(.storage-layout-config),
-  .settings-section :deep(.theme-config),
-  .about-content {
-    padding: 14px;
   }
 
   .app-links {

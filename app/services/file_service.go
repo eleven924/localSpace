@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"LocalSpace/app/agents"
 	"LocalSpace/app/models"
 	"LocalSpace/app/repositories"
 	"LocalSpace/app/utils"
@@ -34,12 +36,35 @@ type FileService struct {
 
 // ImportFileRequest represents a file import request.
 type ImportFileRequest struct {
-	FilePath    string   // source path
-	FileName    string   // target display name
-	Description string   // user-provided description
-	Tags        []string // user-provided tags
-	Keywords    string   // user-provided keywords
-	CollectionName string // user-provided collection / series / project name
+	FilePath       string   // source path
+	FileName       string   // target display name
+	Description    string   // user-provided description
+	Tags           []string // user-provided tags
+	Keywords       string   // user-provided keywords
+	CollectionName string   // user-provided collection / series / project name
+}
+
+type BatchImportPlan struct {
+	SourcePath     string
+	FileName       string
+	OriginalName   string
+	CollectionName string
+	FileType       string
+	FileSubType    string
+	FileSize       int64
+	Checksum       string
+	MasterID       uint
+	FinalPath      string
+	TempPath       string
+}
+
+type BatchImportMetadataRequest struct {
+	FileName                     string
+	FileType                     string
+	SharedTags                   []string
+	SharedDescription            string
+	EnableAIGeneratedTags        bool
+	EnableAIGeneratedDescription bool
 }
 
 // FileFilter represents filters for file queries.
@@ -186,20 +211,20 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 	}
 
 	file := &models.File{
-		FileName:     req.FileName,
-		OriginalName: originalName,
+		FileName:       req.FileName,
+		OriginalName:   originalName,
 		CollectionName: effectiveCollectionName,
-		FilePath:     destPath,
-		FileType:     fileType,
-		FileSubType:  strings.TrimPrefix(extension, "."),
-		FileSize:     fileInfo.Size(),
-		Tags:         tags,
-		Description:  description,
-		Metadata:     metadata,
-		Thumbnail:    "",
-		Checksum:     checksum,
-		IsDeleted:    false,
-		DeletedAt:    "",
+		FilePath:       destPath,
+		FileType:       fileType,
+		FileSubType:    strings.TrimPrefix(extension, "."),
+		FileSize:       fileInfo.Size(),
+		Tags:           tags,
+		Description:    description,
+		Metadata:       metadata,
+		Thumbnail:      "",
+		Checksum:       checksum,
+		IsDeleted:      false,
+		DeletedAt:      "",
 	}
 
 	if err := s.fileRepo.Create(file); err != nil {
@@ -231,6 +256,298 @@ func (s *FileService) resolveMetadataForImport(req *ImportFileRequest) importMet
 		result.Description = strings.TrimSpace(req.Description)
 	}
 	return result
+}
+
+func (s *FileService) PrepareBatchImport(sourcePath, displayName, collectionName string) (*BatchImportPlan, error) {
+	if strings.TrimSpace(sourcePath) == "" {
+		return nil, fmt.Errorf("file path cannot be empty")
+	}
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("source file does not exist: %s", sourcePath)
+	}
+
+	fileInfo, err := os.Stat(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	fileName := strings.TrimSpace(displayName)
+	if fileName == "" {
+		fileName = filepath.Base(sourcePath)
+	}
+
+	extension := filepath.Ext(sourcePath)
+	fileType, err := parseFileType(extension)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse file type: %w", err)
+	}
+
+	masters, err := s.storageService.GetMasterDirectories()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get master directories: %w", err)
+	}
+	if len(masters) == 0 {
+		return nil, fmt.Errorf("no master directory configured. Please add a master directory in Settings > Storage Directories before importing files.")
+	}
+
+	defaultMaster := selectDefaultMasterDirectory(masters)
+	if defaultMaster == nil {
+		return nil, fmt.Errorf("no master directory configured")
+	}
+
+	hasSpace, err := s.storageService.CheckMasterStorageSpace(defaultMaster.ID, fileInfo.Size())
+	if err != nil {
+		return nil, fmt.Errorf("failed to check storage space: %w", err)
+	}
+	if !hasSpace {
+		return nil, fmt.Errorf("not enough storage space for this file")
+	}
+
+	layoutConfig, err := s.storageService.GetStorageLayoutConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage layout config: %w", err)
+	}
+
+	trimmedCollectionName := strings.TrimSpace(collectionName)
+	effectiveCollectionName := trimmedCollectionName
+	if layoutConfig.Strategy == "type_collection" && effectiveCollectionName == "" {
+		effectiveCollectionName = layoutConfig.UnsortedFolderName
+	}
+
+	destPath, err := s.storageService.GetStoragePathForFileWithMaster(defaultMaster.ID, fileType, effectiveCollectionName, fileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage path: %w", err)
+	}
+	if err := s.storageService.EnsureStorageDirExists(filepath.Dir(destPath)); err != nil {
+		return nil, fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	checksum, err := utils.CalculateFileChecksum(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate file checksum: %w", err)
+	}
+
+	isDuplicate, duplicateID, err := s.fileRepo.CheckDuplicateByChecksum(checksum)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for duplicate files: %w", err)
+	}
+	if isDuplicate {
+		duplicateFile, findErr := s.fileRepo.FindByID(duplicateID)
+		if findErr == nil {
+			return nil, fmt.Errorf("duplicate file detected. A file with identical content already exists: %s (ID: %d)", duplicateFile.FileName, duplicateID)
+		}
+		return nil, fmt.Errorf("duplicate file detected. A file with identical content already exists (ID: %d)", duplicateID)
+	}
+
+	exists, err := s.fileRepo.ExistsByPath(destPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if file exists: %w", err)
+	}
+	if exists {
+		return nil, fmt.Errorf("file already exists at destination: %s", destPath)
+	}
+
+	return &BatchImportPlan{
+		SourcePath:     sourcePath,
+		FileName:       fileName,
+		OriginalName:   filepath.Base(sourcePath),
+		CollectionName: effectiveCollectionName,
+		FileType:       fileType,
+		FileSubType:    strings.TrimPrefix(extension, "."),
+		FileSize:       fileInfo.Size(),
+		Checksum:       checksum,
+		MasterID:       defaultMaster.ID,
+		FinalPath:      destPath,
+		TempPath:       destPath + models.BatchImportTempSuffix,
+	}, nil
+}
+
+func (s *FileService) CopyFileToTemp(plan *BatchImportPlan, onProgress func(copied int64) error) error {
+	if plan == nil {
+		return fmt.Errorf("batch import plan is nil")
+	}
+
+	if err := s.CleanupBatchImportArtifacts(plan.TempPath, ""); err != nil {
+		return err
+	}
+
+	source, err := os.Open(plan.SourcePath)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer source.Close()
+
+	destination, err := os.Create(plan.TempPath)
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+
+	buffer := make([]byte, 1024*1024)
+	var copied int64
+	for {
+		readBytes, readErr := source.Read(buffer)
+		if readBytes > 0 {
+			written, writeErr := destination.Write(buffer[:readBytes])
+			if writeErr != nil {
+				destination.Close()
+				_ = os.Remove(plan.TempPath)
+				return fmt.Errorf("failed to write temp file: %w", writeErr)
+			}
+			copied += int64(written)
+			if onProgress != nil {
+				if err := onProgress(copied); err != nil {
+					destination.Close()
+					_ = os.Remove(plan.TempPath)
+					return err
+				}
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			destination.Close()
+			_ = os.Remove(plan.TempPath)
+			return fmt.Errorf("failed to read source file: %w", readErr)
+		}
+	}
+
+	if err := destination.Close(); err != nil {
+		_ = os.Remove(plan.TempPath)
+		return fmt.Errorf("failed to flush temp file: %w", err)
+	}
+
+	if copied != plan.FileSize {
+		_ = os.Remove(plan.TempPath)
+		return fmt.Errorf("copied file size mismatch: expected %d bytes, got %d bytes", plan.FileSize, copied)
+	}
+
+	return nil
+}
+
+func (s *FileService) FinalizeBatchImport(plan *BatchImportPlan, tags []string, description string, metadata models.Metadata) (*models.File, error) {
+	if plan == nil {
+		return nil, fmt.Errorf("batch import plan is nil")
+	}
+
+	if err := os.Rename(plan.TempPath, plan.FinalPath); err != nil {
+		return nil, fmt.Errorf("failed to commit imported file: %w", err)
+	}
+
+	file := &models.File{
+		FileName:       plan.FileName,
+		OriginalName:   plan.OriginalName,
+		CollectionName: plan.CollectionName,
+		FilePath:       plan.FinalPath,
+		FileType:       plan.FileType,
+		FileSubType:    plan.FileSubType,
+		FileSize:       plan.FileSize,
+		Tags:           s.normalizeMetadataTags(tags),
+		Description:    s.normalizeMetadataDescription(description),
+		Metadata:       metadata,
+		Thumbnail:      "",
+		Checksum:       plan.Checksum,
+		IsDeleted:      false,
+		DeletedAt:      "",
+	}
+
+	if err := s.fileRepo.Create(file); err != nil {
+		_ = os.Remove(plan.FinalPath)
+		return nil, fmt.Errorf("failed to create file record: %w", err)
+	}
+
+	if supportsGeneratedThumbnail(plan.FileType) {
+		s.generateThumbnailForFile(file.ID, plan.FinalPath, plan.FileType)
+	}
+
+	if err := s.storageService.UpdateMasterDirectorySize(plan.MasterID, plan.FileType, plan.FileSize); err != nil {
+		fmt.Printf("Failed to update storage size: %v\n", err)
+	}
+
+	return file, nil
+}
+
+func (s *FileService) CleanupBatchImportArtifacts(tempPath, finalPath string) error {
+	paths := []string{tempPath}
+	if strings.HasSuffix(finalPath, models.BatchImportTempSuffix) {
+		paths = append(paths, finalPath)
+	}
+
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to remove temp artifact %s: %w", path, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *FileService) ResolveBatchImportMetadata(req BatchImportMetadataRequest) ([]string, string, error) {
+	tags := append([]string{}, req.SharedTags...)
+	description := strings.TrimSpace(req.SharedDescription)
+
+	needsAI := req.EnableAIGeneratedTags || req.EnableAIGeneratedDescription
+	if needsAI {
+		analysisTags, analysisDescription, err := s.generateImportMetadata(req.FileName, req.FileType)
+		if err != nil {
+			return nil, "", err
+		}
+		if req.EnableAIGeneratedTags {
+			tags = append(tags, analysisTags...)
+		}
+		if req.EnableAIGeneratedDescription && strings.TrimSpace(analysisDescription) != "" {
+			description = analysisDescription
+		}
+	}
+
+	return s.normalizeMetadataTags(tags), s.normalizeMetadataDescription(description), nil
+}
+
+func (s *FileService) generateImportMetadata(fileName, fileType string) ([]string, string, error) {
+	if s.agentService != nil {
+		analysis, err := s.agentService.AnalyzeMetadata(context.Background(), &agents.MetadataGenerationInput{
+			FileName: fileName,
+			FileType: fileType,
+		})
+		if err == nil && analysis != nil {
+			return analysis.Tags, analysis.Description, nil
+		}
+	}
+
+	var tags []string
+	var description string
+	if s.aiService != nil {
+		generatedTags, err := s.aiService.GenerateTags(fileName, fileType)
+		if err != nil {
+			return nil, "", err
+		}
+		generatedDescription, err := s.aiService.GenerateDescription(fileName, fileType)
+		if err != nil {
+			return nil, "", err
+		}
+		tags = generatedTags
+		description = generatedDescription
+	}
+
+	return tags, description, nil
+}
+
+func selectDefaultMasterDirectory(masters []models.StorageDir) *models.StorageDir {
+	if len(masters) == 0 {
+		return nil
+	}
+	for _, master := range masters {
+		if master.IsDefault {
+			m := master
+			return &m
+		}
+	}
+	master := masters[0]
+	return &master
 }
 
 func (s *FileService) normalizeMetadataTags(tags []string) []string {
@@ -718,18 +1035,18 @@ func parseFileType(extension string) (string, error) {
 		".tar": "archive",
 		".gz":  "archive",
 
-		".exe": "installer",
-		".app": "installer",
-		".msi": "installer",
-		".ipa": "installer",
-		".pkg": "installer",
-		".deb": "installer",
-		".rpm": "installer",
-		".apk": "installer",
-		".dmg": "installer",
-		".iso": "installer",
-		".img": "installer",
-		".vdi": "installer",
+		".exe":  "installer",
+		".app":  "installer",
+		".msi":  "installer",
+		".ipa":  "installer",
+		".pkg":  "installer",
+		".deb":  "installer",
+		".rpm":  "installer",
+		".apk":  "installer",
+		".dmg":  "installer",
+		".iso":  "installer",
+		".img":  "installer",
+		".vdi":  "installer",
 		".vmdk": "installer",
 
 		".jpg":  "image",

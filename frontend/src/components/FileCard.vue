@@ -1,58 +1,35 @@
 <template>
   <div class="file-card" :class="{ 'menu-open': showMenu }" @click="handleClick">
-    <!-- Menu button -->
-    <div class="menu-button" @click.stop="toggleMenu">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-        <circle cx="12" cy="5" r="2" />
-        <circle cx="12" cy="12" r="2" />
-        <circle cx="12" cy="19" r="2" />
+    <button class="menu-button" type="button" @click.stop="toggleMenu">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+        <circle cx="12" cy="5" r="1.8" />
+        <circle cx="12" cy="12" r="1.8" />
+        <circle cx="12" cy="19" r="1.8" />
       </svg>
-    </div>
+    </button>
 
-    <!-- Dropdown menu -->
     <div v-if="showMenu" class="dropdown-menu" @click.stop>
-      <div class="menu-item" @click="handleShowDetails">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-        </svg>
-        <span>文件详情</span>
-      </div>
-      <div class="menu-item" @click="handleOpenPreferred">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
-        <span>用默认软件打开</span>
-      </div>
-      <div class="menu-item" @click="handleOpenSystemDefault">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-        </svg>
+      <button class="menu-item" type="button" @click="handleShowDetails">
+        <span>查看详情</span>
+      </button>
+      <button class="menu-item" type="button" @click="handleOpenPreferred">
+        <span>用设置的软件打开</span>
+      </button>
+      <button class="menu-item" type="button" @click="handleOpenSystemDefault">
         <span>用系统默认打开</span>
-      </div>
-      <div class="menu-item" @click="handleOpenLocation">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
-        </svg>
-        <span>打开文件夹</span>
-      </div>
-      <div class="menu-item" @click="handleRename">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-        </svg>
+      </button>
+      <button class="menu-item" type="button" @click="handleOpenLocation">
+        <span>打开所在位置</span>
+      </button>
+      <button class="menu-item" type="button" @click="handleRename">
         <span>重命名</span>
-      </div>
-      <div class="menu-item" @click="handleEditMetadata">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
-        </svg>
+      </button>
+      <button class="menu-item" type="button" @click="handleEditMetadata">
         <span>编辑标签和描述</span>
-      </div>
-      <div class="menu-item delete" @click="handleDelete">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-        </svg>
+      </button>
+      <button class="menu-item delete" type="button" @click="handleDelete">
         <span>删除文件</span>
-      </div>
+      </button>
     </div>
 
     <div class="file-thumbnail">
@@ -67,13 +44,19 @@
         {{ getFileIcon(file.fileType) }}
       </div>
     </div>
+
     <div class="file-info">
       <div
         ref="hoverZoneRef"
         class="file-info-hover-zone"
         @mouseenter="updateHoverPreviewPlacement"
       >
+        <div class="file-topline">
+          <span v-if="file.collectionName" class="collection-pill">{{ file.collectionName }}</span>
+        </div>
+
         <h3 class="file-name" :title="file.fileName">{{ file.fileName }}</h3>
+
         <div v-if="file.tags && file.tags.length > 0" class="file-tags">
           <span v-for="tag in visibleTags" :key="tag" class="tag" :title="tag">
             {{ tag }}
@@ -87,6 +70,7 @@
             </span>
           </span>
         </div>
+
         <div
           v-if="hasHoverPreview"
           class="file-hover-preview"
@@ -94,10 +78,12 @@
           @click.stop
         >
           <div class="hover-preview-header">{{ file.fileName }}</div>
+
           <div v-if="file.collectionName" class="hover-preview-row">
             <span class="hover-preview-label">合集</span>
             <span class="hover-preview-text">{{ file.collectionName }}</span>
           </div>
+
           <div v-if="file.tags && file.tags.length > 0" class="hover-preview-row preview-tags-row">
             <span class="hover-preview-label">标签</span>
             <div class="hover-preview-tags">
@@ -106,51 +92,54 @@
               </span>
             </div>
           </div>
+
           <div v-if="file.description" class="hover-preview-row preview-description-row">
-            <span class="hover-preview-label">简介</span>
+            <span class="hover-preview-label">描述</span>
             <p class="hover-preview-description">{{ file.description }}</p>
           </div>
         </div>
       </div>
+
       <div class="file-meta">
         <span class="file-size">{{ formatFileSize(file.fileSize) }}</span>
         <span class="file-date">{{ formatDate(file.createdAt) }}</span>
       </div>
     </div>
 
-    <!-- Rename dialog -->
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="showRenameDialog" class="modal-overlay" @click="handleRenameDialogOverlayClick">
           <div class="modal-content rename-dialog" @click.stop>
             <div class="modal-header">
               <h3 class="modal-title">重命名文件</h3>
-              <button @click="closeRenameDialog" class="modal-close" aria-label="Close">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button type="button" class="modal-close" aria-label="Close" @click="closeRenameDialog">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
               </button>
             </div>
+
             <div class="modal-body">
               <div class="form-group">
                 <label for="file-name">文件名</label>
                 <input
                   id="file-name"
+                  ref="fileNameInput"
                   v-model="newFileName"
                   type="text"
                   class="form-input"
                   placeholder="输入新的文件名"
                   @keyup.enter="confirmRename"
-                  ref="fileNameInput"
                 />
-                <p class="help-text">不包含扩展名，扩展名将自动保留</p>
+                <p class="help-text">不需要带扩展名，系统会自动保留原扩展名。</p>
               </div>
             </div>
+
             <div class="modal-footer">
-              <button type="button" @click="closeRenameDialog" class="btn btn-secondary">取消</button>
-              <button type="button" @click="confirmRename" class="btn btn-primary" :disabled="!newFileName || isRenaming">
-                {{ isRenaming ? '重命名中...' : '重命名' }}
+              <button type="button" class="btn secondary" @click="closeRenameDialog">取消</button>
+              <button type="button" class="btn primary" :disabled="!newFileName || isRenaming" @click="confirmRename">
+                {{ isRenaming ? '正在重命名...' : '确认重命名' }}
               </button>
             </div>
           </div>
@@ -158,11 +147,7 @@
       </Transition>
     </Teleport>
 
-    <!-- File detail modal -->
-    <FileDetailModal
-      v-model:show="showDetailModal"
-      :file="file"
-    />
+    <FileDetailModal v-model:show="showDetailModal" :file="file" />
 
     <EditFileMetaModal
       v-model:show="showEditMetaDialog"
@@ -173,11 +158,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick, watch, onMounted, onUnmounted } from 'vue'
-import { FILE_TYPES, formatFileSize, formatDate } from '@/utils/constants'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { api } from '@/api/index'
-import FileDetailModal from './FileDetailModal.vue'
+import { FILE_TYPES, formatDate, formatFileSize } from '@/utils/constants'
 import EditFileMetaModal from './EditFileMetaModal.vue'
+import FileDetailModal from './FileDetailModal.vue'
 
 interface File {
   id: number
@@ -218,6 +203,7 @@ const previewPlacement = ref<{ horizontal: 'right' | 'left'; vertical: 'down' | 
   horizontal: 'right',
   vertical: 'down',
 })
+
 const visibleTags = computed(() => props.file.tags.slice(0, 3))
 const hiddenTags = computed(() => props.file.tags.slice(3))
 const showThumbnail = computed(() => Boolean(props.file.thumbnail) && !thumbnailError.value)
@@ -230,9 +216,7 @@ const previewPlacementClass = computed(() => ({
   'preview-up': previewPlacement.value.vertical === 'up',
   'preview-down': previewPlacement.value.vertical === 'down',
 }))
-const thumbnailSrc = computed(() => {
-  return props.file.thumbnail || ''
-})
+const thumbnailSrc = computed(() => props.file.thumbnail || '')
 
 const getPreviewMetrics = () => {
   const isCompactViewport = window.innerWidth <= 768
@@ -244,21 +228,22 @@ const getPreviewMetrics = () => {
 }
 
 const updateHoverPreviewPlacement = () => {
-  if (!hoverZoneRef.value) {
-    return
-  }
+  if (!hoverZoneRef.value) return
 
   const rect = hoverZoneRef.value.getBoundingClientRect()
   const { width, height, viewportPadding } = getPreviewMetrics()
+  const floatingGap = 10
 
   const canOpenRight = rect.left + width <= window.innerWidth - viewportPadding
   const canOpenLeft = rect.right - width >= viewportPadding
-  const canOpenDown = rect.top + height <= window.innerHeight - viewportPadding
-  const canOpenUp = rect.bottom - height >= viewportPadding
+  const availableBelow = window.innerHeight - rect.bottom - viewportPadding - floatingGap
+  const availableAbove = rect.top - viewportPadding - floatingGap
+  const canOpenDown = availableBelow >= Math.min(height, 180)
+  const canOpenUp = availableAbove >= Math.min(height, 180)
 
   previewPlacement.value = {
     horizontal: !canOpenRight && canOpenLeft ? 'left' : 'right',
-    vertical: !canOpenDown && canOpenUp ? 'up' : 'down',
+    vertical: canOpenDown || availableBelow >= availableAbove || !canOpenUp ? 'down' : 'up',
   }
 }
 
@@ -279,8 +264,8 @@ watch(
 )
 
 const getFileIcon = (fileType: string): string => {
-  const type = FILE_TYPES.find(t => t.value === fileType)
-  return type?.icon || '📄'
+  const type = FILE_TYPES.find((item) => item.value === fileType)
+  return type?.icon || '◌'
 }
 
 const toggleMenu = () => {
@@ -298,7 +283,7 @@ const handleOpenLocation = async () => {
     showMenu.value = false
   } catch (error) {
     console.error('Failed to open file location:', error)
-    alert('打开文件夹失败')
+    window.alert('打开文件所在位置失败')
   }
 }
 
@@ -308,7 +293,7 @@ const handleOpenPreferred = async () => {
     showMenu.value = false
   } catch (error: any) {
     console.error('Failed to open file with preferred app:', error)
-    alert(error?.message || '指定打开软件不可用，请到设置中检查路径，或使用系统默认打开。')
+    window.alert(error?.message || '指定打开软件不可用，请到设置中检查。')
   }
 }
 
@@ -318,12 +303,12 @@ const handleOpenSystemDefault = async () => {
     showMenu.value = false
   } catch (error) {
     console.error('Failed to open file with system default:', error)
-    alert('使用系统默认打开失败')
+    window.alert('使用系统默认打开失败')
   }
 }
 
 const handleDelete = async () => {
-  if (!confirm(`确定要删除文件 "${props.file.fileName}" 吗?`)) {
+  if (!window.confirm(`确定要删除文件“${props.file.fileName}”吗？`)) {
     return
   }
 
@@ -333,12 +318,11 @@ const handleDelete = async () => {
     emit('delete', props.file.id)
   } catch (error) {
     console.error('Failed to delete file:', error)
-    alert('删除文件失败')
+    window.alert('删除文件失败')
   }
 }
 
 const handleRename = () => {
-  // Get file name without extension
   const fileName = props.file.fileName
   const lastDotIndex = fileName.lastIndexOf('.')
   const nameWithoutExt = lastDotIndex > 0 ? fileName.substring(0, lastDotIndex) : fileName
@@ -347,7 +331,6 @@ const handleRename = () => {
   showRenameDialog.value = true
   showMenu.value = false
 
-  // Focus input after dialog opens
   nextTick(() => {
     fileNameInput.value?.focus()
     fileNameInput.value?.select()
@@ -375,36 +358,29 @@ const handleRenameDialogOverlayClick = () => {
 
 const confirmRename = async () => {
   if (!newFileName.value.trim()) {
-    alert('请输入文件名')
+    window.alert('请输入文件名')
     return
   }
 
   isRenaming.value = true
 
   try {
-    // Get file extension
     const fileName = props.file.fileName
     const lastDotIndex = fileName.lastIndexOf('.')
     const extension = lastDotIndex > 0 ? fileName.substring(lastDotIndex) : ''
-
-    // Construct new full file name with extension
     const newFullName = newFileName.value.trim() + extension
 
     await api.file.rename(props.file.id, newFullName)
-
-    // Emit event to refresh file list
-    emit('delete', props.file.id) // Reuse delete event to trigger refresh
-
+    emit('delete', props.file.id)
     closeRenameDialog()
   } catch (error: any) {
     console.error('Failed to rename file:', error)
-    alert(error.message || '重命名文件失败')
+    window.alert(error.message || '重命名文件失败')
   } finally {
     isRenaming.value = false
   }
 }
 
-// Close menu when clicking outside
 const handleClickOutside = (event: MouseEvent) => {
   const card = (event.target as HTMLElement).closest('.file-card')
   if (!card) {
@@ -425,112 +401,100 @@ onUnmounted(() => {
 
 <style scoped>
 .file-card {
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  position: relative;
+  gap: 10px;
+  min-height: 272px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--surface-color);
+  box-shadow: 0 4px 14px var(--shadow-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
   overflow: visible;
-  z-index: 0;
 }
 
 .file-card:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 4px 12px var(--shadow-color);
   transform: translateY(-2px);
-  z-index: 80;
+  border-color: var(--primary-color);
+  box-shadow: 0 8px 22px var(--shadow-strong);
+  z-index: 60;
 }
 
 .file-card.menu-open {
-  z-index: 120;
+  z-index: 90;
 }
 
 .menu-button {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
-  background-color: var(--surface-color);
   border: 1px solid var(--border-color);
-  display: flex;
+  background: var(--surface-color);
+  color: var(--text-faint);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  z-index: 10;
   opacity: 0;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
 
 .file-card:hover .menu-button,
-.menu-button:hover {
+.file-card.menu-open .menu-button {
   opacity: 1;
 }
 
 .menu-button:hover {
-  background-color: var(--bg-color);
-  border-color: var(--primary-color);
+  background: var(--surface-muted);
+  color: var(--text-color);
 }
 
 .dropdown-menu {
   position: absolute;
-  top: 48px;
+  top: 40px;
   right: 8px;
-  background-color: var(--surface-color);
+  min-width: 172px;
+  padding: 6px;
+  border-radius: 10px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px var(--shadow-color);
-  min-width: 160px;
+  background: var(--surface-color);
+  box-shadow: 0 10px 24px var(--shadow-strong);
   z-index: 100;
-  overflow: hidden;
 }
 
 .menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  font-size: 14px;
-  color: var(--text-color);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-soft);
 }
 
 .menu-item:hover {
-  background-color: var(--bg-color);
+  background: var(--surface-muted);
+  color: var(--text-color);
 }
 
 .menu-item.delete {
-  color: #ef4444;
-}
-
-.menu-item.delete:hover {
-  background-color: rgba(239, 68, 68, 0.1);
+  color: #a85d5d;
 }
 
 .file-thumbnail {
   width: 100%;
-  min-width: 0;
-  aspect-ratio: 16 / 9;
-  height: auto;
-  max-height: 132px;
-  background-color: var(--bg-color);
-  border-radius: 4px;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
-  overflow: hidden;
-  flex-shrink: 0;
 }
 
 .thumbnail-image {
@@ -541,37 +505,56 @@ onUnmounted(() => {
 }
 
 .file-icon {
-  font-size: 64px;
-  opacity: 0.6;
+  font-size: 48px;
+  color: var(--text-faint);
 }
 
 .file-info {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
   min-height: 0;
-  overflow: visible;
 }
 
 .file-info-hover-zone {
   position: relative;
-  flex: 1;
-  min-height: 0;
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: 8px;
+  min-height: 0;
   overflow: visible;
+}
+
+.file-topline {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.collection-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(45, 140, 240, 0.08);
+  color: var(--primary-color);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .file-name {
   font-size: 14px;
-  font-weight: 500;
-  margin: 0;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   line-height: 1.4;
+  color: var(--text-color);
+  display: -webkit-box;
+  min-height: calc(1.4em * 2);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .file-tags {
@@ -579,26 +562,29 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
-  max-height: 48px;
+  max-height: 44px;
   overflow: hidden;
-  flex-shrink: 0;
+  align-content: flex-start;
 }
 
 .tag {
-  font-size: 12px;
-  padding: 2px 8px;
-  background-color: var(--primary-color);
-  color: white;
-  border-radius: 12px;
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
   max-width: 100%;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tag.more {
-  background-color: var(--border-color);
-  color: var(--text-color);
+  background: #edf2f7;
 }
 
 .more-tags-trigger {
@@ -610,16 +596,16 @@ onUnmounted(() => {
   top: calc(100% + 8px);
   right: 0;
   display: none;
+  flex-wrap: wrap;
+  gap: 6px;
   min-width: 160px;
   max-width: 240px;
   padding: 8px;
-  border-radius: 8px;
-  background-color: var(--surface-color);
+  border-radius: 10px;
   border: 1px solid var(--border-color);
-  box-shadow: 0 8px 24px var(--shadow-color);
-  gap: 6px;
-  flex-wrap: wrap;
-  z-index: 30;
+  background: var(--surface-color);
+  box-shadow: 0 10px 22px var(--shadow-strong);
+  z-index: 40;
 }
 
 .more-tags-trigger:hover .hidden-tags-tooltip {
@@ -627,83 +613,50 @@ onUnmounted(() => {
 }
 
 .tooltip-tag {
-  background-color: var(--primary-color);
-  color: white;
+  background: var(--surface-muted);
 }
 
 .file-meta {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--text-color);
-  opacity: 0.7;
-  margin-top: 10px;
-  flex-shrink: 0;
+  gap: 10px;
   padding-top: 8px;
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
-}
-
-.file-size,
-.file-date {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-faint);
+  flex-shrink: 0;
 }
 
 .file-hover-preview {
   position: absolute;
-  top: -8px;
-  left: -6px;
+  top: calc(100% + 10px);
+  left: 0;
   width: min(380px, calc(100vw - 56px));
   min-height: 220px;
   max-height: 320px;
-  padding: 18px 18px 20px;
-  border-radius: 18px;
-  background:
-    linear-gradient(145deg, rgba(15, 23, 42, 0.76) 0%, rgba(30, 41, 59, 0.68) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(18px) saturate(165%);
-  -webkit-backdrop-filter: blur(18px) saturate(165%);
-  color: #f8fafc;
-  box-shadow:
-    0 30px 60px rgba(15, 23, 42, 0.28),
-    0 10px 24px rgba(15, 23, 42, 0.16);
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(24, 32, 43, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.28);
+  color: #eef4ff;
   opacity: 0;
   visibility: hidden;
   transform: translateY(8px);
-  transform-origin: top left;
   transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
   pointer-events: none;
+  z-index: 180;
   overflow-y: auto;
-  overflow-x: hidden;
-  z-index: 220;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
 }
 
 .file-hover-preview.preview-left {
   left: auto;
-  right: -6px;
-  transform-origin: top right;
+  right: 0;
 }
 
 .file-hover-preview.preview-up {
   top: auto;
-  bottom: -8px;
-  transform: translateY(-8px);
-}
-
-.file-hover-preview::-webkit-scrollbar {
-  width: 6px;
-}
-
-.file-hover-preview::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
-  border-radius: 999px;
+  bottom: calc(100% + 10px);
 }
 
 .file-info-hover-zone:hover .file-hover-preview {
@@ -717,22 +670,15 @@ onUnmounted(() => {
 .file-card.menu-open .file-hover-preview {
   opacity: 0;
   visibility: hidden;
-  transform: translateY(8px);
-  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
-  pointer-events: none;
-}
-
-.file-card.menu-open .file-hover-preview.preview-up {
-  transform: translateY(-8px);
 }
 
 .hover-preview-header {
   font-size: 15px;
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 1.6;
   margin-bottom: 12px;
   word-break: break-word;
-  color: rgba(255, 255, 255, 0.98);
+  overflow-wrap: anywhere;
 }
 
 .hover-preview-row {
@@ -742,24 +688,24 @@ onUnmounted(() => {
   margin-bottom: 10px;
 }
 
-.hover-preview-row:last-child {
-  margin-bottom: 0;
-}
-
 .hover-preview-label {
-  flex-shrink: 0;
   min-width: 34px;
   font-size: 11px;
-  font-weight: 600;
-  line-height: 1.5;
-  color: rgba(191, 219, 254, 0.88);
+  color: rgba(212, 224, 244, 0.72);
 }
 
-.hover-preview-text {
+.hover-preview-text,
+.hover-preview-description {
   font-size: 13px;
-  line-height: 1.6;
-  color: rgba(241, 245, 249, 0.96);
+  line-height: 1.7;
+  color: rgba(238, 244, 255, 0.92);
   word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.hover-preview-description {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 .hover-preview-tags {
@@ -771,271 +717,91 @@ onUnmounted(() => {
 .hover-preview-tag {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(147, 197, 253, 0.16);
-  color: #e0f2fe;
+  background: rgba(77, 163, 255, 0.16);
+  color: rgba(238, 244, 255, 0.92);
   font-size: 11px;
-  line-height: 1.4;
 }
 
-.preview-tags-row,
-.preview-description-row {
-  align-items: flex-start;
-}
-
-.hover-preview-description {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.7;
-  color: rgba(241, 245, 249, 0.92);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-@media (max-width: 768px) {
-  .file-thumbnail {
-    aspect-ratio: 16 / 9;
-  }
-
-  .file-icon {
-    font-size: 48px;
-  }
-
-  .file-hover-preview {
-    left: -4px;
-    width: min(320px, calc(100vw - 32px));
-    min-height: 200px;
-    max-height: 280px;
-    padding: 14px 14px 16px;
-    border-radius: 16px;
-  }
-
-  .file-hover-preview.preview-left {
-    right: -4px;
-  }
-}
-
-/* Rename dialog styles */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  z-index: 2000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
   padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(10px);
 }
 
 .rename-dialog {
-  max-width: 500px;
-  width: 100%;
-  background-color: var(--surface-color);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 8px 20px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  animation: modalSlideIn 0.3s ease-out;
+  width: min(520px, 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
 }
 
-@keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.modal-header,
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
 }
 
 .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 28px;
   border-bottom: 1px solid var(--border-color);
-  background: linear-gradient(135deg, rgba(33, 150, 243, 0.05) 0%, rgba(33, 150, 243, 0.02) 100%);
-  border-radius: 16px 16px 0 0;
 }
 
 .modal-title {
   font-size: 20px;
-  font-weight: 700;
-  margin: 0;
   color: var(--text-color);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.modal-title::before {
-  content: '✏️';
-  font-size: 20px;
 }
 
 .modal-close {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--text-color);
-  cursor: pointer;
-  padding: 8px 10px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
-  display: flex;
+  color: var(--text-faint);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-  font-size: 14px;
 }
 
 .modal-close:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
-}
-
-.modal-close:active {
-  transform: scale(0.95);
+  background: var(--surface-muted);
+  color: var(--text-color);
 }
 
 .modal-body {
-  padding: 32px 28px;
-}
-
-.form-group {
-  margin-bottom: 24px;
+  padding: 22px;
 }
 
 .form-group label {
   display: block;
-  font-size: 15px;
+  margin-bottom: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-color);
-  margin-bottom: 12px;
-  letter-spacing: 0.3px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 14px 16px;
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
-  font-size: 16px;
-  font-weight: 500;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  transition: all 0.3s ease;
-  letter-spacing: 0.5px;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.15);
-  transform: translateY(-1px);
-}
-
-.form-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  background-color: var(--border-color);
-}
-
-.form-input::placeholder {
-  color: var(--text-color);
-  opacity: 0.5;
 }
 
 .help-text {
-  font-size: 13px;
-  color: var(--text-color);
-  opacity: 0.6;
-  margin: 10px 0 0 0;
-  font-weight: 400;
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-faint);
 }
 
 .modal-footer {
-  display: flex;
   justify-content: flex-end;
-  gap: 14px;
-  padding: 20px 28px 28px;
-  background: rgba(0, 0, 0, 0.02);
   border-top: 1px solid var(--border-color);
-  border-radius: 0 0 16px 16px;
 }
 
-.btn {
-  padding: 12px 24px;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
-  letter-spacing: 0.3px;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.btn:hover::before {
-  left: 100%;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
-  color: white;
-  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.5);
-}
-
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 2px 10px rgba(33, 150, 243, 0.3);
-}
-
-.btn-secondary {
-  background: var(--bg-color);
-  color: var(--text-color);
-  border: 2px solid var(--border-color);
-  font-weight: 600;
-}
-
-.btn-secondary:hover {
-  background: var(--border-color);
-  border-color: var(--text-color);
-  transform: translateY(-2px);
-}
-
-.btn-secondary:active {
-  transform: translateY(0);
-}
-
-/* Modal transitions */
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.2s ease;
@@ -1053,6 +819,26 @@ onUnmounted(() => {
 
 .modal-enter-from .modal-content,
 .modal-leave-to .modal-content {
-  transform: scale(0.95) translateY(-10px);
+  transform: scale(0.96) translateY(-8px);
+}
+
+@media (max-width: 768px) {
+  .file-card {
+    min-height: 248px;
+    padding: 10px;
+  }
+
+  .file-thumbnail {
+    border-radius: 8px;
+  }
+
+  .file-hover-preview {
+    width: min(320px, calc(100vw - 32px));
+    left: 0;
+  }
+
+  .file-hover-preview.preview-left {
+    right: 0;
+  }
 }
 </style>

@@ -3,18 +3,18 @@
     <div
       class="progress-fill"
       :class="variant"
-      :style="{ width: `${percentage}%` }"
+      :style="{ width: `${normalizedPercentage}%` }"
       role="progressbar"
-      :aria-valuenow="percentage"
+      :aria-valuenow="normalizedPercentage"
       :aria-valuemin="0"
       :aria-valuemax="100"
     >
-      <span v-if="showLabel && percentage >= 10" class="progress-text">
-        {{ percentage }}%
+      <span v-if="showLabel && normalizedPercentage >= 10" class="progress-text">
+        {{ normalizedPercentage }}%
       </span>
     </div>
-    <div v-if="showLabel && percentage < 10" class="progress-label">
-      {{ percentage }}%
+    <div v-if="showLabel && normalizedPercentage < 10" class="progress-label">
+      {{ normalizedPercentage }}%
     </div>
   </div>
 </template>
@@ -36,52 +36,38 @@ const props = withDefaults(defineProps<Props>(), {
   striped: false,
   animated: false,
   showLabel: false,
-  small: false
+  small: false,
 })
 
-// Ensure percentage is between 0 and 100
-const normalizedPercentage = computed(() => {
-  return Math.max(0, Math.min(100, props.percentage))
-})
+const normalizedPercentage = computed(() => Math.max(0, Math.min(100, props.percentage)))
 </script>
 
 <style scoped>
 .progress-bar {
   position: relative;
   width: 100%;
-  height: 24px;
-  background-color: var(--surface-color);
-  border-radius: 12px;
+  height: 10px;
+  border-radius: 999px;
+  background-color: var(--surface-muted);
   overflow: hidden;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .progress-bar.small {
-  height: 8px;
-  border-radius: 4px;
-}
-
-.progress-bar.small .progress-text,
-.progress-bar.small .progress-label {
-  display: none;
+  height: 6px;
 }
 
 .progress-fill {
   height: 100%;
-  border-radius: 12px;
-  transition: width 0.3s ease;
+  border-radius: inherit;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   padding-right: 8px;
+  transition: width 0.24s ease;
 }
 
-.progress-bar.small .progress-fill {
-  border-radius: 4px;
-}
-
-/* Variants */
-.progress-fill.primary {
+.progress-fill.primary,
+.progress-fill.info {
   background-color: var(--primary-color);
 }
 
@@ -97,99 +83,50 @@ const normalizedPercentage = computed(() => {
   background-color: var(--error-color);
 }
 
-.progress-fill.info {
-  background-color: #2196F3;
-}
-
-/* Striped effect */
 .progress-bar.striped .progress-fill {
-  background-image: linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.15) 25%,
-    transparent 25%,
-    transparent 50%,
-    rgba(255, 255, 255, 0.15) 50%,
-    rgba(255, 255, 255, 0.15) 75%,
-    transparent 75%,
-    transparent
-  );
+  background-image:
+    linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.18) 25%,
+      transparent 25%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.18) 50%,
+      rgba(255, 255, 255, 0.18) 75%,
+      transparent 75%,
+      transparent
+    );
   background-size: 1rem 1rem;
 }
 
-/* Animated striped effect */
 .progress-bar.animated.striped .progress-fill {
   animation: progress-bar-stripes 1s linear infinite;
 }
 
-@keyframes progress-bar-stripes {
-  0% {
-    background-position: 1rem 0;
-  }
-  100% {
-    background-position: 0 0;
-  }
+.progress-text,
+.progress-label {
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .progress-text {
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
+  color: #fff;
 }
 
 .progress-label {
   position: absolute;
-  left: 50%;
+  left: 10px;
   top: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--text-color);
-  font-size: 12px;
-  font-weight: 600;
+  transform: translateY(-50%);
+  color: var(--text-soft);
 }
 
-/* Dark mode adjustments */
-[data-theme='dark'] .progress-bar {
-  background-color: var(--surface-color);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme='dark'] .progress-bar.striped .progress-fill {
-  background-image: linear-gradient(
-    45deg,
-    rgba(0, 0, 0, 0.15) 25%,
-    transparent 25%,
-    transparent 50%,
-    rgba(0, 0, 0, 0.15) 50%,
-    rgba(0, 0, 0, 0.15) 75%,
-    transparent 75%,
-    transparent
-  );
-}
-
-/* Reduced motion preference */
-@media (prefers-reduced-motion: reduce) {
-  .progress-fill {
-    transition: width 0.5s ease;
+@keyframes progress-bar-stripes {
+  from {
+    background-position: 1rem 0;
   }
 
-  .progress-bar.animated.striped .progress-fill {
-    animation: none;
-  }
-}
-
-/* Responsive adjustments */
-@media (max-width: 480px) {
-  .progress-bar {
-    height: 20px;
-  }
-
-  .progress-text {
-    font-size: 11px;
-    padding-right: 6px;
-  }
-
-  .progress-label {
-    font-size: 11px;
+  to {
+    background-position: 0 0;
   }
 }
 </style>

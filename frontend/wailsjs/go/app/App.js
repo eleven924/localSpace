@@ -10,6 +10,10 @@ export function AddStorageDirectory(arg1, arg2) {
   return window['go']['app']['App']['AddStorageDirectory'](arg1, arg2);
 }
 
+export function CancelJob(arg1) {
+  return window['go']['app']['App']['CancelJob'](arg1);
+}
+
 export function CheckDuplicate(arg1) {
   return window['go']['app']['App']['CheckDuplicate'](arg1);
 }
@@ -46,6 +50,10 @@ export function GetAIConfig() {
   return window['go']['app']['App']['GetAIConfig']();
 }
 
+export function GetActiveJobs() {
+  return window['go']['app']['App']['GetActiveJobs']();
+}
+
 export function GetConfig(arg1) {
   return window['go']['app']['App']['GetConfig'](arg1);
 }
@@ -70,6 +78,10 @@ export function GetFiles(arg1, arg2, arg3) {
   return window['go']['app']['App']['GetFiles'](arg1, arg2, arg3);
 }
 
+export function GetJob(arg1) {
+  return window['go']['app']['App']['GetJob'](arg1);
+}
+
 export function GetMasterDirectories() {
   return window['go']['app']['App']['GetMasterDirectories']();
 }
@@ -80,6 +92,10 @@ export function GetMasterStoragePathForFile(arg1, arg2, arg3, arg4) {
 
 export function GetOpenWithConfig() {
   return window['go']['app']['App']['GetOpenWithConfig']();
+}
+
+export function GetResumableJobs() {
+  return window['go']['app']['App']['GetResumableJobs']();
 }
 
 export function GetStorageDirectories() {
@@ -118,6 +134,10 @@ export function InitConfig(arg1) {
   return window['go']['app']['App']['InitConfig'](arg1);
 }
 
+export function ListJobs(arg1, arg2, arg3) {
+  return window['go']['app']['App']['ListJobs'](arg1, arg2, arg3);
+}
+
 export function OpenFile(arg1) {
   return window['go']['app']['App']['OpenFile'](arg1);
 }
@@ -150,6 +170,10 @@ export function RenameFile(arg1, arg2) {
   return window['go']['app']['App']['RenameFile'](arg1, arg2);
 }
 
+export function ResumeJob(arg1) {
+  return window['go']['app']['App']['ResumeJob'](arg1);
+}
+
 export function SearchFiles(arg1) {
   return window['go']['app']['App']['SearchFiles'](arg1);
 }
@@ -166,8 +190,16 @@ export function SelectFile() {
   return window['go']['app']['App']['SelectFile']();
 }
 
+export function SelectFiles() {
+  return window['go']['app']['App']['SelectFiles']();
+}
+
 export function SetDefaultMasterDirectory(arg1) {
   return window['go']['app']['App']['SetDefaultMasterDirectory'](arg1);
+}
+
+export function SubmitBatchImportJob(arg1) {
+  return window['go']['app']['App']['SubmitBatchImportJob'](arg1);
 }
 
 export function ToggleStorageDirectory(arg1, arg2) {
