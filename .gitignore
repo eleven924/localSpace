@@ -3,3 +3,6 @@ frontend/node_modules/*
 build/*
 localspace.exe
 frontend/dist/*
+.codex/*
+.obsidian/*
+.superpowers/*

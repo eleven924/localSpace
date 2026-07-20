@@ -91,7 +91,7 @@ func insertInitialData(db *sql.DB) error {
 		`INSERT OR IGNORE INTO configs (key, value, description) VALUES ('file_storage_path', '', 'File storage directory path')`,
 		`INSERT OR IGNORE INTO configs (key, value, description) VALUES ('storage_initialized', 'false', 'Storage initialization status')`,
 		`INSERT OR IGNORE INTO configs (key, value, description) VALUES ('ai_enabled', 'false', 'AI feature enabled')`,
-		`INSERT OR IGNORE INTO configs (key, value, description) VALUES ('version', '1.0.0', 'Application version')`,
+		`INSERT INTO configs (key, value, description) VALUES ('version', '0.1.0', 'Application version') ON CONFLICT(key) DO UPDATE SET value = excluded.value, description = excluded.description`,
 	}
 
 	for _, sql := range configs {

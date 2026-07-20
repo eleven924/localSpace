@@ -62,7 +62,7 @@
                 <div class="app-logo">🛰</div>
                 <div>
                   <h3>LocalSpace</h3>
-                  <p class="app-version">版本 1.0.0</p>
+                  <p class="app-version">版本 0.1.0</p>
                 </div>
               </div>
 
