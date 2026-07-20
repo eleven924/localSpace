@@ -357,6 +357,7 @@ const handleRetry = async () => {
   display: grid;
   gap: 8px;
   justify-items: end;
+  min-width: 250px;
 }
 
 .results-summary {
