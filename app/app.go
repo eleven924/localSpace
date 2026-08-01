@@ -413,31 +413,8 @@ func (a *App) openFileLocation(filePath string) error {
 			return fmt.Errorf("failed to get absolute path: %w", err)
 		}
 
-		// Debug: print absolute path
-		fmt.Printf("Absolute path: %s\n", absPath)
-
-		// Try different approaches for Windows
-		// Method 1: Use PowerShell for better handling of Chinese characters and special chars
-		psCommand := fmt.Sprintf("explorer.exe '/select,\"%s\"'", absPath)
-		cmd := exec.Command("powershell", "-Command", psCommand)
-		fmt.Printf("Executing: powershell -Command \"explorer.exe '/select,\"%s\"'\"\n", absPath)
-
-		if err := cmd.Start(); err != nil {
-			fmt.Printf("Method 1 failed: %v\n", err)
-
-			// Method 2: Directly call explorer without cmd wrapper
-			cmd2 := exec.Command("explorer", "/select,\""+absPath+"\"")
-			fmt.Printf("Trying Method 2: explorer /select,\"%s\"\n", absPath)
-			if err := cmd2.Start(); err != nil {
-				fmt.Printf("Method 2 failed: %v\n", err)
-
-				// Method 3: Use rundll32 as last resort
-				cmd3 := exec.Command("rundll32", "url.dll,FileProtocolHandler", absPath)
-				fmt.Printf("Trying Method 3: rundll32 url.dll,FileProtocolHandler %s\n", absPath)
-				return cmd3.Start()
-			}
-		}
-		return nil
+		fmt.Printf("Opening location for path: %s\n", absPath)
+		return exec.Command("explorer", "/select,", absPath).Start()
 	case "darwin":
 		// macOS: use open -R to reveal the file in Finder
 		cmd := exec.Command("open", "-R", filePath)
