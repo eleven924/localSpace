@@ -313,144 +313,38 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 	if req.FilePath == "" {
 		return fmt.Errorf("file path cannot be empty")
 	}
-
 	if _, err := os.Stat(req.FilePath); os.IsNotExist(err) {
 		return fmt.Errorf("source file does not exist: %s", req.FilePath)
 	}
 
-	fileInfo, err := os.Stat(req.FilePath)
-	if err != nil {
-		return fmt.Errorf("failed to get file info: %w", err)
+	fileName := strings.TrimSpace(req.FileName)
+	if fileName == "" {
+		fileName = filepath.Base(req.FilePath)
 	}
 
-	extension := filepath.Ext(req.FilePath)
-	fileType, err := parseFileType(extension)
+	staged, err := s.prepareStagedImport(req.FilePath, fileName, req.CollectionName, "", 0, nil)
 	if err != nil {
-		return fmt.Errorf("failed to parse file type: %w", err)
+		return err
 	}
-
-	masters, err := s.storageService.GetMasterDirectories()
-	if err != nil {
-		return fmt.Errorf("failed to get master directories: %w", err)
-	}
-	if len(masters) == 0 {
-		return fmt.Errorf("no master directory configured. Please add a master directory in Settings > Storage Directories before importing files.")
-	}
-
-	var defaultMaster *models.StorageDir
-	for _, m := range masters {
-		if m.IsDefault {
-			defaultMaster = &m
-			break
+	defer func() {
+		if staged != nil {
+			_ = s.cleanupStagedImport(staged)
 		}
-	}
-	if defaultMaster == nil {
-		defaultMaster = &masters[0]
-	}
+	}()
 
-	hasSpace, err := s.storageService.CheckMasterStorageSpace(defaultMaster.ID, fileInfo.Size())
-	if err != nil {
-		return fmt.Errorf("failed to check storage space: %w", err)
-	}
-	if !hasSpace {
-		return fmt.Errorf("not enough storage space for this file")
-	}
-
-	layoutConfig, err := s.storageService.GetStorageLayoutConfig()
-	if err != nil {
-		return fmt.Errorf("failed to get storage layout config: %w", err)
-	}
-
-	trimmedCollectionName := strings.TrimSpace(req.CollectionName)
-	effectiveCollectionName := trimmedCollectionName
-	if layoutConfig.Strategy == "type_collection" && effectiveCollectionName == "" {
-		effectiveCollectionName = layoutConfig.UnsortedFolderName
-	}
-
-	destPath, err := s.storageService.GetStoragePathForFileWithMaster(defaultMaster.ID, fileType, effectiveCollectionName, req.FileName)
-	if err != nil {
-		return fmt.Errorf("failed to get storage path: %w", err)
-	}
-	if err := s.storageService.EnsureStorageDirExists(filepath.Dir(destPath)); err != nil {
-		return fmt.Errorf("failed to create destination directory: %w", err)
-	}
-
-	checksum, err := utils.CalculateFileChecksum(req.FilePath)
-	if err != nil {
-		return fmt.Errorf("failed to calculate file checksum: %w", err)
-	}
-
-	isDuplicate, duplicateID, err := s.fileRepo.CheckDuplicateByChecksum(checksum)
-	if err != nil {
-		return fmt.Errorf("failed to check for duplicate files: %w", err)
-	}
-	if isDuplicate {
-		duplicateFile, err := s.fileRepo.FindByID(duplicateID)
-		if err == nil {
-			return fmt.Errorf("duplicate file detected. A file with identical content already exists: %s (ID: %d)", duplicateFile.FileName, duplicateID)
-		}
-		return fmt.Errorf("duplicate file detected. A file with identical content already exists (ID: %d)", duplicateID)
-	}
-
-	exists, err := s.fileRepo.ExistsByPath(destPath)
-	if err != nil {
-		return fmt.Errorf("failed to check if file exists: %w", err)
-	}
-	if exists {
-		return fmt.Errorf("file already exists at destination: %s", destPath)
-	}
-
-	if err := os.Rename(req.FilePath, destPath); err != nil {
-		if err := copyFile(req.FilePath, destPath); err != nil {
-			return fmt.Errorf("failed to move/copy file: %w", err)
-		}
-	}
-
-	metadata, err := s.ExtractMetadata(destPath, fileType)
+	metadata, err := s.ExtractMetadata(staged.TempPath, staged.FileType)
 	if err != nil {
 		fmt.Printf("Warning: Failed to extract metadata: %v\n", err)
 	}
 
 	formMetadata := s.resolveMetadataForImport(&req)
-	tags := formMetadata.Tags
-	description := formMetadata.Description
 
-	originalName := req.FileName
-	if req.FilePath != "" {
-		originalName = filepath.Base(req.FilePath)
+	_, err = s.commitStagedImport(staged, formMetadata.Tags, formMetadata.Description, metadata)
+	if err != nil {
+		return err
 	}
 
-	file := &models.File{
-		FileName:       req.FileName,
-		OriginalName:   originalName,
-		CollectionName: effectiveCollectionName,
-		FilePath:       destPath,
-		FileType:       fileType,
-		FileSubType:    strings.TrimPrefix(extension, "."),
-		FileSize:       fileInfo.Size(),
-		Tags:           tags,
-		Description:    description,
-		Metadata:       metadata,
-		Thumbnail:      "",
-		Checksum:       checksum,
-		IsDeleted:      false,
-		DeletedAt:      "",
-	}
-
-	if err := s.fileRepo.Create(file); err != nil {
-		_ = os.Remove(destPath)
-		return fmt.Errorf("failed to create file record: %w", err)
-	}
-
-	if supportsGeneratedThumbnail(fileType) {
-		// Generate during import so the first file listing can use the cached thumbnail.
-		s.generateThumbnailForFile(file.ID, destPath, fileType)
-	}
-
-	if err := s.storageService.UpdateMasterDirectorySize(defaultMaster.ID, fileType, fileInfo.Size()); err != nil {
-		fmt.Printf("Failed to update storage size: %v\n", err)
-	}
-
+	staged = nil
 	return nil
 }
 
