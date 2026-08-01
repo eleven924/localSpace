@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -42,6 +43,7 @@ type JobService struct {
 
 	mu           sync.Mutex
 	running      map[uint]context.CancelFunc
+	runningWg    sync.WaitGroup
 	shuttingDown bool
 }
 
@@ -316,6 +318,7 @@ func (s *JobService) PrepareForShutdown() error {
 		}
 	}
 
+	s.runningWg.Wait()
 	return nil
 }
 
@@ -336,6 +339,23 @@ func (s *JobService) runJob(jobID uint, resume bool) {
 	if err != nil {
 		return
 	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			panicErr := fmt.Errorf("job panicked: %v\n%s", r, debug.Stack())
+			fmt.Printf("Job %d panic: %v\n", jobID, panicErr)
+
+			latestJob, latestErr := s.jobRepo.FindByID(jobID)
+			if latestErr == nil {
+				job = latestJob
+			}
+			job.Status = models.JobStatusFailed
+			job.ErrorMessage = panicErr.Error()
+			job.FinishedAt = time.Now().Format(time.RFC3339)
+			_ = s.jobRepo.Update(job)
+			s.emitJobEvent("job:failed", job)
+		}
+	}()
 
 	handler, policy, err := s.handlerAndPolicy(job.JobType)
 	if err != nil {
@@ -358,7 +378,11 @@ func (s *JobService) runJob(jobID uint, resume bool) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.trackRunning(jobID, cancel)
-	defer s.untrackRunning(jobID)
+	s.runningWg.Add(1)
+	defer func() {
+		s.untrackRunning(jobID)
+		s.runningWg.Done()
+	}()
 
 	now := time.Now().Format(time.RFC3339)
 	if resume {
