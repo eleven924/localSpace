@@ -60,7 +60,7 @@ func (h *BatchImportHandler) Cleanup(ctx context.Context, job *models.Job, runti
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if err := runtime.FileService().CleanupBatchImportArtifacts(item.TempPath, item.FinalPath); err != nil {
+		if err := runtime.FileService().CleanupBatchImportArtifacts(item.TempPath, ""); err != nil {
 			return err
 		}
 		if item.Status != models.BatchImportItemStatusCompleted {
@@ -115,7 +115,7 @@ func (h *BatchImportHandler) process(ctx context.Context, job *models.Job, runti
 		}
 
 		if resuming || item.Status == models.BatchImportItemStatusRecovering || item.Status == models.BatchImportItemStatusProcessing {
-			if err := runtime.FileService().CleanupBatchImportArtifacts(item.TempPath, item.FinalPath); err != nil {
+			if err := runtime.FileService().CleanupBatchImportArtifacts(item.TempPath, ""); err != nil {
 				return err
 			}
 		}
@@ -139,7 +139,7 @@ func (h *BatchImportHandler) process(ctx context.Context, job *models.Job, runti
 			return err
 		}
 
-		plan, err := runtime.FileService().PrepareBatchImport(sourcePath, displayName, payload.CollectionName)
+		plan, err := runtime.FileService().PrepareBatchImport(sourcePath, displayName, payload.CollectionName, job.ID, item.ItemIndex)
 		if err != nil {
 			finalizeFailedItem(item, err)
 			if updateErr := runtime.JobRepository().UpdateBatchImportItem(item); updateErr != nil {
@@ -175,7 +175,7 @@ func (h *BatchImportHandler) process(ctx context.Context, job *models.Job, runti
 			return runtime.UpdateHeartbeat(fmt.Sprintf("正在复制 %s", displayName))
 		})
 		if copyErr != nil {
-			_ = runtime.FileService().CleanupBatchImportArtifacts(plan.TempPath, plan.FinalPath)
+			_ = runtime.FileService().CleanupBatchImportArtifacts(plan.TempPath, "")
 			finalizeFailedItem(item, copyErr)
 			if err := runtime.JobRepository().UpdateBatchImportItem(item); err != nil {
 				return err
@@ -207,7 +207,7 @@ func (h *BatchImportHandler) process(ctx context.Context, job *models.Job, runti
 			EnableAIGeneratedDescription: payload.EnableAIGeneratedDescription,
 		})
 		if err != nil {
-			_ = runtime.FileService().CleanupBatchImportArtifacts(plan.TempPath, plan.FinalPath)
+			_ = runtime.FileService().CleanupBatchImportArtifacts(plan.TempPath, "")
 			finalizeFailedItem(item, err)
 			if err := runtime.JobRepository().UpdateBatchImportItem(item); err != nil {
 				return err
@@ -226,7 +226,7 @@ func (h *BatchImportHandler) process(ctx context.Context, job *models.Job, runti
 		}
 
 		if _, err := runtime.FileService().FinalizeBatchImport(plan, tags, description, metadata); err != nil {
-			_ = runtime.FileService().CleanupBatchImportArtifacts(plan.TempPath, plan.FinalPath)
+			_ = runtime.FileService().CleanupBatchImportArtifacts(plan.TempPath, "")
 			finalizeFailedItem(item, err)
 			if err := runtime.JobRepository().UpdateBatchImportItem(item); err != nil {
 				return err

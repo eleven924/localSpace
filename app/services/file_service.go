@@ -362,107 +362,29 @@ func (s *FileService) resolveMetadataForImport(req *ImportFileRequest) importMet
 	return result
 }
 
-func (s *FileService) PrepareBatchImport(sourcePath, displayName, collectionName string) (*BatchImportPlan, error) {
-	if strings.TrimSpace(sourcePath) == "" {
-		return nil, fmt.Errorf("file path cannot be empty")
-	}
-	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("source file does not exist: %s", sourcePath)
-	}
-
-	fileInfo, err := os.Stat(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get file info: %w", err)
-	}
-
+func (s *FileService) PrepareBatchImport(sourcePath, displayName, collectionName string, jobID uint, itemIndex int) (*BatchImportPlan, error) {
 	fileName := strings.TrimSpace(displayName)
 	if fileName == "" {
 		fileName = filepath.Base(sourcePath)
 	}
 
-	extension := filepath.Ext(sourcePath)
-	fileType, err := parseFileType(extension)
+	staged, err := s.prepareStagedImport(sourcePath, fileName, collectionName, fmt.Sprintf("%d", jobID), itemIndex, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse file type: %w", err)
-	}
-
-	masters, err := s.storageService.GetMasterDirectories()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get master directories: %w", err)
-	}
-	if len(masters) == 0 {
-		return nil, fmt.Errorf("no master directory configured. Please add a master directory in Settings > Storage Directories before importing files.")
-	}
-
-	defaultMaster := selectDefaultMasterDirectory(masters)
-	if defaultMaster == nil {
-		return nil, fmt.Errorf("no master directory configured")
-	}
-
-	hasSpace, err := s.storageService.CheckMasterStorageSpace(defaultMaster.ID, fileInfo.Size())
-	if err != nil {
-		return nil, fmt.Errorf("failed to check storage space: %w", err)
-	}
-	if !hasSpace {
-		return nil, fmt.Errorf("not enough storage space for this file")
-	}
-
-	layoutConfig, err := s.storageService.GetStorageLayoutConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get storage layout config: %w", err)
-	}
-
-	trimmedCollectionName := strings.TrimSpace(collectionName)
-	effectiveCollectionName := trimmedCollectionName
-	if layoutConfig.Strategy == "type_collection" && effectiveCollectionName == "" {
-		effectiveCollectionName = layoutConfig.UnsortedFolderName
-	}
-
-	destPath, err := s.storageService.GetStoragePathForFileWithMaster(defaultMaster.ID, fileType, effectiveCollectionName, fileName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get storage path: %w", err)
-	}
-	if err := s.storageService.EnsureStorageDirExists(filepath.Dir(destPath)); err != nil {
-		return nil, fmt.Errorf("failed to create destination directory: %w", err)
-	}
-
-	checksum, err := utils.CalculateFileChecksum(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate file checksum: %w", err)
-	}
-
-	isDuplicate, duplicateID, err := s.fileRepo.CheckDuplicateByChecksum(checksum)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check for duplicate files: %w", err)
-	}
-	if isDuplicate {
-		duplicateFile, findErr := s.fileRepo.FindByID(duplicateID)
-		if findErr == nil {
-			return nil, fmt.Errorf("duplicate file detected. A file with identical content already exists: %s (ID: %d)", duplicateFile.FileName, duplicateID)
-		}
-		return nil, fmt.Errorf("duplicate file detected. A file with identical content already exists (ID: %d)", duplicateID)
-	}
-
-	exists, err := s.fileRepo.ExistsByPath(destPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check if file exists: %w", err)
-	}
-	if exists {
-		return nil, fmt.Errorf("file already exists at destination: %s", destPath)
+		return nil, err
 	}
 
 	return &BatchImportPlan{
-		SourcePath:     sourcePath,
-		FileName:       fileName,
-		OriginalName:   filepath.Base(sourcePath),
-		CollectionName: effectiveCollectionName,
-		FileType:       fileType,
-		FileSubType:    strings.TrimPrefix(extension, "."),
-		FileSize:       fileInfo.Size(),
-		Checksum:       checksum,
-		MasterID:       defaultMaster.ID,
-		FinalPath:      destPath,
-		TempPath:       destPath + models.BatchImportTempSuffix,
+		SourcePath:     staged.SourcePath,
+		FileName:       staged.FileName,
+		OriginalName:   staged.OriginalName,
+		CollectionName: staged.CollectionName,
+		FileType:       staged.FileType,
+		FileSubType:    staged.FileSubType,
+		FileSize:       staged.FileSize,
+		Checksum:       staged.Checksum,
+		MasterID:       staged.MasterID,
+		FinalPath:      staged.FinalPath,
+		TempPath:       staged.TempPath,
 	}, nil
 }
 
@@ -471,59 +393,19 @@ func (s *FileService) CopyFileToTemp(plan *BatchImportPlan, onProgress func(copi
 		return fmt.Errorf("batch import plan is nil")
 	}
 
-	if err := s.CleanupBatchImportArtifacts(plan.TempPath, ""); err != nil {
-		return err
-	}
-
-	source, err := os.Open(plan.SourcePath)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %w", err)
-	}
-	defer source.Close()
-
-	destination, err := os.Create(plan.TempPath)
-	if err != nil {
-		return fmt.Errorf("failed to create temp file: %w", err)
-	}
-
-	buffer := make([]byte, 1024*1024)
-	var copied int64
-	for {
-		readBytes, readErr := source.Read(buffer)
-		if readBytes > 0 {
-			written, writeErr := destination.Write(buffer[:readBytes])
-			if writeErr != nil {
-				destination.Close()
-				_ = os.Remove(plan.TempPath)
-				return fmt.Errorf("failed to write temp file: %w", writeErr)
-			}
-			copied += int64(written)
-			if onProgress != nil {
-				if err := onProgress(copied); err != nil {
-					destination.Close()
-					_ = os.Remove(plan.TempPath)
-					return err
-				}
-			}
-		}
-		if readErr == io.EOF {
-			break
-		}
-		if readErr != nil {
-			destination.Close()
-			_ = os.Remove(plan.TempPath)
-			return fmt.Errorf("failed to read source file: %w", readErr)
-		}
-	}
-
-	if err := destination.Close(); err != nil {
+	if err := copyFileWithProgress(plan.SourcePath, plan.TempPath, onProgress); err != nil {
 		_ = os.Remove(plan.TempPath)
-		return fmt.Errorf("failed to flush temp file: %w", err)
+		return fmt.Errorf("failed to copy file to staging: %w", err)
 	}
 
-	if copied != plan.FileSize {
+	info, err := os.Stat(plan.TempPath)
+	if err != nil {
 		_ = os.Remove(plan.TempPath)
-		return fmt.Errorf("copied file size mismatch: expected %d bytes, got %d bytes", plan.FileSize, copied)
+		return fmt.Errorf("failed to stat staged file: %w", err)
+	}
+	if info.Size() != plan.FileSize {
+		_ = os.Remove(plan.TempPath)
+		return fmt.Errorf("copied file size mismatch: expected %d bytes, got %d bytes", plan.FileSize, info.Size())
 	}
 
 	return nil
@@ -534,59 +416,37 @@ func (s *FileService) FinalizeBatchImport(plan *BatchImportPlan, tags []string, 
 		return nil, fmt.Errorf("batch import plan is nil")
 	}
 
-	if err := os.Rename(plan.TempPath, plan.FinalPath); err != nil {
-		return nil, fmt.Errorf("failed to commit imported file: %w", err)
-	}
-
-	file := &models.File{
-		FileName:       plan.FileName,
-		OriginalName:   plan.OriginalName,
-		CollectionName: plan.CollectionName,
-		FilePath:       plan.FinalPath,
+	staged := &stagedImport{
+		SourcePath:     plan.SourcePath,
+		TempPath:       plan.TempPath,
+		FinalPath:      plan.FinalPath,
+		Checksum:       plan.Checksum,
+		FileSize:       plan.FileSize,
 		FileType:       plan.FileType,
 		FileSubType:    plan.FileSubType,
-		FileSize:       plan.FileSize,
-		Tags:           s.normalizeMetadataTags(tags),
-		Description:    s.normalizeMetadataDescription(description),
-		Metadata:       metadata,
-		Thumbnail:      "",
-		Checksum:       plan.Checksum,
-		IsDeleted:      false,
-		DeletedAt:      "",
+		MasterID:       plan.MasterID,
+		CollectionName: plan.CollectionName,
+		FileName:       plan.FileName,
+		OriginalName:   plan.OriginalName,
 	}
 
-	if err := s.fileRepo.Create(file); err != nil {
-		_ = os.Remove(plan.FinalPath)
-		return nil, fmt.Errorf("failed to create file record: %w", err)
+	file, err := s.commitStagedImport(staged, tags, description, metadata)
+	if err != nil {
+		return nil, err
 	}
-
-	if supportsGeneratedThumbnail(plan.FileType) {
-		s.generateThumbnailForFile(file.ID, plan.FinalPath, plan.FileType)
-	}
-
-	if err := s.storageService.UpdateMasterDirectorySize(plan.MasterID, plan.FileType, plan.FileSize); err != nil {
-		fmt.Printf("Failed to update storage size: %v\n", err)
-	}
-
 	return file, nil
 }
 
 func (s *FileService) CleanupBatchImportArtifacts(tempPath, finalPath string) error {
-	paths := []string{tempPath}
-	if strings.HasSuffix(finalPath, models.BatchImportTempSuffix) {
-		paths = append(paths, finalPath)
+	// Only delete the explicitly known temp path. finalPath is intentionally
+	// ignored to avoid deleting real files that happen to match a suffix.
+	path := strings.TrimSpace(tempPath)
+	if path == "" {
+		return nil
 	}
-
-	for _, path := range paths {
-		path = strings.TrimSpace(path)
-		if path == "" {
-			continue
-		}
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to remove temp artifact %s: %w", path, err)
-		}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove temp artifact %s: %w", path, err)
 	}
-
 	return nil
 }
 
