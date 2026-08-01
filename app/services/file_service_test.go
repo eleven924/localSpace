@@ -2,9 +2,14 @@ package services
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"LocalSpace/app/database"
 	"LocalSpace/app/models"
+	"LocalSpace/app/repositories"
 )
 
 func TestImportFileRequestKeywords(t *testing.T) {
@@ -125,5 +130,56 @@ func TestUpdateFileMetadata_PropagatesRepositoryErrors(t *testing.T) {
 	}
 	if got, want := err.Error(), "failed to update file metadata: boom"; got != want {
 		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestRenameFile_UpdatesDatabaseBeforeRenaming(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	repo := repositories.NewFileRepository(repositories.NewSQLiteDBWrapper(db))
+
+	originalPath := filepath.Join(tempDir, "old.txt")
+	if err := os.WriteFile(originalPath, []byte("hello"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	file := &models.File{
+		FileName:     "old.txt",
+		OriginalName: "old.txt",
+		FilePath:     originalPath,
+		FileType:     "document",
+		FileSubType:  "txt",
+		FileSize:     5,
+		Checksum:     "abc",
+	}
+	if err := repo.Create(file); err != nil {
+		t.Fatalf("failed to create file record: %v", err)
+	}
+
+	service := &FileService{fileRepo: repo}
+
+	if err := service.RenameFile(file.ID, "new.txt"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	updated, err := repo.FindByID(file.ID)
+	if err != nil {
+		t.Fatalf("failed to find updated file: %v", err)
+	}
+	if updated.FileName != "new.txt" {
+		t.Errorf("expected file name new.txt, got %s", updated.FileName)
+	}
+	if !strings.Contains(updated.FilePath, "new.txt") {
+		t.Errorf("expected updated path to contain new.txt, got %s", updated.FilePath)
+	}
+
+	if _, err := os.Stat(updated.FilePath); err != nil {
+		t.Errorf("expected renamed file to exist at %s: %v", updated.FilePath, err)
 	}
 }

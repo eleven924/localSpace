@@ -694,6 +694,10 @@ func (s *FileService) DeleteFile(id uint) error {
 
 	resolvedType := resolveDisplayFileType(file.FilePath, file.FileType)
 
+	if err := s.fileRepo.Delete(id); err != nil {
+		return fmt.Errorf("failed to delete file record: %w", err)
+	}
+
 	if err := os.Remove(file.FilePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
@@ -706,7 +710,7 @@ func (s *FileService) DeleteFile(id uint) error {
 		fmt.Printf("Failed to update storage size: %v\n", err)
 	}
 
-	return s.fileRepo.Delete(id)
+	return nil
 }
 
 // RenameFile renames a file.
@@ -734,19 +738,26 @@ func (s *FileService) RenameFile(id uint, newName string) error {
 		return fmt.Errorf("a file with this name already exists: %s", newName)
 	}
 
-	if err := os.Rename(file.FilePath, newPath); err != nil {
-		return fmt.Errorf("failed to rename file: %w", err)
-	}
-
 	originalPath := file.FilePath
+	originalName := file.FileName
 	file.FileName = newName
 	file.FilePath = newPath
 	file.ModifiedAt = time.Now().Format(time.RFC3339)
 
 	if err := s.fileRepo.Update(file); err != nil {
-		_ = os.Rename(newPath, originalPath)
+		file.FileName = originalName
 		file.FilePath = originalPath
 		return fmt.Errorf("failed to update file record: %w", err)
+	}
+
+	if err := os.Rename(originalPath, newPath); err != nil {
+		file.FileName = originalName
+		file.FilePath = originalPath
+		file.ModifiedAt = time.Now().Format(time.RFC3339)
+		if rollbackErr := s.fileRepo.Update(file); rollbackErr != nil {
+			fmt.Printf("Critical: failed to rollback file record after rename failure: %v\n", rollbackErr)
+		}
+		return fmt.Errorf("failed to rename file: %w", err)
 	}
 
 	return nil
