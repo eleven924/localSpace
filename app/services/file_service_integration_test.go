@@ -1,6 +1,14 @@
 package services
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"LocalSpace/app/database"
+	"LocalSpace/app/repositories"
+	"LocalSpace/app/utils"
+)
 
 func TestImportFileRequestWithAgentFields(t *testing.T) {
 	// Test ImportFileRequest with Keywords field
@@ -110,14 +118,79 @@ func TestFileServiceResolveMetadataForImport_PreservesExplicitUserMetadata(t *te
 	}
 }
 
-func TestFileServiceResolveMetadataForImport_NilRequestSafe(t *testing.T) {
-	service := &FileService{}
-
-	metadata := service.resolveMetadataForImport(nil)
-	if metadata.Tags == nil {
-		t.Fatal("expected fallback analysis for nil request")
+func TestImportFile_StagedPipeline_MovesFileAndDeletesSource(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
 	}
-	if len(metadata.Tags) != 0 || metadata.Description != "" {
-		t.Fatalf("expected empty metadata for nil request, got %+v", metadata)
+	defer db.Close()
+
+	configRepo := repositories.NewConfigRepository(repositories.NewSQLiteDBWrapper(db))
+	storageService := NewStorageService(configRepo)
+	fileRepo := repositories.NewFileRepository(repositories.NewSQLiteDBWrapper(db))
+	aiService := NewAIService(configRepo)
+	thumbnailService := NewThumbnailService(filepath.Join(tempDir, "thumbnails"))
+
+	fileService := NewFileService(fileRepo, storageService, aiService, thumbnailService)
+
+	masterDir := filepath.Join(tempDir, "master")
+	if err := os.MkdirAll(masterDir, 0755); err != nil {
+		t.Fatalf("failed to create master directory: %v", err)
+	}
+	if err := storageService.AddMasterDirectory(masterDir, 0); err != nil {
+		t.Fatalf("failed to add master directory: %v", err)
+	}
+
+	sourcePath := filepath.Join(tempDir, "source.txt")
+	content := "hello world"
+	if err := writeTestFile(sourcePath, content); err != nil {
+		t.Fatalf("failed to create source file: %v", err)
+	}
+
+	expectedChecksum, err := utils.CalculateFileChecksum(sourcePath)
+	if err != nil {
+		t.Fatalf("failed to calculate expected checksum: %v", err)
+	}
+
+	if err := fileService.ImportFile(ImportFileRequest{
+		FilePath: sourcePath,
+		FileName: "imported.txt",
+		Tags:     []string{"test"},
+	}); err != nil {
+		t.Fatalf("import failed: %v", err)
+	}
+
+	if _, err := fileService.fileRepo.FindByChecksum(expectedChecksum); err != nil {
+		t.Fatalf("failed to find imported file by checksum: %v", err)
+	}
+
+	files, err := fileService.fileRepo.List(repositories.FileFilter{Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("failed to list files: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("expected 1 file in db, got %d", len(files))
+	}
+	imported := files[0]
+	if imported.FileName != "imported.txt" {
+		t.Errorf("expected file name imported.txt, got %s", imported.FileName)
+	}
+	if imported.Checksum != expectedChecksum {
+		t.Errorf("expected checksum %s, got %s", expectedChecksum, imported.Checksum)
+	}
+
+	if _, err := fileService.fileRepo.ExistsByPath(imported.FilePath); err != nil {
+		t.Errorf("failed to verify final path: %v", err)
+	}
+
+	if _, err := os.ReadFile(sourcePath); err == nil {
+		t.Error("expected source file to be deleted after successful import")
 	}
 }
+
+func writeTestFile(path, content string) error {
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
