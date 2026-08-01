@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -91,6 +93,214 @@ func NewFileService(
 		thumbnailService: thumbnailService,
 		thumbnailPending: make(map[uint]struct{}),
 	}
+}
+
+type stagedImport struct {
+	SourcePath     string
+	TempPath       string
+	FinalPath      string
+	Checksum       string
+	FileSize       int64
+	FileType       string
+	FileSubType    string
+	MasterID       uint
+	CollectionName string
+	FileName       string
+	OriginalName   string
+	Metadata       models.Metadata
+}
+
+const batchImportTempDir = ".localspace-temp"
+const batchImportTempSuffix = ".localspace-importing"
+
+func generateRandomSuffix() string {
+	bytes := make([]byte, 4)
+	if _, err := rand.Read(bytes); err != nil {
+		// fallback to timestamp if crypto/rand fails
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(bytes)
+}
+
+func generateTempPath(masterPath, fileName, jobID string, itemIndex int) string {
+	timestamp := time.Now().UnixNano()
+	base := fmt.Sprintf("%s-%d-%s", fileName, timestamp, generateRandomSuffix())
+	if jobID != "" {
+		return filepath.Join(masterPath, batchImportTempDir, "batch-"+jobID, fmt.Sprintf("%d", itemIndex), base+batchImportTempSuffix)
+	}
+	return filepath.Join(masterPath, batchImportTempDir, base+batchImportTempSuffix)
+}
+
+func (s *FileService) prepareStagedImport(sourcePath, fileName, collectionName string, jobID string, itemIndex int, onProgress func(copied int64) error) (*stagedImport, error) {
+	if sourcePath == "" {
+		return nil, fmt.Errorf("source path cannot be empty")
+	}
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("source file does not exist: %s", sourcePath)
+	}
+
+	fileInfo, err := os.Stat(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	extension := filepath.Ext(sourcePath)
+	fileType, err := parseFileType(extension)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse file type: %w", err)
+	}
+
+	masters, err := s.storageService.GetMasterDirectories()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get master directories: %w", err)
+	}
+	if len(masters) == 0 {
+		return nil, fmt.Errorf("no master directory configured. Please add a master directory in Settings > Storage Directories before importing files.")
+	}
+
+	defaultMaster := selectDefaultMasterDirectory(masters)
+	if defaultMaster == nil {
+		defaultMaster = &masters[0]
+	}
+
+	hasSpace, err := s.storageService.CheckMasterStorageSpace(defaultMaster.ID, fileInfo.Size())
+	if err != nil {
+		return nil, fmt.Errorf("failed to check storage space: %w", err)
+	}
+	if !hasSpace {
+		return nil, fmt.Errorf("not enough storage space for this file")
+	}
+
+	layoutConfig, err := s.storageService.GetStorageLayoutConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage layout config: %w", err)
+	}
+
+	trimmedCollectionName := strings.TrimSpace(collectionName)
+	effectiveCollectionName := trimmedCollectionName
+	if layoutConfig.Strategy == "type_collection" && effectiveCollectionName == "" {
+		effectiveCollectionName = layoutConfig.UnsortedFolderName
+	}
+
+	targetFileName := strings.TrimSpace(fileName)
+	if targetFileName == "" {
+		targetFileName = filepath.Base(sourcePath)
+	}
+
+	finalPath, err := s.storageService.GetStoragePathForFileWithMaster(defaultMaster.ID, fileType, effectiveCollectionName, targetFileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage path: %w", err)
+	}
+	if err := s.storageService.EnsureStorageDirExists(filepath.Dir(finalPath)); err != nil {
+		return nil, fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	checksum, err := utils.CalculateFileChecksum(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate file checksum: %w", err)
+	}
+
+	isDuplicate, duplicateID, err := s.fileRepo.CheckDuplicateByChecksum(checksum)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for duplicate files: %w", err)
+	}
+	if isDuplicate {
+		duplicateFile, findErr := s.fileRepo.FindByID(duplicateID)
+		if findErr == nil {
+			return nil, fmt.Errorf("duplicate file detected. A file with identical content already exists: %s (ID: %d)", duplicateFile.FileName, duplicateID)
+		}
+		return nil, fmt.Errorf("duplicate file detected. A file with identical content already exists (ID: %d)", duplicateID)
+	}
+
+	exists, err := s.fileRepo.ExistsByPath(finalPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if file exists: %w", err)
+	}
+	if exists {
+		return nil, fmt.Errorf("file already exists at destination: %s", finalPath)
+	}
+
+	tempPath := generateTempPath(defaultMaster.Path, targetFileName, jobID, itemIndex)
+	if err := s.storageService.EnsureStorageDirExists(filepath.Dir(tempPath)); err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	if err := copyFileWithProgress(sourcePath, tempPath, onProgress); err != nil {
+		_ = os.Remove(tempPath)
+		return nil, fmt.Errorf("failed to copy file to staging: %w", err)
+	}
+
+	return &stagedImport{
+		SourcePath:     sourcePath,
+		TempPath:       tempPath,
+		FinalPath:      finalPath,
+		Checksum:       checksum,
+		FileSize:       fileInfo.Size(),
+		FileType:       fileType,
+		FileSubType:    strings.TrimPrefix(extension, "."),
+		MasterID:       defaultMaster.ID,
+		CollectionName: effectiveCollectionName,
+		FileName:       targetFileName,
+		OriginalName:   filepath.Base(sourcePath),
+	}, nil
+}
+
+func (s *FileService) commitStagedImport(staged *stagedImport, tags []string, description string, metadata models.Metadata) (*models.File, error) {
+	if staged == nil {
+		return nil, fmt.Errorf("staged import is nil")
+	}
+
+	file := &models.File{
+		FileName:       staged.FileName,
+		OriginalName:   staged.OriginalName,
+		CollectionName: staged.CollectionName,
+		FilePath:       staged.FinalPath,
+		FileType:       staged.FileType,
+		FileSubType:    staged.FileSubType,
+		FileSize:       staged.FileSize,
+		Tags:           s.normalizeMetadataTags(tags),
+		Description:    s.normalizeMetadataDescription(description),
+		Metadata:       metadata,
+		Thumbnail:      "",
+		Checksum:       staged.Checksum,
+		IsDeleted:      false,
+		DeletedAt:      "",
+	}
+
+	if err := s.fileRepo.Create(file); err != nil {
+		_ = os.Remove(staged.TempPath)
+		return nil, fmt.Errorf("failed to create file record: %w", err)
+	}
+
+	if err := os.Rename(staged.TempPath, staged.FinalPath); err != nil {
+		_ = s.fileRepo.Delete(file.ID)
+		_ = os.Remove(staged.TempPath)
+		return nil, fmt.Errorf("failed to commit imported file: %w", err)
+	}
+
+	if err := os.Remove(staged.SourcePath); err != nil && !os.IsNotExist(err) {
+		fmt.Printf("Warning: imported file committed but failed to remove source %s: %v\n", staged.SourcePath, err)
+	}
+
+	if supportsGeneratedThumbnail(staged.FileType) {
+		s.generateThumbnailForFile(file.ID, staged.FinalPath, staged.FileType)
+	}
+
+	if err := s.storageService.UpdateMasterDirectorySize(staged.MasterID, staged.FileType, staged.FileSize); err != nil {
+		fmt.Printf("Failed to update storage size: %v\n", err)
+	}
+
+	return file, nil
+}
+
+func (s *FileService) cleanupStagedImport(staged *stagedImport) error {
+	if staged == nil {
+		return nil
+	}
+	if err := os.Remove(staged.TempPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove staged temp file %s: %w", staged.TempPath, err)
+	}
+	return nil
 }
 
 // SetAgentService sets the agent service after initialization.
@@ -995,6 +1205,45 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(destination, source)
 	return err
+}
+
+func copyFileWithProgress(src, dst string, onProgress func(copied int64) error) error {
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+
+	buffer := make([]byte, 1024*1024)
+	var copied int64
+	for {
+		readBytes, readErr := source.Read(buffer)
+		if readBytes > 0 {
+			written, writeErr := destination.Write(buffer[:readBytes])
+			if writeErr != nil {
+				return writeErr
+			}
+			copied += int64(written)
+			if onProgress != nil {
+				if err := onProgress(copied); err != nil {
+					return err
+				}
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return readErr
+		}
+	}
+	return nil
 }
 
 func parseFileType(extension string) (string, error) {
