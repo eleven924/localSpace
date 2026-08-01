@@ -506,3 +506,40 @@ func TestFileRepository_CheckDuplicateByChecksum(t *testing.T) {
 		t.Errorf("Expected duplicate ID 0, got %d", duplicateID)
 	}
 }
+
+func TestFileRepository_List_SortByWhitelist(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(db)
+
+	repo := NewFileRepository(NewSQLiteDBWrapper(db))
+
+	file := &models.File{
+		FileName:     "test.txt",
+		OriginalName: "test.txt",
+		FilePath:     "/test/test.txt",
+		FileType:     "document",
+		FileSubType:  "txt",
+		FileSize:     1024,
+	}
+	if err := repo.Create(file); err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+
+	// 恶意 SortBy 应被降级为默认 created_at DESC，不应报错
+	results, err := repo.List(FileFilter{Page: 1, PageSize: 10, SortBy: "id; DROP TABLE files;--", SortOrder: "ASC"})
+	if err != nil {
+		t.Fatalf("Failed to list files: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("Expected 1 file, got %d", len(results))
+	}
+
+	// 验证 files 表未被删除
+	exists, err := repo.ExistsByPath("/test/test.txt")
+	if err != nil {
+		t.Fatalf("Failed to check existence: %v", err)
+	}
+	if !exists {
+		t.Error("Expected files table to still exist")
+	}
+}

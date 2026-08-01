@@ -29,6 +29,28 @@ type FileFilter struct {
 	SortOrder string
 }
 
+var allowedSortColumns = map[string]bool{
+	"id":          true,
+	"created_at":  true,
+	"modified_at": true,
+	"file_name":   true,
+}
+
+func normalizeSortBy(sortBy string) string {
+	if allowedSortColumns[sortBy] {
+		return sortBy
+	}
+	return "created_at"
+}
+
+func normalizeSortOrder(sortOrder string) string {
+	order := strings.ToUpper(sortOrder)
+	if order == "ASC" || order == "DESC" {
+		return order
+	}
+	return "DESC"
+}
+
 // Create creates a new file record
 func (r *FileRepository) Create(file *models.File) error {
 	tagsJSON, err := json.Marshal(file.Tags)
@@ -144,15 +166,8 @@ func (r *FileRepository) List(filter FileFilter) ([]*models.File, error) {
 	}
 
 	// Add sorting
-	sortBy := "created_at"
-	if filter.SortBy != "" {
-		sortBy = filter.SortBy
-	}
-
-	sortOrder := "DESC"
-	if filter.SortOrder != "" {
-		sortOrder = filter.SortOrder
-	}
+	sortBy := normalizeSortBy(filter.SortBy)
+	sortOrder := normalizeSortOrder(filter.SortOrder)
 
 	query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
 
