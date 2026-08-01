@@ -175,6 +175,10 @@ func (a *App) initializeApp() {
 		fmt.Printf("Failed to normalize unfinished jobs: %v\n", err)
 	}
 
+	if err := a.fileService.CleanupOrphanedTempFiles(24 * time.Hour); err != nil {
+		fmt.Printf("Failed to cleanup orphaned temp files: %v\n", err)
+	}
+
 	fmt.Printf("LocalSpace initialized\n")
 	fmt.Printf("Database: %s\n", dbPath)
 	fmt.Printf("File storage: %s\n", getFileStoragePath(configRepo))

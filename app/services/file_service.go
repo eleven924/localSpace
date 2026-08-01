@@ -303,6 +303,54 @@ func (s *FileService) cleanupStagedImport(staged *stagedImport) error {
 	return nil
 }
 
+func (s *FileService) CleanupOrphanedTempFiles(maxAge time.Duration) error {
+	masters, err := s.storageService.GetMasterDirectories()
+	if err != nil {
+		return fmt.Errorf("failed to get master directories: %w", err)
+	}
+
+	for _, master := range masters {
+		tempDir := filepath.Join(master.Path, batchImportTempDir)
+		if err := s.cleanupOldFilesInDir(tempDir, maxAge); err != nil {
+			fmt.Printf("Warning: failed to cleanup temp dir %s: %v\n", tempDir, err)
+		}
+	}
+	return nil
+}
+
+func (s *FileService) cleanupOldFilesInDir(root string, maxAge time.Duration) error {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	now := time.Now()
+	for _, entry := range entries {
+		path := filepath.Join(root, entry.Name())
+		if entry.IsDir() {
+			if err := s.cleanupOldFilesInDir(path, maxAge); err != nil {
+				fmt.Printf("Warning: failed to cleanup subdirectory %s: %v\n", path, err)
+			}
+			_ = os.Remove(path)
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if now.Sub(info.ModTime()) > maxAge {
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				fmt.Printf("Warning: failed to remove orphaned temp file %s: %v\n", path, err)
+			}
+		}
+	}
+	return nil
+}
+
 // SetAgentService sets the agent service after initialization.
 func (s *FileService) SetAgentService(agentService *AgentService) {
 	s.agentService = agentService
