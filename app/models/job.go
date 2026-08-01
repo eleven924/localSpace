@@ -3,7 +3,8 @@ package models
 import "encoding/json"
 
 const (
-	JobTypeBatchImport = "batch_import"
+	JobTypeBatchImport  = "batch_import"
+	JobTypeSingleImport = "single_import"
 )
 
 const (

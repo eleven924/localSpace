@@ -334,6 +334,80 @@ func (s *JobService) emitJobEvent(eventName string, data interface{}) {
 	}
 }
 
+func (s *JobService) emitNotificationEvent(job *models.Job) {
+	if s.emitter == nil {
+		return
+	}
+
+	notification := models.NotificationEvent{
+		ID:        fmt.Sprintf("notif-%d-%d", job.ID, time.Now().UnixMilli()),
+		Type:      s.notificationTypeForJob(job),
+		Title:     s.notificationTitleForJob(job),
+		Message:   s.notificationMessageForJob(job),
+		Payload:   map[string]interface{}{"jobId": job.ID, "jobType": job.JobType},
+		CreatedAt: time.Now().Format(time.RFC3339),
+		Read:      false,
+	}
+
+	s.emitter("notification:new", notification)
+}
+
+func (s *JobService) notificationTypeForJob(job *models.Job) models.NotificationType {
+	switch job.Status {
+	case models.JobStatusCompleted:
+		return models.NotificationTypeJobCompleted
+	case models.JobStatusFailed:
+		return models.NotificationTypeJobFailed
+	case models.JobStatusCancelled:
+		return models.NotificationTypeJobCancelled
+	default:
+		return models.NotificationTypeJobCompleted
+	}
+}
+
+func (s *JobService) notificationTitleForJob(job *models.Job) string {
+	isSingle := job.JobType == models.JobTypeSingleImport
+	switch job.Status {
+	case models.JobStatusCompleted:
+		if isSingle {
+			return "文件导入成功"
+		}
+		return "批量导入完成"
+	case models.JobStatusFailed:
+		if isSingle {
+			return "文件导入失败"
+		}
+		return "批量导入失败"
+	case models.JobStatusCancelled:
+		if isSingle {
+			return "文件导入已取消"
+		}
+		return "批量导入已取消"
+	default:
+		return "任务状态更新"
+	}
+}
+
+func (s *JobService) notificationMessageForJob(job *models.Job) string {
+	if job.Status == models.JobStatusCompleted && job.JobType == models.JobTypeSingleImport {
+		if job.Title != "" {
+			return job.Title
+		}
+		return "文件导入成功"
+	}
+	if job.Status == models.JobStatusCompleted && job.JobType == models.JobTypeBatchImport {
+		var result models.BatchImportResult
+		if err := json.Unmarshal(job.Result, &result); err == nil {
+			return fmt.Sprintf("成功导入 %d 个文件，失败 %d 个", result.SuccessCount, result.FailedCount)
+		}
+		return "批量导入已完成"
+	}
+	if job.ErrorMessage != "" {
+		return job.ErrorMessage
+	}
+	return job.ProgressMessage
+}
+
 func (s *JobService) runJob(jobID uint, resume bool) {
 	job, err := s.jobRepo.FindByID(jobID)
 	if err != nil {
@@ -354,6 +428,7 @@ func (s *JobService) runJob(jobID uint, resume bool) {
 			job.FinishedAt = time.Now().Format(time.RFC3339)
 			_ = s.jobRepo.Update(job)
 			s.emitJobEvent("job:failed", job)
+			s.emitNotificationEvent(job)
 		}
 	}()
 
@@ -423,6 +498,9 @@ func (s *JobService) runJob(jobID uint, resume bool) {
 		switch job.Status {
 		case models.JobStatusCancelled, models.JobStatusAwaitingResume, models.JobStatusTimedOut:
 			s.emitJobEvent("job:updated", job)
+			if job.Status == models.JobStatusCancelled {
+				s.emitNotificationEvent(job)
+			}
 			return
 		default:
 			if s.IsShuttingDown() && policy.Recoverable {
@@ -447,6 +525,7 @@ func (s *JobService) runJob(jobID uint, resume bool) {
 		job.FinishedAt = time.Now().Format(time.RFC3339)
 		_ = s.jobRepo.Update(job)
 		s.emitJobEvent("job:failed", job)
+		s.emitNotificationEvent(job)
 		return
 	}
 
@@ -458,6 +537,7 @@ func (s *JobService) runJob(jobID uint, resume bool) {
 		return
 	}
 	s.emitJobEvent("job:completed", job)
+	s.emitNotificationEvent(job)
 }
 
 func (s *JobService) watchTimeouts() {
@@ -495,6 +575,7 @@ func (s *JobService) watchTimeouts() {
 				job.FinishedAt = now.Format(time.RFC3339)
 				if err := s.jobRepo.Update(job); err == nil {
 					s.emitJobEvent("job:failed", job)
+					s.emitNotificationEvent(job)
 				}
 				s.mu.Lock()
 				cancel := s.running[job.ID]

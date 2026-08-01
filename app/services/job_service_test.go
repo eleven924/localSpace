@@ -24,6 +24,74 @@ func (h *panicJobHandler) Resume(ctx context.Context, job *models.Job, runtime J
 }
 func (h *panicJobHandler) Cleanup(ctx context.Context, job *models.Job, runtime JobRuntime) error { return nil }
 
+type successTestHandler struct{}
+
+func (h *successTestHandler) Type() string { return "success_test" }
+func (h *successTestHandler) Validate(payload json.RawMessage) error { return nil }
+func (h *successTestHandler) Execute(ctx context.Context, job *models.Job, runtime JobRuntime) error {
+	return nil
+}
+func (h *successTestHandler) Resume(ctx context.Context, job *models.Job, runtime JobRuntime) error {
+	return nil
+}
+func (h *successTestHandler) Cleanup(ctx context.Context, job *models.Job, runtime JobRuntime) error {
+	return nil
+}
+
+func TestJobService_EmitsNotificationOnCompletion(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
+	service := NewJobService(jobRepo, nil, nil, nil)
+	service.RegisterHandler(&successTestHandler{})
+	service.policies["success_test"] = JobPolicy{
+		JobType:          "success_test",
+		MaxConcurrent:    1,
+		CanRunBackground: true,
+		Recoverable:      false,
+		Timeout:          time.Minute,
+	}
+
+	var emitted []models.NotificationEvent
+	service.SetEventEmitter(func(eventName string, data interface{}) {
+		if eventName == "notification:new" {
+			if n, ok := data.(models.NotificationEvent); ok {
+				emitted = append(emitted, n)
+			}
+		}
+	})
+
+	job := &models.Job{
+		JobType:       "success_test",
+		Status:        models.JobStatusPending,
+		Title:         "test",
+		Payload:       json.RawMessage("{}"),
+		ProgressTotal: 1,
+		CanResume:     false,
+	}
+	if err := jobRepo.Create(job); err != nil {
+		t.Fatalf("failed to create job: %v", err)
+	}
+
+	service.runJob(job.ID, false)
+
+	if len(emitted) != 1 {
+		t.Fatalf("expected 1 notification, got %d", len(emitted))
+	}
+	if emitted[0].Type != models.NotificationTypeJobCompleted {
+		t.Errorf("expected type completed, got %s", emitted[0].Type)
+	}
+	if emitted[0].ID == "" {
+		t.Error("expected notification id to be set")
+	}
+}
+
 func TestJobService_RunJob_RecoversFromPanic(t *testing.T) {
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
