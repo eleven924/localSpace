@@ -343,8 +343,12 @@ const handleSelectSingleFile = async () => {
   const path = await api.system.selectFile()
   if (!path || path === 'success') return
 
-  const metadata = await api.system.getMetadata(path, 'file')
   const fileName = path.split(/[/\\]/).pop() || ''
+  const extension = `.${fileName.split('.').pop()?.toLowerCase() || ''}`
+  const parsedType = await api.fileType.parse(extension)
+  const fileType = parsedType?.name || EXTENSION_TO_TYPE[extension] || 'other'
+
+  const metadata = await api.system.getMetadata(path, fileType)
   const file = await toRichFile({
     name: fileName,
     path,

@@ -93,8 +93,12 @@ declare global {
 }
 
 // Helper function to safely call Wails API
-function safeWailsCall<T>(fn: () => Promise<T>, fallbackValue: T, errorMessage: string): Promise<T> {
-  return new Promise((resolve) => {
+function safeWailsCall<T>(
+  fn: () => Promise<T>,
+  fallbackValue: T,
+  errorMessage: string
+): Promise<T> {
+  return new Promise((resolve, reject) => {
     try {
       // Check if Wails is available
       if (!window.go || !window.go.app || !window.go.app.App) {
@@ -109,11 +113,11 @@ function safeWailsCall<T>(fn: () => Promise<T>, fallbackValue: T, errorMessage: 
         .then(resolve)
         .catch((error) => {
           console.error(`Wails API error: ${errorMessage}`, error)
-          resolve(fallbackValue)
+          reject(error)
         })
     } catch (error) {
       console.error(`Unexpected error calling Wails API: ${errorMessage}`, error)
-      resolve(fallbackValue)
+      reject(error)
     }
   })
 }
