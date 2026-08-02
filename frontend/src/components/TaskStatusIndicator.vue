@@ -10,12 +10,21 @@
       class="task-button"
       :class="{ running: hasRunningJobs }"
       type="button"
-      :aria-label="hasRunningJobs ? '查看运行中的任务' : '查看任务中心'"
-      @click="goToTasks"
+      :title="hasRunningJobs ? '有任务正在运行' : '任务中心'"
+      :aria-label="hasRunningJobs ? '有任务正在运行' : '任务中心'"
+      @click="togglePanel"
     >
-      <span class="task-signal-dot"></span>
-      <span class="task-button-label">任务</span>
-      <span class="task-count">{{ displayCount }}</span>
+      <svg
+        class="task-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="12" y1="12" x2="20" y2="12" />
+      </svg>
     </button>
 
     <transition name="popover-fade">
@@ -64,11 +73,10 @@ const open = ref(false)
 
 const summaryJobs = computed(() => jobsStore.summaryJobs)
 const hasRunningJobs = computed(() => jobsStore.totalRunningCount > 0)
-const displayCount = computed(() => {
-  if (jobsStore.totalRunningCount > 9) return '9+'
-  if (jobsStore.totalRunningCount > 0) return String(jobsStore.totalRunningCount)
-  return '0'
-})
+
+const togglePanel = () => {
+  open.value = !open.value
+}
 
 const goToTasks = () => {
   open.value = false
@@ -91,44 +99,43 @@ const handleFocusOut = (event: FocusEvent) => {
 }
 
 .task-button {
+  --task-gradient-dark: var(--text-soft);
+  --task-gradient-light: var(--surface-color);
+
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background-color: var(--surface-color);
-  color: var(--text-color);
+  justify-content: center;
+  transition: background 0.15s ease;
 }
 
-.task-signal-dot {
-  width: 8px;
-  height: 8px;
+.task-button:hover {
+  background: var(--hover-bg, rgba(148, 163, 184, 0.24));
+}
+
+.task-button.running {
+  --task-gradient-dark: var(--primary-hover);
+  --task-gradient-light: var(--surface-color);
+}
+
+.task-icon {
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background-color: var(--text-faint);
+  color: var(--task-gradient-dark);
+  background: conic-gradient(from 90deg, var(--task-gradient-light) 0deg, var(--task-gradient-light) 90deg, var(--task-gradient-dark) 360deg);
+  pointer-events: none;
 }
 
-.task-button.running .task-signal-dot {
-  background-color: var(--success-color);
-  box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.16);
-  animation: pulse-dot 1.6s ease-in-out infinite;
-}
-
-.task-button-label {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.task-count {
-  min-width: 20px;
-  padding: 0 6px;
-  line-height: 20px;
-  border-radius: 10px;
-  background-color: var(--surface-muted);
-  color: var(--text-soft);
-  font-size: 12px;
-  font-weight: 700;
+.task-button.running .task-icon {
+  animation: task-spin 1s linear infinite;
 }
 
 .task-popover {
@@ -229,23 +236,17 @@ const handleFocusOut = (event: FocusEvent) => {
   transform: translateY(-4px);
 }
 
-@keyframes pulse-dot {
-  0%,
-  100% {
-    transform: scale(1);
+@keyframes task-spin {
+  from {
+    transform: rotate(0deg);
   }
 
-  50% {
-    transform: scale(1.15);
+  to {
+    transform: rotate(360deg);
   }
 }
 
 @media (max-width: 640px) {
-  .task-button {
-    width: 100%;
-    justify-content: space-between;
-  }
-
   .task-popover {
     width: min(340px, calc(100vw - 24px));
   }

@@ -1,11 +1,21 @@
 <template>
-  <div class="notification-bell-wrapper" ref="wrapperRef">
+  <div
+    class="notification-bell-wrapper"
+    ref="wrapperRef"
+    @mouseenter="openPanel"
+    @mouseleave="closePanel"
+    @focusin="openPanel"
+    @focusout="handleFocusOut"
+  >
     <button
       type="button"
       class="notification-bell"
       :class="{ active: panelVisible }"
       aria-label="消息中心"
-      @click.stop="togglePanel"
+      title="消息中心"
+      aria-haspopup="true"
+      :aria-expanded="panelVisible"
+      @click.stop="onBellClick"
     >
       <svg
         class="bell-icon"
@@ -30,18 +40,28 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useNotificationsStore } from '@/store/modules/notifications'
 import NotificationPanel from './NotificationPanel.vue'
 
-const { unreadCount } = useNotificationsStore()
+const store = useNotificationsStore()
+const { unreadCount } = storeToRefs(store)
 const router = useRouter()
 
 const panelVisible = ref(false)
 const wrapperRef = ref<HTMLElement | null>(null)
 
-const togglePanel = () => {
+const openPanel = () => {
+  panelVisible.value = true
+}
+
+const closePanel = () => {
+  panelVisible.value = false
+}
+
+const onBellClick = () => {
   panelVisible.value = !panelVisible.value
 }
 
@@ -50,24 +70,19 @@ const handleNavigate = (path: string) => {
   router.push(path)
 }
 
-const handleClickOutside = (event: MouseEvent) => {
-  if (wrapperRef.value && !wrapperRef.value.contains(event.target as Node)) {
-    panelVisible.value = false
+const handleFocusOut = (event: FocusEvent) => {
+  const nextTarget = event.relatedTarget
+  if (nextTarget instanceof Node && event.currentTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+    return
   }
+  panelVisible.value = false
 }
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
 </script>
 
 <style scoped>
 .notification-bell-wrapper {
   position: relative;
+  z-index: 100;
 }
 
 .notification-bell {
@@ -86,18 +101,19 @@ onUnmounted(() => {
 }
 
 .notification-bell:hover {
-  background: var(--hover-bg, rgba(148, 163, 184, 0.12));
+  background: var(--hover-bg, rgba(148, 163, 184, 0.24));
   color: var(--primary-color, #2196f3);
 }
 
 .notification-bell.active {
-  background: rgba(33, 150, 243, 0.1);
+  background: rgba(33, 150, 243, 0.16);
   color: var(--primary-color, #2196f3);
 }
 
 .bell-icon {
   width: 18px;
   height: 18px;
+  pointer-events: none;
 }
 
 .unread-badge {
@@ -116,5 +132,6 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   box-shadow: 0 0 0 2px var(--surface-color, #fff);
+  pointer-events: none;
 }
 </style>

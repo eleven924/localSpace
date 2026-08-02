@@ -1,63 +1,66 @@
 <template>
-  <div v-if="visible" class="notification-panel" @click.stop>
-    <div class="notification-panel-header">
-      <strong>消息中心</strong>
-      <div class="notification-actions">
-        <button
-          type="button"
-          class="text-btn"
-          @click="onMarkAllAsRead"
-        >
-          全部已读
-        </button>
-        <button
-          type="button"
-          class="text-btn"
-          @click="onClearAll"
-        >
-          清空
-        </button>
-      </div>
-    </div>
-
-    <div v-if="items.length === 0" class="notification-empty">暂无消息</div>
-
-    <ul v-else class="notification-list">
-      <li
-        v-for="item in items"
-        :key="item.id"
-        :class="['notification-item', { unread: !item.read }]"
-      >
-        <div v-if="!item.read" class="notification-dot"></div>
-        <div class="notification-content">
-          <div class="notification-title">{{ item.title }}</div>
-          <div class="notification-message">{{ item.message }}</div>
-          <div class="notification-meta">
-            <span class="notification-time">{{ formatTime(item.createdAt) }}</span>
-            <button
-              v-if="item.type === 'job_completed' && item.payload?.jobId"
-              type="button"
-              class="text-btn inline-btn"
-              @click="onNavigate(item)"
-            >
-              去查看
-            </button>
-          </div>
+  <div v-if="visible" class="notification-panel-root" @click.stop>
+    <div class="notification-panel">
+      <div class="notification-panel-header">
+        <strong>消息中心</strong>
+        <div class="notification-actions">
+          <button
+            type="button"
+            class="text-btn"
+            @click="onMarkAllAsRead"
+          >
+            全部已读
+          </button>
+          <button
+            type="button"
+            class="text-btn"
+            @click="onClearAll"
+          >
+            清空
+          </button>
         </div>
-        <button
-          type="button"
-          class="notification-close"
-          @click="onRemove(item.id)"
-          aria-label="删除通知"
+      </div>
+
+      <div v-if="items.length === 0" class="notification-empty">暂无消息</div>
+
+      <ul v-else class="notification-list">
+        <li
+          v-for="item in items"
+          :key="item.id"
+          :class="['notification-item', { unread: !item.read }]"
         >
-          ×
-        </button>
-      </li>
-    </ul>
+          <div v-if="!item.read" class="notification-dot"></div>
+          <div class="notification-content">
+            <div class="notification-title">{{ item.title }}</div>
+            <div class="notification-message">{{ item.message }}</div>
+            <div class="notification-meta">
+              <span class="notification-time">{{ formatTime(item.createdAt) }}</span>
+              <button
+                v-if="item.type === 'job_completed' && item.payload?.jobId"
+                type="button"
+                class="text-btn inline-btn"
+                @click="onNavigate(item)"
+              >
+                去查看
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="notification-close"
+            @click="onRemove(item.id)"
+            aria-label="删除通知"
+          >
+            ×
+          </button>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
 import { useNotificationsStore } from '@/store/modules/notifications'
 import type { NotificationEvent } from '@/types/notifications'
 
@@ -70,6 +73,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useNotificationsStore()
+const { items } = storeToRefs(store)
 
 const onMarkAllAsRead = () => {
   store.markAllAsRead()
@@ -102,19 +106,33 @@ const formatTime = (iso: string) => {
 </script>
 
 <style scoped>
-.notification-panel {
+.notification-panel-root {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   width: 360px;
   max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+}
+
+.notification-panel-root::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+
+.notification-panel {
   background: var(--surface-color, #fff);
   border: 1px solid var(--border-color, rgba(148, 163, 184, 0.16));
   border-radius: 18px;
   box-shadow: 0 24px 48px rgba(44, 62, 94, 0.12);
   display: flex;
   flex-direction: column;
-  z-index: 1000;
   overflow: hidden;
 }
 
