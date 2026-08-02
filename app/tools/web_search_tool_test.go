@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -42,7 +43,7 @@ func TestWebSearchToolExecuteFormatsBoundedResults(t *testing.T) {
 	if client.limit != 3 {
 		t.Fatalf("expected limit 3, got %d", client.limit)
 	}
-	if !strings.Contains(result, "query: movie") {
+	if !strings.Contains(result, `"query":"movie"`) {
 		t.Fatalf("expected formatted query in output, got %q", result)
 	}
 	if strings.Contains(result, "Result 4") {
@@ -64,20 +65,33 @@ func TestWebSearchToolSearchRequiresConfiguredClient(t *testing.T) {
 
 func TestHTTPWebSearchClientSearchMapsResults(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.URL.Query().Get("q"); got != "movie" {
-			t.Fatalf("expected query movie, got %q", got)
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST request, got %s", r.Method)
 		}
-		if got := r.URL.Query().Get("limit"); got != "3" {
-			t.Fatalf("expected limit 3, got %q", got)
+		if r.URL.Path != "/search" {
+			t.Fatalf("expected path /search, got %s", r.URL.Path)
 		}
-		if got := r.URL.Query().Get("provider"); got != "mock-http" {
-			t.Fatalf("expected provider mock-http, got %q", got)
+
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+
+		if got := body["query"]; got != "movie" {
+			t.Fatalf("expected query movie, got %v", got)
+		}
+		if got := body["max_results"]; got != float64(3) {
+			t.Fatalf("expected limit 3, got %v", got)
 		}
 		if auth := r.Header.Get("Authorization"); auth != "Bearer search-key" {
 			t.Fatalf("expected bearer auth, got %q", auth)
 		}
+		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
+			t.Fatalf("expected content type application/json, got %q", ct)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"title":"Movie Title","url":"https://example.com/movie","snippet":"Movie snippet"}]}`))
+		_, _ = w.Write([]byte(`{"results":[{"title":"Movie Title","url":"https://example.com/movie","content":"Movie snippet"}]}`))
 	}))
 	defer server.Close()
 
@@ -91,5 +105,11 @@ func TestHTTPWebSearchClientSearchMapsResults(t *testing.T) {
 	}
 	if items[0].Title != "Movie Title" {
 		t.Fatalf("expected mapped title, got %q", items[0].Title)
+	}
+	if items[0].Snippet != "Movie snippet" {
+		t.Fatalf("expected mapped snippet from content, got %q", items[0].Snippet)
+	}
+	if items[0].URL != "https://example.com/movie" {
+		t.Fatalf("expected mapped URL, got %q", items[0].URL)
 	}
 }
