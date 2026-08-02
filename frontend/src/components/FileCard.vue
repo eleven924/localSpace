@@ -49,7 +49,8 @@
       <div
         ref="hoverZoneRef"
         class="file-info-hover-zone"
-        @mouseenter="updateHoverPreviewPlacement"
+        @mouseenter="handleHoverPreviewEnter"
+        @mouseleave="handleHoverPreviewLeave"
       >
         <div class="file-topline">
           <span v-if="file.collectionName" class="collection-pill">{{ file.collectionName }}</span>
@@ -71,10 +72,23 @@
           </span>
         </div>
 
+      </div>
+
+      <div class="file-meta">
+        <span class="file-size">{{ formatFileSize(file.fileSize) }}</span>
+        <span class="file-date">{{ formatDate(file.createdAt) }}</span>
+      </div>
+    </div>
+
+    <Teleport to="body">
+      <Transition name="hover-preview">
         <div
-          v-if="hasHoverPreview"
+          v-if="isHoverPreviewVisible && hasHoverPreview && !showMenu"
           class="file-hover-preview"
           :class="previewPlacementClass"
+          :style="hoverPreviewStyle"
+          @mouseenter="handleHoverPreviewEnter"
+          @mouseleave="handleHoverPreviewLeave"
           @click.stop
         >
           <div class="hover-preview-header">{{ file.fileName }}</div>
@@ -98,13 +112,8 @@
             <p class="hover-preview-description">{{ file.description }}</p>
           </div>
         </div>
-      </div>
-
-      <div class="file-meta">
-        <span class="file-size">{{ formatFileSize(file.fileSize) }}</span>
-        <span class="file-date">{{ formatDate(file.createdAt) }}</span>
-      </div>
-    </div>
+      </Transition>
+    </Teleport>
 
     <Teleport to="body">
       <Transition name="modal">
@@ -159,6 +168,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { CSSProperties } from 'vue'
 import { api } from '@/api/index'
 import { FILE_TYPES, formatDate, formatFileSize } from '@/utils/constants'
 import EditFileMetaModal from './EditFileMetaModal.vue'
@@ -199,10 +209,13 @@ const newFileName = ref('')
 const isRenaming = ref(false)
 const fileNameInput = ref<HTMLInputElement | null>(null)
 const hoverZoneRef = ref<HTMLElement | null>(null)
+const isHoverPreviewVisible = ref(false)
 const previewPlacement = ref<{ horizontal: 'right' | 'left'; vertical: 'down' | 'up' }>({
   horizontal: 'right',
   vertical: 'down',
 })
+const hoverPreviewStyle = ref<CSSProperties>({})
+let hoverPreviewCloseTimer: ReturnType<typeof window.setTimeout> | null = null
 
 const visibleTags = computed(() => props.file.tags.slice(0, 3))
 const hiddenTags = computed(() => props.file.tags.slice(3))
@@ -222,29 +235,76 @@ const getPreviewMetrics = () => {
   const isCompactViewport = window.innerWidth <= 768
   return {
     width: Math.min(isCompactViewport ? 320 : 380, window.innerWidth - (isCompactViewport ? 32 : 56)),
-    height: isCompactViewport ? 280 : 320,
+    preferredHeight: isCompactViewport ? 280 : 320,
+    minHeight: isCompactViewport ? 160 : 180,
     viewportPadding: isCompactViewport ? 16 : 24,
   }
 }
 
 const updateHoverPreviewPlacement = () => {
+  if (!isHoverPreviewVisible.value) return
   if (!hoverZoneRef.value) return
 
   const rect = hoverZoneRef.value.getBoundingClientRect()
-  const { width, height, viewportPadding } = getPreviewMetrics()
+  const { width, preferredHeight, minHeight, viewportPadding } = getPreviewMetrics()
   const floatingGap = 10
 
-  const canOpenRight = rect.left + width <= window.innerWidth - viewportPadding
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const canOpenRight = rect.left + width <= viewportWidth - viewportPadding
   const canOpenLeft = rect.right - width >= viewportPadding
   const availableBelow = window.innerHeight - rect.bottom - viewportPadding - floatingGap
   const availableAbove = rect.top - viewportPadding - floatingGap
-  const canOpenDown = availableBelow >= Math.min(height, 180)
-  const canOpenUp = availableAbove >= Math.min(height, 180)
+  const canOpenDown = availableBelow >= minHeight
+  const canOpenUp = availableAbove >= minHeight
+  const horizontal = !canOpenRight && canOpenLeft ? 'left' : 'right'
+  const vertical = canOpenDown || availableBelow >= availableAbove || !canOpenUp ? 'down' : 'up'
+  const horizontalStart = horizontal === 'left' ? rect.right - width : rect.left
+  const availableHeight = vertical === 'down' ? availableBelow : availableAbove
+  const maxHeight = Math.min(preferredHeight, Math.max(minHeight, availableHeight))
+  const rawTop = vertical === 'down' ? rect.bottom + floatingGap : rect.top - floatingGap - maxHeight
+
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+  const left = clamp(horizontalStart, viewportPadding, viewportWidth - viewportPadding - width)
+  const top = clamp(rawTop, viewportPadding, viewportHeight - viewportPadding - maxHeight)
 
   previewPlacement.value = {
-    horizontal: !canOpenRight && canOpenLeft ? 'left' : 'right',
-    vertical: canOpenDown || availableBelow >= availableAbove || !canOpenUp ? 'down' : 'up',
+    horizontal,
+    vertical,
   }
+
+  // 预览层已经 Teleport 到 body，需要用视口坐标手动定位，避免被列表容器裁剪。
+  hoverPreviewStyle.value = {
+    width: `${width}px`,
+    minHeight: `${Math.min(220, maxHeight)}px`,
+    maxHeight: `${maxHeight}px`,
+    left: `${left}px`,
+    top: `${top}px`,
+  }
+}
+
+const clearHoverPreviewCloseTimer = () => {
+  if (hoverPreviewCloseTimer !== null) {
+    window.clearTimeout(hoverPreviewCloseTimer)
+    hoverPreviewCloseTimer = null
+  }
+}
+
+const handleHoverPreviewEnter = () => {
+  if (!hasHoverPreview.value || showMenu.value) return
+
+  clearHoverPreviewCloseTimer()
+  isHoverPreviewVisible.value = true
+  updateHoverPreviewPlacement()
+}
+
+const handleHoverPreviewLeave = () => {
+  clearHoverPreviewCloseTimer()
+
+  // 鼠标从卡片移动到 Teleport 出来的浮层时会短暂离开原区域，延迟关闭可以保留可滚动预览。
+  hoverPreviewCloseTimer = window.setTimeout(() => {
+    isHoverPreviewVisible.value = false
+  }, 120)
 }
 
 const handleClick = () => {
@@ -270,6 +330,7 @@ const getFileIcon = (fileType: string): string => {
 
 const toggleMenu = () => {
   showMenu.value = !showMenu.value
+  isHoverPreviewVisible.value = false
 }
 
 const handleShowDetails = () => {
@@ -391,11 +452,14 @@ const handleClickOutside = (event: MouseEvent) => {
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   window.addEventListener('resize', updateHoverPreviewPlacement)
+  window.addEventListener('scroll', updateHoverPreviewPlacement, true)
 })
 
 onUnmounted(() => {
+  clearHoverPreviewCloseTimer()
   document.removeEventListener('click', handleClickOutside)
   window.removeEventListener('resize', updateHoverPreviewPlacement)
+  window.removeEventListener('scroll', updateHoverPreviewPlacement, true)
 })
 </script>
 
@@ -628,48 +692,61 @@ onUnmounted(() => {
 }
 
 .file-hover-preview {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
+  position: fixed;
   width: min(380px, calc(100vw - 56px));
-  min-height: 220px;
-  max-height: 320px;
-  padding: 16px;
+  padding: 16px 12px 16px 16px;
   border-radius: 12px;
   background: rgba(24, 32, 43, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 16px 32px rgba(15, 23, 42, 0.28);
   color: #eef4ff;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(8px);
-  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
-  pointer-events: none;
-  z-index: 180;
-  overflow-y: auto;
-}
-
-.file-hover-preview.preview-left {
-  left: auto;
-  right: 0;
-}
-
-.file-hover-preview.preview-up {
-  top: auto;
-  bottom: calc(100% + 10px);
-}
-
-.file-info-hover-zone:hover .file-hover-preview {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0s;
   pointer-events: auto;
+  z-index: 1800;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(226, 236, 255, 0.38) transparent;
 }
 
-.file-card.menu-open .file-hover-preview {
+.file-hover-preview::-webkit-scrollbar {
+  width: 8px;
+}
+
+.file-hover-preview::-webkit-scrollbar-track {
+  margin: 10px 0;
+  background: transparent;
+}
+
+.file-hover-preview::-webkit-scrollbar-thumb {
+  min-height: 42px;
+  border: 2px solid rgba(24, 32, 43, 0.96);
+  border-radius: 999px;
+  background: rgba(226, 236, 255, 0.34);
+}
+
+.file-hover-preview::-webkit-scrollbar-thumb:hover {
+  background: rgba(226, 236, 255, 0.56);
+}
+
+.hover-preview-enter-active,
+.hover-preview-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.hover-preview-enter-from,
+.hover-preview-leave-to {
   opacity: 0;
-  visibility: hidden;
+  transform: translateY(8px);
+}
+
+.file-hover-preview.preview-up.hover-preview-enter-from,
+.file-hover-preview.preview-up.hover-preview-leave-to {
+  transform: translateY(-8px);
+}
+
+.hover-preview-enter-to,
+.hover-preview-leave-from {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .hover-preview-header {
@@ -834,11 +911,6 @@ onUnmounted(() => {
 
   .file-hover-preview {
     width: min(320px, calc(100vw - 32px));
-    left: 0;
-  }
-
-  .file-hover-preview.preview-left {
-    right: 0;
   }
 }
 </style>
