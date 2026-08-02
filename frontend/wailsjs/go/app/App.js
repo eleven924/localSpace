@@ -202,6 +202,10 @@ export function SubmitBatchImportJob(arg1) {
   return window['go']['app']['App']['SubmitBatchImportJob'](arg1);
 }
 
+export function SubmitSingleImportJob(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['app']['App']['SubmitSingleImportJob'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
 export function ToggleStorageDirectory(arg1, arg2) {
   return window['go']['app']['App']['ToggleStorageDirectory'](arg1, arg2);
 }

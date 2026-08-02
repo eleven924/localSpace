@@ -102,6 +102,8 @@ export function SetDefaultMasterDirectory(arg1:number):Promise<void>;
 
 export function SubmitBatchImportJob(arg1:models.BatchImportJobRequest):Promise<models.Job>;
 
+export function SubmitSingleImportJob(arg1:string,arg2:string,arg3:string,arg4:Array<string>,arg5:string,arg6:string):Promise<models.Job>;
+
 export function ToggleStorageDirectory(arg1:number,arg2:boolean):Promise<void>;
 
 export function UpdateAIConfig(arg1:models.AIConfig):Promise<void>;
