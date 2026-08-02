@@ -1,10 +1,22 @@
 <template>
-  <div v-if="visible" class="notification-panel">
+  <div v-if="visible" class="notification-panel" @click.stop>
     <div class="notification-panel-header">
       <strong>消息中心</strong>
       <div class="notification-actions">
-        <button type="button" class="text-btn" @click="markAllAsRead">全部已读</button>
-        <button type="button" class="text-btn" @click="clearAll">清空</button>
+        <button
+          type="button"
+          class="text-btn"
+          @click="onMarkAllAsRead"
+        >
+          全部已读
+        </button>
+        <button
+          type="button"
+          class="text-btn"
+          @click="onClearAll"
+        >
+          清空
+        </button>
       </div>
     </div>
 
@@ -15,18 +27,28 @@
         v-for="item in items"
         :key="item.id"
         :class="['notification-item', { unread: !item.read }]"
-        @click="handleClick(item)"
       >
         <div v-if="!item.read" class="notification-dot"></div>
         <div class="notification-content">
           <div class="notification-title">{{ item.title }}</div>
           <div class="notification-message">{{ item.message }}</div>
-          <div class="notification-time">{{ formatTime(item.createdAt) }}</div>
+          <div class="notification-meta">
+            <span class="notification-time">{{ formatTime(item.createdAt) }}</span>
+            <button
+              v-if="item.type === 'job_completed' && item.payload?.jobId"
+              type="button"
+              class="text-btn inline-btn"
+              @click="onNavigate(item)"
+            >
+              去查看
+            </button>
+          </div>
         </div>
         <button
           type="button"
           class="notification-close"
-          @click.stop="removeNotification(item.id)"
+          @click="onRemove(item.id)"
+          aria-label="删除通知"
         >
           ×
         </button>
@@ -47,10 +69,22 @@ const emit = defineEmits<{
   (e: 'navigate', path: string): void
 }>()
 
-const { items, markAllAsRead, markAsRead, removeNotification, clearAll } = useNotificationsStore()
+const store = useNotificationsStore()
 
-const handleClick = (item: NotificationEvent) => {
-  markAsRead(item.id)
+const onMarkAllAsRead = () => {
+  store.markAllAsRead()
+}
+
+const onClearAll = () => {
+  store.clearAll()
+}
+
+const onRemove = (id: string) => {
+  store.removeNotification(id)
+}
+
+const onNavigate = (item: NotificationEvent) => {
+  store.markAsRead(item.id)
   if (item.type === 'job_completed' && item.payload?.jobId) {
     emit('navigate', '/tasks')
   }
@@ -104,6 +138,13 @@ const formatTime = (iso: string) => {
   color: var(--primary-color, #2196f3);
   font-size: 12px;
   cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.text-btn:hover {
+  background: rgba(33, 150, 243, 0.08);
 }
 
 .notification-empty {
@@ -126,7 +167,6 @@ const formatTime = (iso: string) => {
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
-  cursor: pointer;
   transition: background 0.15s ease;
 }
 
@@ -166,10 +206,22 @@ const formatTime = (iso: string) => {
   word-break: break-word;
 }
 
-.notification-time {
+.notification-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: 6px;
+}
+
+.notification-time {
   font-size: 11px;
   color: var(--text-faint, #94a3b8);
+}
+
+.inline-btn {
+  padding: 0 2px;
+  font-weight: 600;
 }
 
 .notification-close {
@@ -183,6 +235,9 @@ const formatTime = (iso: string) => {
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .notification-close:hover {
