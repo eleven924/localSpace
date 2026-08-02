@@ -279,6 +279,25 @@ func (a *App) ImportFileWithMetadata(filePath, fileName, description string, tag
 	})
 }
 
+// SubmitSingleImportJob creates a background job for importing a single file.
+func (a *App) SubmitSingleImportJob(
+	filePath string,
+	fileName string,
+	description string,
+	tags []string,
+	keywords string,
+	collectionName string,
+) (*models.Job, error) {
+	return a.jobService.SubmitSingleImportJob(services.ImportFileRequest{
+		FilePath:       filePath,
+		FileName:       fileName,
+		Description:    description,
+		Tags:           tags,
+		Keywords:       keywords,
+		CollectionName: collectionName,
+	})
+}
+
 // GetFiles returns a list of files
 func (a *App) GetFiles(page, pageSize int, fileType string) ([]*models.File, error) {
 	if !a.waitForInitialization(5 * time.Second) {

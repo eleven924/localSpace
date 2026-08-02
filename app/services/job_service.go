@@ -68,11 +68,20 @@ func NewJobService(
 				Recoverable:      true,
 				Timeout:          2 * time.Hour,
 			},
+			models.JobTypeSingleImport: {
+				JobType:          models.JobTypeSingleImport,
+				MaxConcurrent:    1,
+				ExclusiveKey:     "import",
+				CanRunBackground: true,
+				Recoverable:      false,
+				Timeout:          30 * time.Minute,
+			},
 		},
 		running: make(map[uint]context.CancelFunc),
 	}
 
 	service.RegisterHandler(NewBatchImportHandler())
+	service.RegisterHandler(NewSingleImportHandler())
 	go service.watchTimeouts()
 
 	return service
@@ -133,6 +142,45 @@ func (s *JobService) SubmitBatchImportJob(req models.BatchImportJobRequest) (*mo
 		})
 	}
 	if err := s.jobRepo.CreateBatchImportItems(items); err != nil {
+		return nil, err
+	}
+
+	s.emitJobEvent("job:created", job)
+	go s.runJob(job.ID, false)
+
+	return job, nil
+}
+
+func (s *JobService) SubmitSingleImportJob(req ImportFileRequest) (*models.Job, error) {
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal single import payload: %w", err)
+	}
+
+	handler, policy, err := s.handlerAndPolicy(models.JobTypeSingleImport)
+	if err != nil {
+		return nil, err
+	}
+	if err := handler.Validate(payload); err != nil {
+		return nil, err
+	}
+
+	if err := s.ensureConcurrency(policy, 0); err != nil {
+		return nil, err
+	}
+
+	job := &models.Job{
+		JobType:           models.JobTypeSingleImport,
+		Status:            models.JobStatusPending,
+		Title:             fmt.Sprintf("导入 %s", req.FileName),
+		Payload:           payload,
+		ProgressTotal:     1,
+		ProgressCompleted: 0,
+		ProgressMessage:   "等待开始导入",
+		ExclusiveKey:      policy.ExclusiveKey,
+		CanResume:         policy.Recoverable,
+	}
+	if err := s.jobRepo.Create(job); err != nil {
 		return nil, err
 	}
 

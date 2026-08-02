@@ -92,6 +92,45 @@ func TestJobService_EmitsNotificationOnCompletion(t *testing.T) {
 	}
 }
 
+func TestJobService_SubmitSingleImportJob_CreatesJob(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
+	jobService := NewJobService(jobRepo, nil, nil, nil)
+
+	var createdJob *models.Job
+	jobService.SetEventEmitter(func(eventName string, data interface{}) {
+		if eventName == "job:created" {
+			if j, ok := data.(*models.Job); ok {
+				createdJob = j
+			}
+		}
+	})
+
+	req := ImportFileRequest{
+		FilePath: "/tmp/test.txt",
+		FileName: "test.txt",
+		Tags:     []string{"test"},
+	}
+	job, err := jobService.SubmitSingleImportJob(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if job.JobType != models.JobTypeSingleImport {
+		t.Errorf("expected job type %s, got %s", models.JobTypeSingleImport, job.JobType)
+	}
+	if createdJob == nil {
+		t.Error("expected job:created event to be emitted")
+	}
+}
+
 func TestJobService_RunJob_RecoversFromPanic(t *testing.T) {
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
