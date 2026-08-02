@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useJobsStore } from './store/modules/jobs'
+import { useNotificationsStore } from './store/modules/notifications'
 import { useThemeStore } from './store/modules/theme'
 import './assets/styles/main.css'
 
@@ -20,3 +21,6 @@ themeStore.loadThemeFromBackend()
 
 const jobsStore = useJobsStore()
 jobsStore.initialize()
+
+const notificationsStore = useNotificationsStore()
+notificationsStore.initialize()

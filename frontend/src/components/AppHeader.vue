@@ -12,6 +12,7 @@
 
     <div class="header-actions">
       <TaskStatusIndicator />
+      <NotificationBell />
       <router-link to="/import" :class="['btn', isImportActive ? 'primary' : 'secondary']">
         导入
       </router-link>
@@ -25,6 +26,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import NotificationBell from '@/components/NotificationBell.vue'
 import TaskStatusIndicator from '@/components/TaskStatusIndicator.vue'
 
 const route = useRoute()
