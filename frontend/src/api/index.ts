@@ -71,6 +71,14 @@ declare global {
 
           // Jobs
           SubmitBatchImportJob: (payload: any) => Promise<any>
+          SubmitSingleImportJob: (
+            filePath: string,
+            fileName: string,
+            description: string,
+            tags: string[],
+            keywords: string,
+            collectionName: string
+          ) => Promise<any>
           GetActiveJobs: () => Promise<any[]>
           GetResumableJobs: () => Promise<any[]>
           ListJobs: (page: number, pageSize: number, jobType: string) => Promise<any>
@@ -90,6 +98,15 @@ declare global {
       }
     }
   }
+}
+
+interface SingleImportJobRequest {
+  filePath: string
+  fileName: string
+  description: string
+  tags: string[]
+  keywords: string
+  collectionName: string
 }
 
 // Helper function to safely call Wails API
@@ -510,6 +527,27 @@ export const api = {
             return
           }
           window.go!.app!.App.SubmitBatchImportJob(payload)
+            .then(resolve)
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+    submitSingleImportJob: (payload: SingleImportJobRequest) =>
+      new Promise((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          window.go!.app!.App.SubmitSingleImportJob(
+            payload.filePath,
+            payload.fileName,
+            payload.description,
+            payload.tags,
+            payload.keywords,
+            payload.collectionName
+          )
             .then(resolve)
             .catch(reject)
         } catch (error) {

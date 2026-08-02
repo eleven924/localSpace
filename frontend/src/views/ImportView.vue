@@ -232,12 +232,11 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import FileMetadataFields from '@/components/FileMetadataFields.vue'
 import { api } from '@/api'
 import { formatFileSize } from '@/utils/constants'
-import type { BatchImportJobRequest, SelectedFile } from '@/types/jobs'
+import type { BatchImportJobRequest, SelectedFile, SingleImportJobRequest } from '@/types/jobs'
 import { useJobsStore } from '@/store/modules/jobs'
 
 type ImportMode = 'single' | 'batch'
@@ -288,7 +287,6 @@ const EXTENSION_TO_TYPE: Record<string, string> = {
   '.webp': 'image',
 }
 
-const router = useRouter()
 const jobsStore = useJobsStore()
 
 const mode = ref<ImportMode>('single')
@@ -416,20 +414,21 @@ const submitSingleImport = async () => {
   singleSuccess.value = ''
 
   try {
-    await api.file.importWithMetadata(
-      singleFile.value.path,
-      singleForm.fileName.trim(),
-      singleForm.description.trim(),
-      singleForm.tags,
-      singleForm.keywords.trim(),
-      singleForm.collectionName.trim()
-    )
-    singleSuccess.value = '文件已成功导入，稍后会跳转到文件列表。'
-    setTimeout(() => {
-      router.push('/files')
-    }, 400)
+    const payload: SingleImportJobRequest = {
+      filePath: singleFile.value.path,
+      fileName: singleForm.fileName.trim(),
+      description: singleForm.description.trim(),
+      tags: singleForm.tags,
+      keywords: singleForm.keywords.trim(),
+      collectionName: singleForm.collectionName.trim(),
+    }
+
+    await api.jobs.submitSingleImportJob(payload)
+    singleSuccess.value = '已创建后台导入任务，可在右上角消息中心或任务中心查看进度。'
+    singleFile.value = null
+    resetSingleForm()
   } catch (error) {
-    singleError.value = error instanceof Error ? error.message : '导入文件失败'
+    singleError.value = error instanceof Error ? error.message : '提交导入任务失败'
   } finally {
     singleSubmitting.value = false
   }

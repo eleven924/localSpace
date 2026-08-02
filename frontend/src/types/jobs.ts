@@ -12,6 +12,15 @@ export interface BatchImportJobRequest {
   enableAIGeneratedDescription: boolean
 }
 
+export interface SingleImportJobRequest {
+  filePath: string
+  fileName: string
+  description: string
+  tags: string[]
+  keywords: string
+  collectionName: string
+}
+
 export interface BatchImportFailedItem {
   sourcePath: string
   displayName: string
