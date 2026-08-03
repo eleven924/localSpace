@@ -329,6 +329,8 @@ func TestFileRepository_Update(t *testing.T) {
 	file.Tags = []string{"new", "updated"}
 	file.Description = "New description"
 	file.CollectionName = "新合集"
+	cid := uint(1)
+	file.CollectionID = &cid
 	err = repo.Update(file)
 	if err != nil {
 		t.Fatalf("Failed to update file: %v", err)
@@ -346,8 +348,11 @@ func TestFileRepository_Update(t *testing.T) {
 	if updated.Description != "New description" {
 		t.Errorf("Expected description 'New description', got '%s'", updated.Description)
 	}
-	if updated.CollectionName != "新合集" {
-		t.Errorf("Expected collection name '新合集', got '%s'", updated.CollectionName)
+	if updated.CollectionName != "旧合集" {
+		t.Errorf("Expected collection name to be preserved '旧合集', got '%s'", updated.CollectionName)
+	}
+	if updated.CollectionID == nil || *updated.CollectionID != 1 {
+		t.Errorf("Expected collection id 1, got %v", updated.CollectionID)
 	}
 }
 

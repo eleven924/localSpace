@@ -22,11 +22,12 @@ func NewFileRepository(dbWrapper *SQLiteDBWrapper) *FileRepository {
 
 // FileFilter represents filters for file queries
 type FileFilter struct {
-	Page      int
-	PageSize  int
-	FileType  string
-	SortBy    string
-	SortOrder string
+	Page         int
+	PageSize     int
+	FileType     string
+	CollectionID *uint
+	SortBy       string
+	SortOrder    string
 }
 
 var allowedSortColumns = map[string]bool{
@@ -64,13 +65,14 @@ func (r *FileRepository) Create(file *models.File) error {
 	}
 
 	query := `
-			INSERT INTO files (file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size, tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			INSERT INTO files (file_name, original_name, collection_name, collection_id, file_path, file_type, file_sub_type, file_size, tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	result, err := r.db.Exec(query,
 		file.FileName,
 		file.OriginalName,
 		file.CollectionName,
+		file.CollectionID,
 		file.FilePath,
 		file.FileType,
 		file.FileSubType,
@@ -100,7 +102,7 @@ func (r *FileRepository) Create(file *models.File) error {
 // FindByID finds a file by ID
 func (r *FileRepository) FindByID(id uint) (*models.File, error) {
 	query := `
-			SELECT id, file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size,
+			SELECT id, file_name, original_name, collection_name, collection_id, file_path, file_type, file_sub_type, file_size,
 			       tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at, created_at, modified_at
 			FROM files WHERE id = ?`
 
@@ -108,12 +110,14 @@ func (r *FileRepository) FindByID(id uint) (*models.File, error) {
 
 	var file models.File
 	var tagsJSON, metadataJSON string
+	var collectionID sql.NullInt64
 
 	err := row.Scan(
 		&file.ID,
 		&file.FileName,
 		&file.OriginalName,
 		&file.CollectionName,
+		&collectionID,
 		&file.FilePath,
 		&file.FileType,
 		&file.FileSubType,
@@ -145,13 +149,18 @@ func (r *FileRepository) FindByID(id uint) (*models.File, error) {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 
+	if collectionID.Valid {
+		cid := uint(collectionID.Int64)
+		file.CollectionID = &cid
+	}
+
 	return &file, nil
 }
 
 // List returns a list of files with filters
 func (r *FileRepository) List(filter FileFilter) ([]*models.File, error) {
 	query := `
-			SELECT id, file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size,
+			SELECT id, file_name, original_name, collection_name, collection_id, file_path, file_type, file_sub_type, file_size,
 			       tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at, created_at, modified_at
 			FROM files WHERE 1=1`
 
@@ -162,6 +171,13 @@ func (r *FileRepository) List(filter FileFilter) ([]*models.File, error) {
 	if filter.FileType != "" && filter.FileType != "all" {
 		query += fmt.Sprintf(" AND file_type = $%d", argIndex)
 		args = append(args, filter.FileType)
+		argIndex++
+	}
+
+	// Add collection filter
+	if filter.CollectionID != nil {
+		query += fmt.Sprintf(" AND collection_id = $%d", argIndex)
+		args = append(args, *filter.CollectionID)
 		argIndex++
 	}
 
@@ -186,12 +202,14 @@ func (r *FileRepository) List(filter FileFilter) ([]*models.File, error) {
 	for rows.Next() {
 		var file models.File
 		var tagsJSON, metadataJSON string
+		var collectionID sql.NullInt64
 
 		err := rows.Scan(
 			&file.ID,
 			&file.FileName,
 			&file.OriginalName,
 			&file.CollectionName,
+			&collectionID,
 			&file.FilePath,
 			&file.FileType,
 			&file.FileSubType,
@@ -220,10 +238,40 @@ func (r *FileRepository) List(filter FileFilter) ([]*models.File, error) {
 			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
 
+		if collectionID.Valid {
+			cid := uint(collectionID.Int64)
+			file.CollectionID = &cid
+		}
+
 		files = append(files, &file)
 	}
 
 	return files, nil
+}
+
+// Count returns the total number of files matching the filter
+func (r *FileRepository) Count(filter FileFilter) (int, error) {
+	whereParts := []string{"1=1"}
+	args := []interface{}{}
+	argIndex := 1
+
+	if filter.FileType != "" && filter.FileType != "all" {
+		whereParts = append(whereParts, fmt.Sprintf("file_type = $%d", argIndex))
+		args = append(args, filter.FileType)
+		argIndex++
+	}
+	if filter.CollectionID != nil {
+		whereParts = append(whereParts, fmt.Sprintf("collection_id = $%d", argIndex))
+		args = append(args, *filter.CollectionID)
+		argIndex++
+	}
+
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM files WHERE %s`, strings.Join(whereParts, " AND "))
+	var count int
+	if err := r.db.QueryRow(query, args...).Scan(&count); err != nil {
+		return 0, fmt.Errorf("failed to count files: %w", err)
+	}
+	return count, nil
 }
 
 // Search searches for files by query
@@ -231,7 +279,7 @@ func (r *FileRepository) Search(query string) ([]*models.File, error) {
 	searchQuery := "%" + strings.ToLower(query) + "%"
 
 	sqlQuery := `
-			SELECT id, file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size,
+			SELECT id, file_name, original_name, collection_name, collection_id, file_path, file_type, file_sub_type, file_size,
 			       tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at, created_at, modified_at
 			FROM files
 			WHERE LOWER(file_name) LIKE ?
@@ -251,12 +299,14 @@ func (r *FileRepository) Search(query string) ([]*models.File, error) {
 	for rows.Next() {
 		var file models.File
 		var tagsJSON, metadataJSON string
+		var collectionID sql.NullInt64
 
 		err := rows.Scan(
 			&file.ID,
 			&file.FileName,
 			&file.OriginalName,
 			&file.CollectionName,
+			&collectionID,
 			&file.FilePath,
 			&file.FileType,
 			&file.FileSubType,
@@ -283,6 +333,11 @@ func (r *FileRepository) Search(query string) ([]*models.File, error) {
 
 		if err := json.Unmarshal([]byte(metadataJSON), &file.Metadata); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+		}
+
+		if collectionID.Valid {
+			cid := uint(collectionID.Int64)
+			file.CollectionID = &cid
 		}
 
 		files = append(files, &file)
@@ -329,6 +384,28 @@ func (r *FileRepository) DeleteByPath(pathPrefix string) (int64, error) {
 	return rowsAffected, nil
 }
 
+// UpdateMetadataWithCollection updates tags, description, collection_id, and modified time for a file
+func (r *FileRepository) UpdateMetadataWithCollection(id uint, tags []string, description string, collectionID *uint) error {
+	tagsJSON, err := json.Marshal(tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags: %w", err)
+	}
+	query := `UPDATE files SET tags = ?, description = ?, collection_id = ?, modified_at = ? WHERE id = ?`
+	modifiedAt := time.Now().Format(time.RFC3339)
+	result, err := r.db.Exec(query, string(tagsJSON), description, collectionID, modifiedAt, id)
+	if err != nil {
+		return fmt.Errorf("failed to update file metadata: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("file not found")
+	}
+	return nil
+}
+
 // UpdateMetadata updates only tags, description, and modified time for a file
 func (r *FileRepository) UpdateMetadata(id uint, tags []string, description string) error {
 	tagsJSON, err := json.Marshal(tags)
@@ -369,14 +446,14 @@ func (r *FileRepository) Update(file *models.File) error {
 
 	query := `
 			UPDATE files
-			SET file_name = ?, collection_name = ?, file_path = ?, file_type = ?, file_sub_type = ?,
+			SET file_name = ?, collection_id = ?, file_path = ?, file_type = ?, file_sub_type = ?,
 			    file_size = ?, tags = ?, description = ?, metadata = ?, thumbnail = ?,
 			    modified_at = CURRENT_TIMESTAMP
 			WHERE id = ?`
 
 	result, err := r.db.Exec(query,
 		file.FileName,
-		file.CollectionName,
+		file.CollectionID,
 		file.FilePath,
 		file.FileType,
 		file.FileSubType,
@@ -441,7 +518,7 @@ func (r *FileRepository) ExistsByPath(path string) (bool, error) {
 // FindByChecksum finds a file by its checksum
 func (r *FileRepository) FindByChecksum(checksum string) (*models.File, error) {
 	query := `
-		SELECT id, file_name, original_name, collection_name, file_path, file_type, file_sub_type, file_size,
+		SELECT id, file_name, original_name, collection_name, collection_id, file_path, file_type, file_sub_type, file_size,
 		       tags, description, metadata, thumbnail, checksum, is_deleted, deleted_at, created_at, modified_at
 		FROM files WHERE checksum = ? AND is_deleted = FALSE`
 
@@ -449,12 +526,14 @@ func (r *FileRepository) FindByChecksum(checksum string) (*models.File, error) {
 
 	var file models.File
 	var tagsJSON, metadataJSON string
+	var collectionID sql.NullInt64
 
 	err := row.Scan(
 		&file.ID,
 		&file.FileName,
 		&file.OriginalName,
 		&file.CollectionName,
+		&collectionID,
 		&file.FilePath,
 		&file.FileType,
 		&file.FileSubType,
@@ -484,6 +563,11 @@ func (r *FileRepository) FindByChecksum(checksum string) (*models.File, error) {
 
 	if err := json.Unmarshal([]byte(metadataJSON), &file.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+	}
+
+	if collectionID.Valid {
+		cid := uint(collectionID.Int64)
+		file.CollectionID = &cid
 	}
 
 	return &file, nil
