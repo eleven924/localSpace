@@ -11,7 +11,7 @@
 
     <div class="section-block">
       <h5>已有合集</h5>
-      <div v-if="collections.length === 0" class="empty-state">暂无合集</div>
+      <div v-if="!collections || collections.length === 0" class="empty-state">暂无合集</div>
       <div v-else class="collection-list">
         <div v-for="collection in collections" :key="collection.id" class="collection-row">
           <span>{{ collection.name }}</span>
@@ -34,7 +34,7 @@ import { api } from '@/api'
 import type { Collection, File } from '@/types'
 
 const props = withDefaults(defineProps<{
-  files: File[]
+  files?: File[] | null
 }>(), {
   files: () => [],
 })
@@ -55,7 +55,8 @@ const fileCountMap = computed(() => {
 })
 
 const load = async () => {
-  collections.value = await api.collection.getAll()
+  const result = await api.collection.getAll()
+  collections.value = result || []
 }
 
 const addCollection = async () => {
