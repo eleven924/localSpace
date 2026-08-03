@@ -1,8 +1,10 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"LocalSpace/app/models"
 	"LocalSpace/app/repositories"
@@ -124,4 +126,52 @@ func (s *ConfigService) GetStoragePath() (string, error) {
 // CheckPathConflict checks if a path conflicts with existing directories
 func (s *ConfigService) CheckPathConflict(path string, excludeID uint) (bool, error) {
 	return s.configRepo.CheckPathConflict(path, excludeID)
+}
+
+const jobRetentionConfigKey = "job_retention_config"
+
+func defaultJobRetentionConfig() *models.JobRetentionConfig {
+	return &models.JobRetentionConfig{
+		ID:       1,
+		Enabled:  false,
+		MaxCount: 0,
+		MaxDays:  0,
+	}
+}
+
+// GetJobRetentionConfig returns the job retention configuration.
+func (s *ConfigService) GetJobRetentionConfig() (*models.JobRetentionConfig, error) {
+	value, err := s.configRepo.Get(jobRetentionConfigKey)
+	if err != nil {
+		if strings.Contains(err.Error(), "config key not found") {
+			return defaultJobRetentionConfig(), nil
+		}
+		return nil, err
+	}
+	if strings.TrimSpace(value) == "" {
+		return defaultJobRetentionConfig(), nil
+	}
+	var config models.JobRetentionConfig
+	if err := json.Unmarshal([]byte(value), &config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal job retention config: %w", err)
+	}
+	if config.ID == 0 {
+		config.ID = 1
+	}
+	return &config, nil
+}
+
+// UpdateJobRetentionConfig updates the job retention configuration.
+func (s *ConfigService) UpdateJobRetentionConfig(config models.JobRetentionConfig) error {
+	if config.MaxCount < 0 {
+		config.MaxCount = 0
+	}
+	if config.MaxDays < 0 {
+		config.MaxDays = 0
+	}
+	data, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal job retention config: %w", err)
+	}
+	return s.configRepo.Set(jobRetentionConfigKey, string(data))
 }
