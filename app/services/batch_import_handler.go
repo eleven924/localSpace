@@ -139,7 +139,7 @@ func (h *BatchImportHandler) process(ctx context.Context, job *models.Job, runti
 			return err
 		}
 
-		plan, err := runtime.FileService().PrepareBatchImport(sourcePath, displayName, payload.CollectionName, job.ID, item.ItemIndex)
+		plan, err := runtime.FileService().PrepareBatchImport(sourcePath, displayName, payload.CollectionID, job.ID, item.ItemIndex)
 		if err != nil {
 			finalizeFailedItem(item, err)
 			if updateErr := runtime.JobRepository().UpdateBatchImportItem(item); updateErr != nil {

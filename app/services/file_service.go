@@ -43,12 +43,12 @@ type FileService struct {
 
 // ImportFileRequest represents a file import request.
 type ImportFileRequest struct {
-	FilePath       string   // source path
-	FileName       string   // target display name
-	Description    string   // user-provided description
-	Tags           []string // user-provided tags
-	Keywords       string   // user-provided keywords
-	CollectionName string   // user-provided collection / series / project name
+	FilePath     string   // source path
+	FileName     string   // target display name
+	Description  string   // user-provided description
+	Tags         []string // user-provided tags
+	Keywords     string   // user-provided keywords
+	CollectionID *uint    // user-selected collection id
 }
 
 type BatchImportPlan struct {
@@ -138,7 +138,7 @@ func generateTempPath(masterPath, fileName, jobID string, itemIndex int) string 
 	return filepath.Join(masterPath, batchImportTempDir, base+batchImportTempSuffix)
 }
 
-func (s *FileService) prepareStagedImport(sourcePath, fileName, collectionName string, jobID string, itemIndex int, onProgress func(copied int64) error) (*stagedImport, error) {
+func (s *FileService) prepareStagedImport(sourcePath, fileName string, collectionID *uint, jobID string, itemIndex int, onProgress func(copied int64) error) (*stagedImport, error) {
 	if sourcePath == "" {
 		return nil, fmt.Errorf("source path cannot be empty")
 	}
@@ -181,6 +181,15 @@ func (s *FileService) prepareStagedImport(sourcePath, fileName, collectionName s
 	layoutConfig, err := s.storageService.GetStorageLayoutConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get storage layout config: %w", err)
+	}
+
+	collectionName := ""
+	if collectionID != nil {
+		collection, err := s.collectionRepo.FindByID(*collectionID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve collection: %w", err)
+		}
+		collectionName = collection.Name
 	}
 
 	trimmedCollectionName := strings.TrimSpace(collectionName)
@@ -377,7 +386,7 @@ func (s *FileService) ImportFile(req ImportFileRequest) error {
 		fileName = filepath.Base(req.FilePath)
 	}
 
-	staged, err := s.prepareStagedImport(req.FilePath, fileName, req.CollectionName, "", 0, nil)
+	staged, err := s.prepareStagedImport(req.FilePath, fileName, req.CollectionID, "", 0, nil)
 	if err != nil {
 		return err
 	}
@@ -417,13 +426,13 @@ func (s *FileService) resolveMetadataForImport(req *ImportFileRequest) importMet
 	return result
 }
 
-func (s *FileService) PrepareBatchImport(sourcePath, displayName, collectionName string, jobID uint, itemIndex int) (*BatchImportPlan, error) {
+func (s *FileService) PrepareBatchImport(sourcePath, displayName string, collectionID *uint, jobID uint, itemIndex int) (*BatchImportPlan, error) {
 	fileName := strings.TrimSpace(displayName)
 	if fileName == "" {
 		fileName = filepath.Base(sourcePath)
 	}
 
-	staged, err := s.prepareStagedImport(sourcePath, fileName, collectionName, fmt.Sprintf("%d", jobID), itemIndex, nil)
+	staged, err := s.prepareStagedImport(sourcePath, fileName, collectionID, fmt.Sprintf("%d", jobID), itemIndex, nil)
 	if err != nil {
 		return nil, err
 	}

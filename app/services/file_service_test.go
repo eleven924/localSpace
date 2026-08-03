@@ -13,20 +13,21 @@ import (
 )
 
 func TestImportFileRequestKeywords(t *testing.T) {
+	cid := uint(3)
 	req := ImportFileRequest{
-		FilePath:    "/test/path/file.txt",
-		FileName:    "file.txt",
-		Description: "test description",
-		Tags:        []string{"tag1", "tag2"},
-		Keywords:    "test keywords",
-		CollectionName: "测试合集",
+		FilePath:     "/test/path/file.txt",
+		FileName:     "file.txt",
+		Description:  "test description",
+		Tags:         []string{"tag1", "tag2"},
+		Keywords:     "test keywords",
+		CollectionID: &cid,
 	}
 
 	if req.Keywords != "test keywords" {
 		t.Errorf("Expected Keywords to be 'test keywords', got '%s'", req.Keywords)
 	}
-	if req.CollectionName != "测试合集" {
-		t.Errorf("Expected CollectionName to be '测试合集', got '%s'", req.CollectionName)
+	if req.CollectionID == nil || *req.CollectionID != 3 {
+		t.Errorf("Expected CollectionID to be 3, got %v", req.CollectionID)
 	}
 
 	// Test default empty value
@@ -38,8 +39,8 @@ func TestImportFileRequestKeywords(t *testing.T) {
 	if emptyReq.Keywords != "" {
 		t.Errorf("Expected default Keywords to be empty string, got '%s'", emptyReq.Keywords)
 	}
-	if emptyReq.CollectionName != "" {
-		t.Errorf("Expected default CollectionName to be empty string, got '%s'", emptyReq.CollectionName)
+	if emptyReq.CollectionID != nil {
+		t.Errorf("Expected default CollectionID to be nil, got %v", emptyReq.CollectionID)
 	}
 }
 

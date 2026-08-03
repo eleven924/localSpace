@@ -70,7 +70,7 @@ type BatchImportJobRequest struct {
 	Files                        []BatchImportFileInput `json:"files"`
 	SharedTags                   []string               `json:"sharedTags"`
 	SharedDescription            string                 `json:"sharedDescription"`
-	CollectionName               string                 `json:"collectionName"`
+	CollectionID                 *uint                  `json:"collectionId"`
 	EnableAIGeneratedTags        bool                   `json:"enableAIGeneratedTags"`
 	EnableAIGeneratedDescription bool                   `json:"enableAIGeneratedDescription"`
 }

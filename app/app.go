@@ -269,14 +269,18 @@ func (a *App) ImportFileWithKeywords(filePath, fileName, description string, tag
 }
 
 // ImportFileWithMetadata imports a file with keywords and collection metadata.
-func (a *App) ImportFileWithMetadata(filePath, fileName, description string, tags []string, keywords, collectionName string) error {
+func (a *App) ImportFileWithMetadata(filePath, fileName, description string, tags []string, keywords string, collectionID uint) error {
+	var cid *uint
+	if collectionID > 0 {
+		cid = &collectionID
+	}
 	return a.fileService.ImportFile(services.ImportFileRequest{
-		FilePath:       filePath,
-		FileName:       fileName,
-		Description:    description,
-		Tags:           tags,
-		Keywords:       keywords,
-		CollectionName: collectionName,
+		FilePath:     filePath,
+		FileName:     fileName,
+		Description:  description,
+		Tags:         tags,
+		Keywords:     keywords,
+		CollectionID: cid,
 	})
 }
 
@@ -287,15 +291,19 @@ func (a *App) SubmitSingleImportJob(
 	description string,
 	tags []string,
 	keywords string,
-	collectionName string,
+	collectionID uint,
 ) (*models.Job, error) {
+	var cid *uint
+	if collectionID > 0 {
+		cid = &collectionID
+	}
 	return a.jobService.SubmitSingleImportJob(services.ImportFileRequest{
-		FilePath:       filePath,
-		FileName:       fileName,
-		Description:    description,
-		Tags:           tags,
-		Keywords:       keywords,
-		CollectionName: collectionName,
+		FilePath:     filePath,
+		FileName:     fileName,
+		Description:  description,
+		Tags:         tags,
+		Keywords:     keywords,
+		CollectionID: cid,
 	})
 }
 
