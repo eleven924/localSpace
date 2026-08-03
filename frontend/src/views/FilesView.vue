@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page-shell files-view">
     <AppHeader />
 
@@ -17,6 +17,7 @@
               v-model="filesStore.currentCollectionId"
               :collections="collections"
               :files="filesStore.files"
+              :counts="filesStore.collectionFilterCounts"
               :total-count="filesStore.totalFiles"
               @filter="handleCollectionFilter"
             />
@@ -156,6 +157,7 @@ import PaginationControls from '@/components/PaginationControls.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import { useFilesStore } from '@/store/modules/files'
 import type { Collection } from '@/types'
+import { isUnsortedCollectionName, UNSORTED_COLLECTION_KEY } from '@/utils/constants'
 
 const filesStore = useFilesStore()
 const route = useRoute()
@@ -173,6 +175,7 @@ const moveTotal = ref(0)
 const moveCompleted = ref(0)
 const moveMessage = ref('')
 const moveCollectionName = ref('')
+const routeCollectionKey = ref('all')
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -187,9 +190,33 @@ const applyRouteState = () => {
   const routeSearch = getQueryValue(route.query.q)
 
   filesStore.currentFileType = routeType
-  filesStore.currentCollectionId = routeCollection === 'unsorted' ? 'unsorted' : routeCollection === 'all' ? 'all' : Number(routeCollection)
+  // 先保留路由里的原始集合键，等集合列表加载完成后再解析成 id，避免名称和 id 混用.
+  routeCollectionKey.value = routeCollection
+  filesStore.currentCollectionId = 'all'
   searchQuery.value = routeSearch
   listMode.value = routeView
+}
+
+const resolveRouteCollectionId = () => {
+  const normalized = routeCollectionKey.value.trim()
+  if (!normalized || normalized === 'all') {
+    return 'all' as const
+  }
+  if (normalized === 'unsorted' || normalized === UNSORTED_COLLECTION_KEY || isUnsortedCollectionName(normalized)) {
+    return 'unsorted' as const
+  }
+
+  const numericId = Number(normalized)
+  if (Number.isInteger(numericId) && numericId > 0) {
+    return numericId
+  }
+
+  const matchedCollection = collections.value.find((collection) => collection.name === normalized)
+  return matchedCollection?.id ?? 'all'
+}
+
+const syncRouteCollectionSelection = () => {
+  filesStore.currentCollectionId = resolveRouteCollectionId()
 }
 
 const persistRouteState = async () => {
@@ -232,6 +259,8 @@ const loadInitialFiles = async () => {
   }
 
   if (!isUnmounted) {
+    await loadCollections()
+    syncRouteCollectionSelection()
     await refreshCurrentResults()
   }
 }
@@ -262,8 +291,8 @@ const emptyStateTitle = computed(() => {
 
 const emptyStateDescription = computed(() => {
   return searchQuery.value.trim()
-    ? '试试更换关键词，或者清空搜索后查看全部资料。'
-    : '从导入页面添加文件后，会在这里形成你的资料库。'
+    ? '试试换个关键词，或者清空搜索后查看全部资料。'
+    : '从导入页添加文件后，会在这里形成你的资料库。'
 })
 
 const emptyStateMode = computed<'library' | 'search'>(() => {
@@ -272,7 +301,6 @@ const emptyStateMode = computed<'library' | 'search'>(() => {
 
 onMounted(() => {
   applyRouteState()
-  void loadCollections()
   void loadInitialFiles()
 })
 
@@ -426,7 +454,8 @@ const confirmMove = async () => {
     return
   }
 
-  const targetName = collections.value.find((c) => c.id === targetCollectionId.value)?.name || '未分配'
+  const selectedTargetCollectionId = targetCollectionId.value
+  const targetName = collections.value.find((c) => c.id === selectedTargetCollectionId)?.name || '未分配合集'
   moveCollectionName.value = targetName
   moveTotal.value = ids.length
   moveCompleted.value = 0
@@ -435,18 +464,27 @@ const confirmMove = async () => {
   closeMoveDialog()
 
   try {
+    const failedMessages: string[] = []
     for (let i = 0; i < ids.length; i++) {
       moveCompleted.value = i
       moveMessage.value = `正在处理第 ${i + 1} / ${ids.length} 个文件`
-      const res = await api.file.batchUpdateCollection([ids[i]], targetCollectionId.value)
+      const res = await api.file.batchUpdateCollection([ids[i]], selectedTargetCollectionId)
       if (res.failedCount > 0) {
         console.error('Failed to move file:', res.failedItems)
+        // 后端批量接口会返回单文件失败项，这里集中提示，避免用户误以为没有执行。
+        ;(res.failedItems || []).forEach((item: { fileName?: string; fileID?: number; error?: string }) => {
+          const label = item.fileName || `ID ${item.fileID ?? ids[i]}`
+          failedMessages.push(`${label}: ${item.error || '移动失败'}`)
+        })
       }
     }
     moveCompleted.value = ids.length
     moveMessage.value = '移动完成'
     filesStore.clearSelection()
     await refreshCurrentResults()
+    if (failedMessages.length > 0) {
+      window.alert(`移动完成，但有 ${failedMessages.length} 个文件失败：\n${failedMessages.slice(0, 5).join('\n')}`)
+    }
   } catch (error) {
     console.error('Failed to batch move files:', error)
     window.alert('移动文件失败')
@@ -669,3 +707,5 @@ const confirmBatchDelete = async () => {
   }
 }
 </style>
+
+

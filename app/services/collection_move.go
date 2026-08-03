@@ -23,40 +23,27 @@ func moveFileToCollection(
 		if err != nil {
 			return fmt.Errorf("failed to resolve collection: %w", err)
 		}
-		targetName = collection.Name
+		targetName = strings.TrimSpace(collection.Name)
 	}
 
 	oldPath := file.FilePath
+	oldCollectionID := file.CollectionID
+	oldCollectionName := file.CollectionName
 	master, err := findMasterForPath(storageService, oldPath)
 	if err != nil {
 		return err
 	}
 
-	layout, err := storageService.GetStorageLayoutConfig()
+	// 目标路径复用导入时的存储布局规则，保证移动合集和新导入落在同一类目录结构下。
+	newPath, err := storageService.GetStoragePathForFileWithMaster(master.ID, file.FileType, targetName, file.FileName)
 	if err != nil {
 		return err
 	}
-
-	segment := targetName
-	if segment == "" {
-		segment = layout.UnsortedFolderName
-	}
-	if layout.SanitizeFolderName {
-		segment = sanitizePathSegment(segment)
-	}
-
-	_, subPath, err := storageService.EnsureSubDirectory(master.ID, file.FileType)
-	if err != nil {
-		return err
-	}
-	if layout.Strategy == "type_collection" {
-		subPath = filepath.Join(subPath, segment)
-	}
-	newPath := filepath.Join(subPath, file.FileName)
 
 	if newPath == oldPath {
 		file.CollectionID = collectionID
-		return fileRepo.Update(file)
+		file.CollectionName = targetName
+		return fileRepo.UpdateCollectionMove(file.ID, collectionID, targetName, oldPath)
 	}
 
 	if _, err := os.Stat(newPath); err == nil {
@@ -67,22 +54,24 @@ func moveFileToCollection(
 	}
 
 	file.CollectionID = collectionID
+	file.CollectionName = targetName
 	file.FilePath = newPath
-	if err := fileRepo.Update(file); err != nil {
+	if err := fileRepo.UpdateCollectionMove(file.ID, collectionID, targetName, newPath); err != nil {
 		return err
 	}
 	if err := os.Rename(oldPath, newPath); err != nil {
-		file.CollectionID = nil
+		file.CollectionID = oldCollectionID
+		file.CollectionName = oldCollectionName
 		file.FilePath = oldPath
-		_ = fileRepo.Update(file)
+		_ = fileRepo.UpdateCollectionMove(file.ID, oldCollectionID, oldCollectionName, oldPath)
 		return fmt.Errorf("failed to move file: %w", err)
 	}
 
-	if err := storageService.UpdateMasterDirectorySize(master.ID, file.FileType, -file.FileSize); err != nil {
-		fmt.Printf("Warning: failed to update old master size: %v\n", err)
-	}
 	newMaster, err := findMasterForPath(storageService, newPath)
 	if err == nil && newMaster.ID != master.ID {
+		if err := storageService.UpdateMasterDirectorySize(master.ID, file.FileType, -file.FileSize); err != nil {
+			fmt.Printf("Warning: failed to update old master size: %v\n", err)
+		}
 		if err := storageService.UpdateMasterDirectorySize(newMaster.ID, file.FileType, file.FileSize); err != nil {
 			fmt.Printf("Warning: failed to update new master size: %v\n", err)
 		}

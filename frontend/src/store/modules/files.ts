@@ -1,13 +1,23 @@
-import { defineStore } from 'pinia'
+﻿import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/api/index'
-import type { CollectionSummary, File as LibraryFile, FileListResponse } from '@/types'
+import type { CollectionFilterCounts, CollectionSummary, File as LibraryFile, FileListResponse } from '@/types'
+import {
+  normalizeCollectionGroupKey,
+  normalizeCollectionGroupLabel,
+  UNSORTED_COLLECTION_KEY,
+} from '@/utils/constants'
 
 export const useFilesStore = defineStore('files', () => {
   const files = ref<LibraryFile[]>([])
   const currentPage = ref(1)
   const pageSize = ref(50)
   const totalFiles = ref(0)
+  const collectionFilterCounts = ref<CollectionFilterCounts>({
+    total: 0,
+    unsorted: 0,
+    collections: {},
+  })
   const currentFileType = ref('all')
   const currentCollectionId = ref<number | 'all' | 'unsorted'>('all')
   const searchQuery = ref('')
@@ -46,12 +56,22 @@ export const useFilesStore = defineStore('files', () => {
       )
       files.value = resp.items
       totalFiles.value = resp.total
+      await loadCollectionFilterCounts(fileType)
     } catch (err) {
       error.value = err instanceof Error ? err.message : '加载文件失败'
       files.value = []
       totalFiles.value = 0
     } finally {
       loading.value = false
+    }
+  }
+
+  const loadCollectionFilterCounts = async (fileType: string = currentFileType.value) => {
+    try {
+      collectionFilterCounts.value = await api.collection.getFilterCounts(fileType)
+    } catch (err) {
+      console.error('Failed to load collection filter counts:', err)
+      collectionFilterCounts.value = { total: 0, unsorted: 0, collections: {} }
     }
   }
 
@@ -153,8 +173,8 @@ export const useFilesStore = defineStore('files', () => {
     const groups = new Map<string, CollectionSummary>()
 
     files.value.forEach((file) => {
-      const value = file.collectionName?.trim() || '_unsorted'
-      const label = file.collectionName?.trim() || '未分配'
+      const value = normalizeCollectionGroupKey(file.collectionName)
+      const label = normalizeCollectionGroupLabel(file.collectionName)
       const existing = groups.get(value)
 
       if (existing) {
@@ -175,6 +195,8 @@ export const useFilesStore = defineStore('files', () => {
     })
 
     return Array.from(groups.values()).sort((left, right) => {
+      if (left.value === UNSORTED_COLLECTION_KEY) return 1
+      if (right.value === UNSORTED_COLLECTION_KEY) return -1
       if (right.count !== left.count) {
         return right.count - left.count
       }
@@ -187,6 +209,7 @@ export const useFilesStore = defineStore('files', () => {
     currentPage,
     pageSize,
     totalFiles,
+    collectionFilterCounts,
     totalPages,
     fileTypeCounts,
     collectionSummaries,
@@ -197,6 +220,7 @@ export const useFilesStore = defineStore('files', () => {
     loading,
     error,
     loadFiles,
+    loadCollectionFilterCounts,
     searchFiles,
     clearSearch,
     setCurrentFileType,
@@ -209,3 +233,4 @@ export const useFilesStore = defineStore('files', () => {
     selectAll,
   }
 })
+

@@ -206,3 +206,131 @@ func TestRenameFile_UpdatesDatabaseBeforeRenaming(t *testing.T) {
 		t.Errorf("expected renamed file to exist at %s: %v", updated.FilePath, err)
 	}
 }
+
+func TestImportFile_PersistsCollectionID(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	wrapper := repositories.NewSQLiteDBWrapper(db)
+	fileRepo := repositories.NewFileRepository(wrapper)
+	collectionRepo := repositories.NewCollectionRepository(wrapper)
+	configRepo := repositories.NewConfigRepository(wrapper)
+	storageService := NewStorageService(configRepo)
+	thumbnailService := NewThumbnailService(filepath.Join(tempDir, "thumbnails"))
+
+	service := NewFileService(fileRepo, collectionRepo, storageService, nil, thumbnailService)
+
+	masterDir := filepath.Join(tempDir, "master")
+	if err := os.MkdirAll(masterDir, 0755); err != nil {
+		t.Fatalf("failed to create master dir: %v", err)
+	}
+	if err := storageService.AddMasterDirectory(masterDir, 0); err != nil {
+		t.Fatalf("failed to add master directory: %v", err)
+	}
+
+	collectionID, err := collectionRepo.Add("V世代")
+	if err != nil {
+		t.Fatalf("failed to add collection: %v", err)
+	}
+
+	sourcePath := filepath.Join(tempDir, "source.txt")
+	if err := os.WriteFile(sourcePath, []byte("hello world"), 0644); err != nil {
+		t.Fatalf("failed to create source file: %v", err)
+	}
+
+	if err := service.ImportFile(ImportFileRequest{
+		FilePath:     sourcePath,
+		FileName:     "imported.txt",
+		CollectionID: &collectionID,
+	}); err != nil {
+		t.Fatalf("expected import to succeed: %v", err)
+	}
+
+	files, err := fileRepo.List(repositories.FileFilter{Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("failed to list files: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("expected 1 file, got %d", len(files))
+	}
+
+	file := files[0]
+	if file.CollectionID == nil {
+		t.Fatalf("expected CollectionID to be set")
+	}
+	if *file.CollectionID != collectionID {
+		t.Fatalf("expected CollectionID %d, got %d", collectionID, *file.CollectionID)
+	}
+	if file.CollectionName != "V世代" {
+		t.Fatalf("expected CollectionName 'V世代', got %q", file.CollectionName)
+	}
+}
+
+func TestFinalizeBatchImport_PersistsCollectionID(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	wrapper := repositories.NewSQLiteDBWrapper(db)
+	fileRepo := repositories.NewFileRepository(wrapper)
+	collectionRepo := repositories.NewCollectionRepository(wrapper)
+	configRepo := repositories.NewConfigRepository(wrapper)
+	storageService := NewStorageService(configRepo)
+	thumbnailService := NewThumbnailService(filepath.Join(tempDir, "thumbnails"))
+
+	service := NewFileService(fileRepo, collectionRepo, storageService, nil, thumbnailService)
+
+	masterDir := filepath.Join(tempDir, "master")
+	if err := os.MkdirAll(masterDir, 0755); err != nil {
+		t.Fatalf("failed to create master dir: %v", err)
+	}
+	if err := storageService.AddMasterDirectory(masterDir, 0); err != nil {
+		t.Fatalf("failed to add master directory: %v", err)
+	}
+
+	collectionID, err := collectionRepo.Add("V世代")
+	if err != nil {
+		t.Fatalf("failed to add collection: %v", err)
+	}
+
+	sourcePath := filepath.Join(tempDir, "source.txt")
+	if err := os.WriteFile(sourcePath, []byte("batch import content"), 0644); err != nil {
+		t.Fatalf("failed to create source file: %v", err)
+	}
+
+	plan, err := service.PrepareBatchImport(sourcePath, "batch-imported.txt", &collectionID, 1, 0)
+	if err != nil {
+		t.Fatalf("failed to prepare batch import: %v", err)
+	}
+	if _, err := service.FinalizeBatchImport(plan, []string{"tag"}, "description", models.Metadata{}); err != nil {
+		t.Fatalf("failed to finalize batch import: %v", err)
+	}
+
+	files, err := fileRepo.List(repositories.FileFilter{Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("failed to list files: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("expected 1 file, got %d", len(files))
+	}
+
+	file := files[0]
+	if file.CollectionID == nil {
+		t.Fatalf("expected CollectionID to be set")
+	}
+	if *file.CollectionID != collectionID {
+		t.Fatalf("expected CollectionID %d, got %d", collectionID, *file.CollectionID)
+	}
+	if file.CollectionName != "V世代" {
+		t.Fatalf("expected CollectionName 'V世代', got %q", file.CollectionName)
+	}
+}

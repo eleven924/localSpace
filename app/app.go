@@ -22,15 +22,15 @@ import (
 
 // App struct
 type App struct {
-	ctx              context.Context
-	db               *sql.DB
-	fileService      *services.FileService
-	storageService   *services.StorageService
-	aiService        *services.AIService
-	agentService     *services.AgentService
-	configService    *services.ConfigService
-	thumbnailService *services.ThumbnailService
-	jobService       *services.JobService
+	ctx               context.Context
+	db                *sql.DB
+	fileService       *services.FileService
+	storageService    *services.StorageService
+	aiService         *services.AIService
+	agentService      *services.AgentService
+	configService     *services.ConfigService
+	thumbnailService  *services.ThumbnailService
+	jobService        *services.JobService
 	collectionService *services.CollectionService
 }
 
@@ -380,10 +380,18 @@ func (a *App) UpdateFileMetadata(id uint, tags []string, description string, col
 
 // GetCollections returns all collections.
 func (a *App) GetCollections() ([]models.Collection, error) {
-	if !a.isInitialized() {
+	if !a.waitForInitialization(5 * time.Second) {
 		return nil, fmt.Errorf("app not initialized")
 	}
 	return a.collectionService.GetCollections()
+}
+
+// GetCollectionFilterCounts returns collection filter counts for the current file type.
+func (a *App) GetCollectionFilterCounts(fileType string) (*models.CollectionFilterCounts, error) {
+	if !a.waitForInitialization(5 * time.Second) {
+		return &models.CollectionFilterCounts{Collections: map[uint]int{}}, fmt.Errorf("app not initialized")
+	}
+	return a.collectionService.GetCollectionFilterCounts(fileType)
 }
 
 // AddCollection creates a new collection.

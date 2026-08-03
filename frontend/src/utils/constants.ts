@@ -104,3 +104,25 @@ export const DEFAULT_SETTINGS = {
 
 export const UNSORTED_COLLECTION_KEY = '__unsorted__'
 export const UNSORTED_COLLECTION_LABEL = '未分配合集'
+
+const UNSORTED_COLLECTION_ALIASES = new Set([
+  UNSORTED_COLLECTION_KEY,
+  UNSORTED_COLLECTION_LABEL,
+  '未分类合集',
+  '未分类',
+  '未分配',
+])
+
+// 统一未分配合集的历史写法，避免旧数据把同一类文件拆成多个分组。
+export const isUnsortedCollectionName = (collectionName?: string) => {
+  const normalized = collectionName?.trim()
+  return !normalized || UNSORTED_COLLECTION_ALIASES.has(normalized)
+}
+
+export const normalizeCollectionGroupKey = (collectionName?: string) => {
+  return isUnsortedCollectionName(collectionName) ? UNSORTED_COLLECTION_KEY : collectionName!.trim()
+}
+
+export const normalizeCollectionGroupLabel = (collectionName?: string) => {
+  return isUnsortedCollectionName(collectionName) ? UNSORTED_COLLECTION_LABEL : collectionName!.trim()
+}

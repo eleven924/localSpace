@@ -15,6 +15,7 @@ declare global {
 
           // Collection operations
           GetCollections: () => Promise<any[]>
+          GetCollectionFilterCounts: (fileType: string) => Promise<any>
           AddCollection: (name: string) => Promise<number>
           RemoveCollection: (id: number) => Promise<string>
 
@@ -200,6 +201,12 @@ export const api = {
         () => window.go!.app!.App.GetCollections(),
         [],
         'GetCollections'
+      ),
+    getFilterCounts: (fileType: string) =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetCollectionFilterCounts(fileType),
+        { total: 0, unsorted: 0, collections: {} },
+        `GetCollectionFilterCounts(${fileType})`
       ),
     add: (name: string) =>
       safeWailsCall(

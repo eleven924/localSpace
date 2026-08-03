@@ -16,6 +16,12 @@ type FileListResponse struct {
 	Total    int     `json:"total"`
 }
 
+type CollectionFilterCounts struct {
+	Total       int          `json:"total"`
+	Unsorted    int          `json:"unsorted"`
+	Collections map[uint]int `json:"collections"`
+}
+
 type BatchMoveResult struct {
 	SuccessCount int                   `json:"successCount"`
 	FailedCount  int                   `json:"failedCount"`

@@ -70,6 +70,10 @@ export function GetActiveJobs() {
   return window['go']['app']['App']['GetActiveJobs']();
 }
 
+export function GetCollectionFilterCounts(arg1) {
+  return window['go']['app']['App']['GetCollectionFilterCounts'](arg1);
+}
+
 export function GetCollections() {
   return window['go']['app']['App']['GetCollections']();
 }

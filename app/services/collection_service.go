@@ -33,6 +33,10 @@ func (s *CollectionService) GetCollections() ([]models.Collection, error) {
 	return s.collectionRepo.GetAll()
 }
 
+func (s *CollectionService) GetCollectionFilterCounts(fileType string) (*models.CollectionFilterCounts, error) {
+	return s.fileRepo.CountCollectionFilters(fileType)
+}
+
 // AddCollection creates a new collection.
 func (s *CollectionService) AddCollection(name string) (uint, error) {
 	return s.collectionRepo.Add(name)

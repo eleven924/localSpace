@@ -55,6 +55,7 @@ type BatchImportPlan struct {
 	SourcePath     string
 	FileName       string
 	OriginalName   string
+	CollectionID   *uint
 	CollectionName string
 	FileType       string
 	FileSubType    string
@@ -76,13 +77,14 @@ type BatchImportMetadataRequest struct {
 
 // FileFilter represents filters for file queries.
 type FileFilter struct {
-	Page         int
-	PageSize     int
-	FileType     string
-	CollectionID *uint
-	UnsortedOnly bool
-	SortBy       string
-	SortOrder    string
+	Page           int
+	PageSize       int
+	FileType       string
+	CollectionID   *uint
+	CollectionName string
+	UnsortedOnly   bool
+	SortBy         string
+	SortOrder      string
 }
 
 // NewFileService creates a new FileService.
@@ -113,6 +115,7 @@ type stagedImport struct {
 	FileType       string
 	FileSubType    string
 	MasterID       uint
+	CollectionID   *uint
 	CollectionName string
 	FileName       string
 	OriginalName   string
@@ -257,6 +260,7 @@ func (s *FileService) prepareStagedImport(sourcePath, fileName string, collectio
 		FileType:       fileType,
 		FileSubType:    strings.TrimPrefix(extension, "."),
 		MasterID:       defaultMaster.ID,
+		CollectionID:   collectionID,
 		CollectionName: effectiveCollectionName,
 		FileName:       targetFileName,
 		OriginalName:   filepath.Base(sourcePath),
@@ -271,6 +275,7 @@ func (s *FileService) commitStagedImport(staged *stagedImport, tags []string, de
 	file := &models.File{
 		FileName:       staged.FileName,
 		OriginalName:   staged.OriginalName,
+		CollectionID:   staged.CollectionID,
 		CollectionName: staged.CollectionName,
 		FilePath:       staged.FinalPath,
 		FileType:       staged.FileType,
@@ -443,6 +448,7 @@ func (s *FileService) PrepareBatchImport(sourcePath, displayName string, collect
 		SourcePath:     staged.SourcePath,
 		FileName:       staged.FileName,
 		OriginalName:   staged.OriginalName,
+		CollectionID:   staged.CollectionID,
 		CollectionName: staged.CollectionName,
 		FileType:       staged.FileType,
 		FileSubType:    staged.FileSubType,
@@ -483,14 +489,16 @@ func (s *FileService) FinalizeBatchImport(plan *BatchImportPlan, tags []string, 
 	}
 
 	staged := &stagedImport{
-		SourcePath:     plan.SourcePath,
-		TempPath:       plan.TempPath,
-		FinalPath:      plan.FinalPath,
-		Checksum:       plan.Checksum,
-		FileSize:       plan.FileSize,
-		FileType:       plan.FileType,
-		FileSubType:    plan.FileSubType,
-		MasterID:       plan.MasterID,
+		SourcePath:  plan.SourcePath,
+		TempPath:    plan.TempPath,
+		FinalPath:   plan.FinalPath,
+		Checksum:    plan.Checksum,
+		FileSize:    plan.FileSize,
+		FileType:    plan.FileType,
+		FileSubType: plan.FileSubType,
+		MasterID:    plan.MasterID,
+		// 批量导入最终落库时要保留用户选择的合集 ID，避免前端按 ID 统计为 0。
+		CollectionID:   plan.CollectionID,
 		CollectionName: plan.CollectionName,
 		FileName:       plan.FileName,
 		OriginalName:   plan.OriginalName,
@@ -646,14 +654,20 @@ func sameCollectionID(a, b *uint) bool {
 
 // ListFiles returns a list of files.
 func (s *FileService) ListFiles(filter FileFilter) ([]*models.File, error) {
+	filter, err := s.withLegacyCollectionName(filter)
+	if err != nil {
+		return nil, err
+	}
+
 	files, err := s.fileRepo.List(repositories.FileFilter{
-		Page:         filter.Page,
-		PageSize:     filter.PageSize,
-		FileType:     filter.FileType,
-		CollectionID: filter.CollectionID,
-		UnsortedOnly: filter.UnsortedOnly,
-		SortBy:       filter.SortBy,
-		SortOrder:    filter.SortOrder,
+		Page:           filter.Page,
+		PageSize:       filter.PageSize,
+		FileType:       filter.FileType,
+		CollectionID:   filter.CollectionID,
+		CollectionName: filter.CollectionName,
+		UnsortedOnly:   filter.UnsortedOnly,
+		SortBy:         filter.SortBy,
+		SortOrder:      filter.SortOrder,
 	})
 	if err != nil {
 		return nil, err
@@ -718,14 +732,19 @@ func (s *FileService) ListFilesResponse(filter FileFilter) (*models.FileListResp
 	if filter.PageSize <= 0 {
 		filter.PageSize = 50
 	}
+	filter, err := s.withLegacyCollectionName(filter)
+	if err != nil {
+		return nil, err
+	}
 	files, err := s.ListFiles(filter)
 	if err != nil {
 		return nil, err
 	}
 	total, err := s.fileRepo.Count(repositories.FileFilter{
-		FileType:     filter.FileType,
-		CollectionID: filter.CollectionID,
-		UnsortedOnly: filter.UnsortedOnly,
+		FileType:       filter.FileType,
+		CollectionID:   filter.CollectionID,
+		CollectionName: filter.CollectionName,
+		UnsortedOnly:   filter.UnsortedOnly,
 	})
 	if err != nil {
 		return nil, err
@@ -736,6 +755,20 @@ func (s *FileService) ListFilesResponse(filter FileFilter) (*models.FileListResp
 		PageSize: filter.PageSize,
 		Total:    total,
 	}, nil
+}
+
+func (s *FileService) withLegacyCollectionName(filter FileFilter) (FileFilter, error) {
+	if filter.CollectionID == nil || strings.TrimSpace(filter.CollectionName) != "" {
+		return filter, nil
+	}
+
+	// 按合集 ID 筛选时补充名称，用来兼容历史导入中只写 collection_name 的记录。
+	collection, err := s.collectionRepo.FindByID(*filter.CollectionID)
+	if err != nil {
+		return filter, fmt.Errorf("failed to resolve collection: %w", err)
+	}
+	filter.CollectionName = collection.Name
+	return filter, nil
 }
 
 // SearchFilesResponse returns a paginated search result.

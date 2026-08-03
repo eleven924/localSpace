@@ -127,6 +127,12 @@ export interface FileListResponse {
   total: number
 }
 
+export interface CollectionFilterCounts {
+  total: number
+  unsorted: number
+  collections: Record<number, number>
+}
+
 export interface BatchMoveFailedItem {
   fileId: number
   fileName: string

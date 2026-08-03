@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="file-list-container">
     <div v-if="files.length === 0" class="empty-state">
       <div class="empty-icon" :class="`is-${emptyStateMode}`">
@@ -28,7 +28,7 @@
         </svg>
       </div>
       <h3>{{ emptyTitle }}</h3>
-      <p>{{ emptyDescription }}</p>
+       param($m) if($m.Value -like '*filesStore.loading*'){ $m.Value } else { $m.Value } 
     </div>
 
     <div v-else-if="groupByCollection" class="grouped-file-list scroll-soft">
@@ -90,7 +90,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { File as LibraryFile } from '@/types'
-import { UNSORTED_COLLECTION_KEY, UNSORTED_COLLECTION_LABEL } from '@/utils/constants'
+import {
+  normalizeCollectionGroupKey,
+  normalizeCollectionGroupLabel,
+  UNSORTED_COLLECTION_KEY,
+} from '@/utils/constants'
 import FileCard from './FileCard.vue'
 
 interface FileGroup {
@@ -126,18 +130,14 @@ const emit = defineEmits<{
 
 const columns = ref(3)
 
-const normalizeCollectionName = (collectionName?: string) => {
-  return collectionName?.trim() || UNSORTED_COLLECTION_KEY
-}
-
 const groupedFiles = computed<FileGroup[]>(() => {
   const groups = new Map<string, FileGroup>()
 
   props.files.forEach((file) => {
-    const key = normalizeCollectionName(file.collectionName)
+    const key = normalizeCollectionGroupKey(file.collectionName)
     const existing = groups.get(key) || {
       key,
-      label: key === UNSORTED_COLLECTION_KEY ? UNSORTED_COLLECTION_LABEL : key,
+      label: normalizeCollectionGroupLabel(file.collectionName),
       files: [],
     }
 
@@ -305,3 +305,4 @@ const handleToggleSelect = (id: number) => emit('toggleSelect', id)
   }
 }
 </style>
+

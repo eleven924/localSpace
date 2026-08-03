@@ -41,20 +41,20 @@ func TestFileRepository_Create(t *testing.T) {
 
 	// Create test file
 	file := &models.File{
-		FileName:     "test.mp4",
-		OriginalName: "original_test.mp4",
+		FileName:       "test.mp4",
+		OriginalName:   "original_test.mp4",
 		CollectionName: "电视剧A",
-		FilePath:     "/test/path/test.mp4",
-		FileType:     "video",
-		FileSubType:  "mp4",
-		FileSize:     1024000,
-		Tags:         []string{"test", "video"},
-		Description:  "Test video file",
-		Metadata:     models.Metadata{Width: 1920, Height: 1080},
-		Thumbnail:    "",
-		Checksum:     "abc123",
-		IsDeleted:    false,
-		DeletedAt:    "",
+		FilePath:       "/test/path/test.mp4",
+		FileType:       "video",
+		FileSubType:    "mp4",
+		FileSize:       1024000,
+		Tags:           []string{"test", "video"},
+		Description:    "Test video file",
+		Metadata:       models.Metadata{Width: 1920, Height: 1080},
+		Thumbnail:      "",
+		Checksum:       "abc123",
+		IsDeleted:      false,
+		DeletedAt:      "",
 	}
 
 	// Test create
@@ -77,20 +77,20 @@ func TestFileRepository_FindByID(t *testing.T) {
 
 	// Create test file
 	file := &models.File{
-		FileName:     "test.pdf",
-		OriginalName: "original_test.pdf",
+		FileName:       "test.pdf",
+		OriginalName:   "original_test.pdf",
 		CollectionName: "项目资料",
-		FilePath:     "/test/path/test.pdf",
-		FileType:     "document",
-		FileSubType:  "pdf",
-		FileSize:     512000,
-		Tags:         []string{"test", "document"},
-		Description:  "Test document file",
-		Metadata:     models.Metadata{PageCount: 10},
-		Thumbnail:    "",
-		Checksum:     "def456",
-		IsDeleted:    false,
-		DeletedAt:    "",
+		FilePath:       "/test/path/test.pdf",
+		FileType:       "document",
+		FileSubType:    "pdf",
+		FileSize:       512000,
+		Tags:           []string{"test", "document"},
+		Description:    "Test document file",
+		Metadata:       models.Metadata{PageCount: 10},
+		Thumbnail:      "",
+		Checksum:       "def456",
+		IsDeleted:      false,
+		DeletedAt:      "",
 	}
 
 	err := repo.Create(file)
@@ -131,37 +131,37 @@ func TestFileRepository_List(t *testing.T) {
 	// Create test files
 	files := []*models.File{
 		{
-			FileName:     "video1.mp4",
-			OriginalName: "video1.mp4",
+			FileName:       "video1.mp4",
+			OriginalName:   "video1.mp4",
 			CollectionName: "剧集A",
-			FilePath:     "/test/video1.mp4",
-			FileType:     "video",
-			FileSubType:  "mp4",
-			FileSize:     1024000,
-			Tags:         []string{"test"},
-			Description:  "Test video 1",
+			FilePath:       "/test/video1.mp4",
+			FileType:       "video",
+			FileSubType:    "mp4",
+			FileSize:       1024000,
+			Tags:           []string{"test"},
+			Description:    "Test video 1",
 		},
 		{
-			FileName:     "video2.mp4",
-			OriginalName: "video2.mp4",
+			FileName:       "video2.mp4",
+			OriginalName:   "video2.mp4",
 			CollectionName: "剧集A",
-			FilePath:     "/test/video2.mp4",
-			FileType:     "video",
-			FileSubType:  "mp4",
-			FileSize:     2048000,
-			Tags:         []string{"test"},
-			Description:  "Test video 2",
+			FilePath:       "/test/video2.mp4",
+			FileType:       "video",
+			FileSubType:    "mp4",
+			FileSize:       2048000,
+			Tags:           []string{"test"},
+			Description:    "Test video 2",
 		},
 		{
-			FileName:     "doc.pdf",
-			OriginalName: "doc.pdf",
+			FileName:       "doc.pdf",
+			OriginalName:   "doc.pdf",
 			CollectionName: "项目A",
-			FilePath:     "/test/doc.pdf",
-			FileType:     "document",
-			FileSubType:  "pdf",
-			FileSize:     512000,
-			Tags:         []string{"test"},
-			Description:  "Test document",
+			FilePath:       "/test/doc.pdf",
+			FileType:       "document",
+			FileSubType:    "pdf",
+			FileSize:       512000,
+			Tags:           []string{"test"},
+			Description:    "Test document",
 		},
 	}
 
@@ -190,6 +190,141 @@ func TestFileRepository_List(t *testing.T) {
 	}
 }
 
+func TestFileRepository_ListAndCount_CollectionFilterIncludesLegacyName(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(db)
+
+	repo := NewFileRepository(NewSQLiteDBWrapper(db))
+	collectionID := uint(7)
+
+	files := []*models.File{
+		{
+			FileName:       "new-id-file.mp4",
+			OriginalName:   "new-id-file.mp4",
+			CollectionName: "V世代",
+			CollectionID:   &collectionID,
+			FilePath:       "/test/new-id-file.mp4",
+			FileType:       "video",
+			FileSubType:    "mp4",
+			FileSize:       100,
+			Tags:           []string{},
+		},
+		{
+			FileName:       "legacy-name-file.mp4",
+			OriginalName:   "legacy-name-file.mp4",
+			CollectionName: "V世代",
+			FilePath:       "/test/legacy-name-file.mp4",
+			FileType:       "video",
+			FileSubType:    "mp4",
+			FileSize:       100,
+			Tags:           []string{},
+		},
+		{
+			FileName:       "other-file.mp4",
+			OriginalName:   "other-file.mp4",
+			CollectionName: "其他合集",
+			FilePath:       "/test/other-file.mp4",
+			FileType:       "video",
+			FileSubType:    "mp4",
+			FileSize:       100,
+			Tags:           []string{},
+		},
+	}
+
+	for _, file := range files {
+		if err := repo.Create(file); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+	}
+
+	filter := FileFilter{Page: 1, PageSize: 10, CollectionID: &collectionID, CollectionName: "V世代"}
+
+	// 按合集 ID 筛选时，也应包含历史上只有 collection_name 的文件。
+	filteredFiles, err := repo.List(filter)
+	if err != nil {
+		t.Fatalf("Failed to list files by collection: %v", err)
+	}
+	if len(filteredFiles) != 2 {
+		t.Fatalf("Expected 2 files for collection fallback, got %d", len(filteredFiles))
+	}
+
+	count, err := repo.Count(filter)
+	if err != nil {
+		t.Fatalf("Failed to count files by collection: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("Expected count 2 for collection fallback, got %d", count)
+	}
+}
+
+func TestFileRepository_CountCollectionFilters_UsesUnfilteredCollectionCounts(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(db)
+
+	wrapper := NewSQLiteDBWrapper(db)
+	repo := NewFileRepository(wrapper)
+	collectionRepo := NewCollectionRepository(wrapper)
+
+	collectionID, err := collectionRepo.Add("V世代")
+	if err != nil {
+		t.Fatalf("Failed to create collection: %v", err)
+	}
+
+	files := []*models.File{
+		{
+			FileName:       "new-id-file.mp4",
+			OriginalName:   "new-id-file.mp4",
+			CollectionName: "V世代",
+			CollectionID:   &collectionID,
+			FilePath:       "/test/new-id-file.mp4",
+			FileType:       "video",
+			FileSubType:    "mp4",
+			FileSize:       100,
+			Tags:           []string{},
+		},
+		{
+			FileName:       "legacy-name-file.mp4",
+			OriginalName:   "legacy-name-file.mp4",
+			CollectionName: "V世代",
+			FilePath:       "/test/legacy-name-file.mp4",
+			FileType:       "video",
+			FileSubType:    "mp4",
+			FileSize:       100,
+			Tags:           []string{},
+		},
+		{
+			FileName:     "unsorted-file.mp4",
+			OriginalName: "unsorted-file.mp4",
+			FilePath:     "/test/unsorted-file.mp4",
+			FileType:     "video",
+			FileSubType:  "mp4",
+			FileSize:     100,
+			Tags:         []string{},
+		},
+	}
+
+	for _, file := range files {
+		if err := repo.Create(file); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+	}
+
+	// 筛选条计数来自未套合集筛选的全量统计，点击某个合集后也要保持这个口径。
+	counts, err := repo.CountCollectionFilters("video")
+	if err != nil {
+		t.Fatalf("Failed to count collection filters: %v", err)
+	}
+	if counts.Total != 3 {
+		t.Fatalf("Expected total 3, got %d", counts.Total)
+	}
+	if counts.Unsorted != 1 {
+		t.Fatalf("Expected unsorted 1, got %d", counts.Unsorted)
+	}
+	if counts.Collections[collectionID] != 2 {
+		t.Fatalf("Expected collection count 2, got %d", counts.Collections[collectionID])
+	}
+}
+
 func TestFileRepository_Search(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(db)
@@ -199,26 +334,26 @@ func TestFileRepository_Search(t *testing.T) {
 	// Create test files
 	files := []*models.File{
 		{
-			FileName:     "tutorial_video.mp4",
-			OriginalName: "tutorial_video.mp4",
+			FileName:       "tutorial_video.mp4",
+			OriginalName:   "tutorial_video.mp4",
 			CollectionName: "课程",
-			FilePath:     "/test/tutorial.mp4",
-			FileType:     "video",
-			FileSubType:  "mp4",
-			FileSize:     1024000,
-			Tags:         []string{"tutorial", "education"},
-			Description:  "Learn programming tutorial",
+			FilePath:       "/test/tutorial.mp4",
+			FileType:       "video",
+			FileSubType:    "mp4",
+			FileSize:       1024000,
+			Tags:           []string{"tutorial", "education"},
+			Description:    "Learn programming tutorial",
 		},
 		{
-			FileName:     "entertainment_video.mp4",
-			OriginalName: "entertainment_video.mp4",
+			FileName:       "entertainment_video.mp4",
+			OriginalName:   "entertainment_video.mp4",
 			CollectionName: "娱乐",
-			FilePath:     "/test/entertainment.mp4",
-			FileType:     "video",
-			FileSubType:  "mp4",
-			FileSize:     2048000,
-			Tags:         []string{"fun", "entertainment"},
-			Description:  "Funny cat video",
+			FilePath:       "/test/entertainment.mp4",
+			FileType:       "video",
+			FileSubType:    "mp4",
+			FileSize:       2048000,
+			Tags:           []string{"fun", "entertainment"},
+			Description:    "Funny cat video",
 		},
 	}
 
@@ -272,15 +407,15 @@ func TestFileRepository_Delete(t *testing.T) {
 
 	// Create test file
 	file := &models.File{
-		FileName:     "to_delete.mp4",
-		OriginalName: "to_delete.mp4",
+		FileName:       "to_delete.mp4",
+		OriginalName:   "to_delete.mp4",
 		CollectionName: "临时合集",
-		FilePath:     "/test/to_delete.mp4",
-		FileType:     "video",
-		FileSubType:  "mp4",
-		FileSize:     1024000,
-		Tags:         []string{"test"},
-		Description:  "File to delete",
+		FilePath:       "/test/to_delete.mp4",
+		FileType:       "video",
+		FileSubType:    "mp4",
+		FileSize:       1024000,
+		Tags:           []string{"test"},
+		Description:    "File to delete",
 	}
 
 	err := repo.Create(file)
@@ -309,15 +444,15 @@ func TestFileRepository_Update(t *testing.T) {
 
 	// Create test file
 	file := &models.File{
-		FileName:     "to_update.mp4",
-		OriginalName: "to_update.mp4",
+		FileName:       "to_update.mp4",
+		OriginalName:   "to_update.mp4",
 		CollectionName: "旧合集",
-		FilePath:     "/test/to_update.mp4",
-		FileType:     "video",
-		FileSubType:  "mp4",
-		FileSize:     1024000,
-		Tags:         []string{"old"},
-		Description:  "Old description",
+		FilePath:       "/test/to_update.mp4",
+		FileType:       "video",
+		FileSubType:    "mp4",
+		FileSize:       1024000,
+		Tags:           []string{"old"},
+		Description:    "Old description",
 	}
 
 	err := repo.Create(file)
@@ -364,15 +499,15 @@ func TestFileRepository_ExistsByPath(t *testing.T) {
 
 	// Create test file
 	file := &models.File{
-		FileName:     "check_exist.mp4",
-		OriginalName: "check_exist.mp4",
+		FileName:       "check_exist.mp4",
+		OriginalName:   "check_exist.mp4",
 		CollectionName: "测试合集",
-		FilePath:     "/test/check_exist.mp4",
-		FileType:     "video",
-		FileSubType:  "mp4",
-		FileSize:     1024000,
-		Tags:         []string{"test"},
-		Description:  "Test file",
+		FilePath:       "/test/check_exist.mp4",
+		FileType:       "video",
+		FileSubType:    "mp4",
+		FileSize:       1024000,
+		Tags:           []string{"test"},
+		Description:    "Test file",
 	}
 
 	err := repo.Create(file)
@@ -470,16 +605,16 @@ func TestFileRepository_CheckDuplicateByChecksum(t *testing.T) {
 	// Create a file with specific checksum
 	testChecksum := "xyz789"
 	file := &models.File{
-		FileName:     "original_file.txt",
-		OriginalName: "original_file.txt",
+		FileName:       "original_file.txt",
+		OriginalName:   "original_file.txt",
 		CollectionName: "文档合集",
-		FilePath:     "/test/original.txt",
-		FileType:     "document",
-		FileSubType:  "txt",
-		FileSize:     1024,
-		Checksum:     testChecksum,
-		Tags:         []string{"original"},
-		Description:  "Original file",
+		FilePath:       "/test/original.txt",
+		FileType:       "document",
+		FileSubType:    "txt",
+		FileSize:       1024,
+		Checksum:       testChecksum,
+		Tags:           []string{"original"},
+		Description:    "Original file",
 	}
 
 	err = repo.Create(file)

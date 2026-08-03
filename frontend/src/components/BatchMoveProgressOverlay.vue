@@ -1,7 +1,7 @@
 <template>
   <div class="batch-overlay">
     <div class="overlay-card">
-      <h3>正在移动 {{ total }} 个文件到「{{ collectionName || '未分配' }}」</h3>
+      <h3>正在移动 {{ total }} 个文件到「{{ collectionName || '未分配合集' }}」</h3>
       <progress :max="total" :value="completed"></progress>
       <p>{{ message }}</p>
     </div>

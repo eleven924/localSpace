@@ -224,6 +224,22 @@ export namespace models {
 	        this.updatedAt = source["updatedAt"];
 	    }
 	}
+	export class CollectionFilterCounts {
+	    total: number;
+	    unsorted: number;
+	    collections: Record<number, number>;
+	
+	    static createFrom(source: any = {}) {
+	        return new CollectionFilterCounts(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.total = source["total"];
+	        this.unsorted = source["unsorted"];
+	        this.collections = source["collections"];
+	    }
+	}
 	export class Metadata {
 	    size?: number;
 	    width?: number;

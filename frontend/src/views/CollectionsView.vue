@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page-shell collections-view">
     <AppHeader />
 
@@ -56,12 +56,15 @@ import CollectionCard from '@/components/CollectionCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import FileTypeFilter from '@/components/FileTypeFilter.vue'
 import { useFilesStore } from '@/store/modules/files'
-import { isWailsAvailable } from '@/api'
+import { api, isWailsAvailable } from '@/api'
+import type { Collection } from '@/types'
+import { UNSORTED_COLLECTION_KEY } from '@/utils/constants'
 
 const filesStore = useFilesStore()
 const router = useRouter()
 const route = useRoute()
 const collectionQuery = ref('')
+const collections = ref<Collection[]>([])
 let isUnmounted = false
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -86,6 +89,14 @@ const ensureLibraryLoaded = async () => {
   await filesStore.loadFiles(filesStore.currentFileType)
 }
 
+const loadCollections = async () => {
+  try {
+    collections.value = await api.collection.getAll()
+  } catch (err) {
+    console.error('Failed to load collections:', err)
+  }
+}
+
 const filteredCollections = computed(() => {
   const keyword = collectionQuery.value.trim().toLowerCase()
   if (!keyword) {
@@ -99,6 +110,7 @@ const filteredCollections = computed(() => {
 
 onMounted(() => {
   filesStore.setCurrentFileType(getRouteType())
+  void loadCollections()
   void ensureLibraryLoaded()
 })
 
@@ -115,9 +127,20 @@ const handleTypeFilter = async (fileType: string) => {
 }
 
 const openCollection = (collectionName: string) => {
+  const normalizedName = collectionName.trim()
   const query: Record<string, string> = {
-    collection: collectionName,
+    collection: normalizedName,
     view: 'grouped',
+  }
+
+  // 文件页筛选以 collectionId 为准；合集页入口优先传 id，旧链接仍由文件页按名称兜底。
+  if (normalizedName === UNSORTED_COLLECTION_KEY) {
+    query.collection = 'unsorted'
+  } else {
+    const matchedCollection = collections.value.find((collection) => collection.name === normalizedName)
+    if (matchedCollection) {
+      query.collection = String(matchedCollection.id)
+    }
   }
 
   if (filesStore.currentFileType !== 'all') {
@@ -189,3 +212,4 @@ const handleRetry = async () => {
   }
 }
 </style>
+

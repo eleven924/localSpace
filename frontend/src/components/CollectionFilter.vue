@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="collection-filter">
     <button type="button" :class="{ active: currentValue === 'all' }" @click="handleFilter('all')">
       <span class="collection-filter-label">全部</span>
@@ -6,7 +6,7 @@
     </button>
 
     <button type="button" :class="{ active: currentValue === 'unsorted' }" @click="handleFilter('unsorted')">
-      <span class="collection-filter-label">未分配</span>
+      <span class="collection-filter-label">未分配合集</span>
       <span class="collection-filter-count">{{ unsortedCount }}</span>
     </button>
 
@@ -26,12 +26,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Collection, File } from '@/types'
+import type { Collection, CollectionFilterCounts, File } from '@/types'
+import { isUnsortedCollectionName } from '@/utils/constants'
 
 const props = defineProps<{
   modelValue: 'all' | 'unsorted' | number
   collections: Collection[]
   files: File[]
+  counts?: CollectionFilterCounts
   totalCount?: number
 }>()
 
@@ -45,21 +47,55 @@ const currentValue = computed({
   set: (value: 'all' | 'unsorted' | number) => emit('update:modelValue', value),
 })
 
+const collectionIdByName = computed(() => {
+  const map = new Map<string, number>()
+  props.collections.forEach((collection) => {
+    map.set(collection.name.trim(), collection.id)
+  })
+  return map
+})
+
+// 兼容历史文件：collectionId 缺失时按合集名称回填统计，避免筛选数字被误算为 0.
+const resolveCollectionId = (file: File) => {
+  if (file.collectionId) {
+    return file.collectionId
+  }
+
+  if (isUnsortedCollectionName(file.collectionName)) {
+    return undefined
+  }
+
+  return collectionIdByName.value.get(file.collectionName.trim())
+}
+
 const countMap = computed(() => {
+  if (props.counts) {
+    return props.counts.collections
+  }
+
   const map: Record<number, number> = {}
   props.files.forEach((file) => {
-    if (file.collectionId) {
-      map[file.collectionId] = (map[file.collectionId] || 0) + 1
+    const collectionId = resolveCollectionId(file)
+    if (collectionId) {
+      map[collectionId] = (map[collectionId] || 0) + 1
     }
   })
   return map
 })
 
 const unsortedCount = computed(() => {
-  return props.files.filter((file) => !file.collectionId).length
+  if (props.counts) {
+    return props.counts.unsorted
+  }
+
+  return props.files.filter((file) => !resolveCollectionId(file)).length
 })
 
 const totalCount = computed(() => {
+  if (props.counts) {
+    return props.counts.total
+  }
+
   return props.totalCount ?? props.files.length
 })
 
@@ -126,3 +162,4 @@ const handleFilter = (value: 'all' | 'unsorted' | number) => {
   }
 }
 </style>
+

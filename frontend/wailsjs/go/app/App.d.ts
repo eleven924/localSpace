@@ -36,6 +36,8 @@ export function GetAIConfig():Promise<models.AIConfig>;
 
 export function GetActiveJobs():Promise<Array<models.Job>>;
 
+export function GetCollectionFilterCounts(arg1:string):Promise<models.CollectionFilterCounts>;
+
 export function GetCollections():Promise<Array<models.Collection>>;
 
 export function GetConfig(arg1:string):Promise<string>;
