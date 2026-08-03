@@ -13,12 +13,17 @@ declare global {
           GetFileTypes: () => Promise<any[]>
           ParseFileType: (extension: string) => Promise<any>
 
+          // Collection operations
+          GetCollections: () => Promise<any[]>
+          AddCollection: (name: string) => Promise<number>
+          RemoveCollection: (id: number) => Promise<string>
+
           // File operations
           ImportFile: (filePath: string, fileName: string, description: string, tags: string[]) => Promise<string>
           ImportFileWithKeywords: (filePath: string, fileName: string, description: string, tags: string[], keywords: string) => Promise<string>
-          ImportFileWithMetadata: (filePath: string, fileName: string, description: string, tags: string[], keywords: string, collectionName: string) => Promise<string>
-          GetFiles: (page: number, pageSize: number, fileType: string) => Promise<any[]>
-          SearchFiles: (query: string) => Promise<any[]>
+          ImportFileWithMetadata: (filePath: string, fileName: string, description: string, tags: string[], keywords: string, collectionId: number) => Promise<string>
+          GetFiles: (page: number, pageSize: number, fileType: string, collectionId: number) => Promise<any>
+          SearchFiles: (query: string, page: number, pageSize: number) => Promise<any>
           GetFile: (id: number) => Promise<any>
           DeleteFile: (id: number) => Promise<string>
           OpenFile: (id: number) => Promise<string>
@@ -27,7 +32,9 @@ declare global {
           OpenFileLocation: (id: number) => Promise<string>
           RefreshFile: (id: number) => Promise<any>
           RenameFile: (id: number, newName: string) => Promise<string>
-          UpdateFileMetadata: (id: number, tags: string[], description: string) => Promise<void>
+          UpdateFileMetadata: (id: number, tags: string[], description: string, collectionId: number) => Promise<void>
+          BatchUpdateFilesCollection: (ids: number[], collectionId: number) => Promise<any>
+          BatchDeleteFiles: (ids: number[]) => Promise<any>
 
           // AI operations
           GetAIAnalysis: (
@@ -77,7 +84,7 @@ declare global {
             description: string,
             tags: string[],
             keywords: string,
-            collectionName: string
+            collectionId: number
           ) => Promise<any>
           GetActiveJobs: () => Promise<any[]>
           GetResumableJobs: () => Promise<any[]>
@@ -85,6 +92,10 @@ declare global {
           GetJob: (jobID: number) => Promise<any>
           ResumeJob: (jobID: number) => Promise<string>
           CancelJob: (jobID: number) => Promise<string>
+          GetJobRetentionConfig: () => Promise<any>
+          UpdateJobRetentionConfig: (config: any) => Promise<string>
+          SubmitJobCleanup: () => Promise<any>
+          DeleteJobRecord: (id: number) => Promise<string>
 
           // Metadata
           GetFileMetadata: (filePath: string, fileType: string) => Promise<any>
@@ -106,7 +117,7 @@ interface SingleImportJobRequest {
   description: string
   tags: string[]
   keywords: string
-  collectionName: string
+  collectionId?: number
 }
 
 // Helper function to safely call Wails API
@@ -182,6 +193,27 @@ export const api = {
       ),
   },
 
+  collection: {
+    getAll: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetCollections(),
+        [],
+        'GetCollections'
+      ),
+    add: (name: string) =>
+      safeWailsCall(
+        () => window.go!.app!.App.AddCollection(name),
+        0,
+        'AddCollection'
+      ),
+    remove: (id: number) =>
+      safeWailsCall(
+        () => window.go!.app!.App.RemoveCollection(id),
+        'success',
+        'RemoveCollection'
+      ),
+  },
+
   file: {
     import: (filePath: string, fileName: string, description: string, tags: string[]) =>
       // Import should throw errors on failure - use direct call
@@ -212,16 +244,16 @@ export const api = {
           reject(error)
         }
       }),
-    list: (page: number, pageSize: number, fileType: string) =>
+    list: (page: number, pageSize: number, fileType: string, collectionId?: number) =>
       safeWailsCall(
-        () => window.go!.app!.App.GetFiles(page, pageSize, fileType),
-        [],
+        () => window.go!.app!.App.GetFiles(page, pageSize, fileType, collectionId || 0),
+        { items: [], page, pageSize, total: 0 },
         `GetFiles(${fileType})`
       ),
-    search: (query: string) =>
+    search: (query: string, page: number = 1, pageSize: number = 50) =>
       safeWailsCall(
-        () => window.go!.app!.App.SearchFiles(query),
-        [],
+        () => window.go!.app!.App.SearchFiles(query, page, pageSize),
+        { items: [], page, pageSize, total: 0 },
         `SearchFiles(${query})`
       ),
     get: (id: number) =>
@@ -250,14 +282,14 @@ export const api = {
           reject(error)
         }
       }),
-    importWithMetadata: (filePath: string, fileName: string, description: string, tags: string[], keywords: string, collectionName: string) =>
+    importWithMetadata: (filePath: string, fileName: string, description: string, tags: string[], keywords: string, collectionId?: number) =>
       new Promise((resolve, reject) => {
         try {
           if (!window.go || !window.go.app || !window.go.app.App) {
             reject(new Error('Wails API not available'))
             return
           }
-          window.go!.app!.App.ImportFileWithMetadata(filePath, fileName, description, tags, keywords, collectionName)
+          window.go!.app!.App.ImportFileWithMetadata(filePath, fileName, description, tags, keywords, collectionId || 0)
             .then(() => resolve('success'))
             .catch(reject)
         } catch (error) {
@@ -318,20 +350,32 @@ export const api = {
           reject(error)
         }
       }),
-    updateMetadata: (id: number, tags: string[], description: string) =>
-      new Promise((resolve, reject) => {
+    updateMetadata: (id: number, tags: string[], description: string, collectionId?: number) =>
+      new Promise<void>((resolve, reject) => {
         try {
           if (!window.go || !window.go.app || !window.go.app.App) {
             reject(new Error('Wails API not available'))
             return
           }
-          window.go!.app!.App.UpdateFileMetadata(id, tags, description)
-            .then(() => resolve('success'))
+          window.go!.app!.App.UpdateFileMetadata(id, tags, description, collectionId || 0)
+            .then(() => resolve())
             .catch(reject)
         } catch (error) {
           reject(error)
         }
       }),
+    batchUpdateCollection: (ids: number[], collectionId?: number) =>
+      safeWailsCall(
+        () => window.go!.app!.App.BatchUpdateFilesCollection(ids, collectionId || 0),
+        { successCount: 0, failedCount: 0, failedItems: [] },
+        'BatchUpdateFilesCollection'
+      ),
+    batchDelete: (ids: number[]) =>
+      safeWailsCall(
+        () => window.go!.app!.App.BatchDeleteFiles(ids),
+        { successCount: 0, failedCount: 0, failedItems: [] },
+        'BatchDeleteFiles'
+      ),
   },
 
   ai: {
@@ -546,7 +590,7 @@ export const api = {
             payload.description,
             payload.tags,
             payload.keywords,
-            payload.collectionName
+            payload.collectionId || 0
           )
             .then(resolve)
             .catch(reject)
@@ -606,6 +650,30 @@ export const api = {
           reject(error)
         }
       }),
+    getRetentionConfig: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetJobRetentionConfig(),
+        { id: 1, enabled: false, maxCount: 0, maxDays: 0, updatedAt: '' },
+        'GetJobRetentionConfig'
+      ),
+    updateRetentionConfig: (config: import('./types').JobRetentionConfig) =>
+      safeWailsCall(
+        () => window.go!.app!.App.UpdateJobRetentionConfig(config),
+        'success',
+        'UpdateJobRetentionConfig'
+      ),
+    submitCleanup: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.SubmitJobCleanup(),
+        null,
+        'SubmitJobCleanup'
+      ),
+    deleteRecord: (id: number) =>
+      safeWailsCall(
+        () => window.go!.app!.App.DeleteJobRecord(id),
+        'success',
+        'DeleteJobRecord'
+      ),
   },
 
   thumbnail: {

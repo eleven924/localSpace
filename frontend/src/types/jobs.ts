@@ -7,7 +7,7 @@ export interface BatchImportJobRequest {
   files: BatchImportFileInput[]
   sharedTags: string[]
   sharedDescription: string
-  collectionName: string
+  collectionId?: number
   enableAIGeneratedTags: boolean
   enableAIGeneratedDescription: boolean
 }
@@ -18,7 +18,7 @@ export interface SingleImportJobRequest {
   description: string
   tags: string[]
   keywords: string
-  collectionName: string
+  collectionId?: number
 }
 
 export interface BatchImportFailedItem {

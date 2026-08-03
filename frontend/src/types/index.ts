@@ -4,6 +4,7 @@ export interface File {
   fileName: string
   originalName: string
   collectionName: string
+  collectionId?: number
   filePath: string
   fileType: string
   fileSubType: string
@@ -110,6 +111,52 @@ export interface CollectionSummary {
   count: number
   fileTypes: Record<string, number>
   latestModifiedAt: string
+}
+
+export interface Collection {
+  id: number
+  name: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FileListResponse {
+  items: File[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface BatchMoveFailedItem {
+  fileId: number
+  fileName: string
+  error: string
+}
+
+export interface BatchMoveResult {
+  successCount: number
+  failedCount: number
+  failedItems: BatchMoveFailedItem[]
+}
+
+export interface BatchDeleteFailedItem {
+  fileId: number
+  fileName: string
+  error: string
+}
+
+export interface BatchDeleteResult {
+  successCount: number
+  failedCount: number
+  failedItems: BatchDeleteFailedItem[]
+}
+
+export interface JobRetentionConfig {
+  id: number
+  enabled: boolean
+  maxCount: number
+  maxDays: number
+  updatedAt: string
 }
 
 export * from './jobs'
