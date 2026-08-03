@@ -311,6 +311,28 @@ func (r *JobRepository) UpdateBatchImportItem(item *models.BatchImportItem) erro
 	return nil
 }
 
+func (r *JobRepository) ListByStatuses(statuses ...string) ([]*models.Job, error) {
+	return r.listByStatuses(statuses...)
+}
+
+func (r *JobRepository) DeleteByIDs(ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(`DELETE FROM jobs WHERE id IN (%s)`, strings.Join(placeholders, ","))
+	_, err := r.db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to delete jobs: %w", err)
+	}
+	return nil
+}
+
 func (r *JobRepository) listByStatuses(statuses ...string) ([]*models.Job, error) {
 	if len(statuses) == 0 {
 		return []*models.Job{}, nil

@@ -76,11 +76,12 @@ type BatchImportMetadataRequest struct {
 
 // FileFilter represents filters for file queries.
 type FileFilter struct {
-	Page      int
-	PageSize  int
-	FileType  string
-	SortBy    string
-	SortOrder string
+	Page         int
+	PageSize     int
+	FileType     string
+	CollectionID *uint
+	SortBy       string
+	SortOrder    string
 }
 
 // NewFileService creates a new FileService.
@@ -704,6 +705,62 @@ func (s *FileService) SearchFiles(query string) ([]*models.File, error) {
 	}
 
 	return files, nil
+}
+
+// ListFilesResponse returns a paginated list of files.
+func (s *FileService) ListFilesResponse(filter FileFilter) (*models.FileListResponse, error) {
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.PageSize <= 0 {
+		filter.PageSize = 50
+	}
+	files, err := s.ListFiles(filter)
+	if err != nil {
+		return nil, err
+	}
+	total, err := s.fileRepo.Count(repositories.FileFilter{
+		FileType:     filter.FileType,
+		CollectionID: filter.CollectionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &models.FileListResponse{
+		Items:    files,
+		Page:     filter.Page,
+		PageSize: filter.PageSize,
+		Total:    total,
+	}, nil
+}
+
+// SearchFilesResponse returns a paginated search result.
+func (s *FileService) SearchFilesResponse(query string, page, pageSize int) (*models.FileListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	all, err := s.SearchFiles(query)
+	if err != nil {
+		return nil, err
+	}
+	total := len(all)
+	start := (page - 1) * pageSize
+	if start >= total {
+		return &models.FileListResponse{Items: []*models.File{}, Page: page, PageSize: pageSize, Total: total}, nil
+	}
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	return &models.FileListResponse{
+		Items:    all[start:end],
+		Page:     page,
+		PageSize: pageSize,
+		Total:    total,
+	}, nil
 }
 
 // GetFile returns a single file by ID.

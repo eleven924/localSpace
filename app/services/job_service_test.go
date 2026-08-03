@@ -48,7 +48,7 @@ func TestJobService_EmitsNotificationOnCompletion(t *testing.T) {
 	defer db.Close()
 
 	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
-	service := NewJobService(jobRepo, nil, nil, nil)
+	service := NewJobService(jobRepo, nil, nil, nil, nil)
 	service.RegisterHandler(&successTestHandler{})
 	service.policies["success_test"] = JobPolicy{
 		JobType:          "success_test",
@@ -102,7 +102,7 @@ func TestJobService_SubmitSingleImportJob_CreatesJob(t *testing.T) {
 	defer db.Close()
 
 	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
-	jobService := NewJobService(jobRepo, nil, nil, nil)
+	jobService := NewJobService(jobRepo, nil, nil, nil, nil)
 
 	var createdJob *models.Job
 	jobService.SetEventEmitter(func(eventName string, data interface{}) {
@@ -141,7 +141,7 @@ func TestJobService_RunJob_RecoversFromPanic(t *testing.T) {
 	defer db.Close()
 
 	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
-	service := NewJobService(jobRepo, nil, nil, nil)
+	service := NewJobService(jobRepo, nil, nil, nil, nil)
 	service.RegisterHandler(&panicJobHandler{})
 
 	job := &models.Job{
@@ -206,7 +206,7 @@ func TestJobService_PrepareForShutdown_WaitsForRunningJob(t *testing.T) {
 	defer db.Close()
 
 	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
-	service := NewJobService(jobRepo, nil, nil, nil)
+	service := NewJobService(jobRepo, nil, nil, nil, nil)
 	handler := &slowJobHandler{block: make(chan struct{})}
 	service.RegisterHandler(handler)
 	service.policies["slow_test"] = JobPolicy{

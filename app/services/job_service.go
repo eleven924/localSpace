@@ -31,10 +31,11 @@ type JobHandler interface {
 }
 
 type JobService struct {
-	jobRepo      *repositories.JobRepository
-	fileService  *FileService
-	aiService    *AIService
-	agentService *AgentService
+	jobRepo        *repositories.JobRepository
+	fileService    *FileService
+	aiService      *AIService
+	agentService   *AgentService
+	configService  *ConfigService
 
 	handlers map[string]JobHandler
 	policies map[string]JobPolicy
@@ -52,13 +53,15 @@ func NewJobService(
 	fileService *FileService,
 	aiService *AIService,
 	agentService *AgentService,
+	configService *ConfigService,
 ) *JobService {
 	service := &JobService{
-		jobRepo:      jobRepo,
-		fileService:  fileService,
-		aiService:    aiService,
-		agentService: agentService,
-		handlers:     make(map[string]JobHandler),
+		jobRepo:       jobRepo,
+		fileService:   fileService,
+		aiService:     aiService,
+		agentService:  agentService,
+		configService: configService,
+		handlers:      make(map[string]JobHandler),
 		policies: map[string]JobPolicy{
 			models.JobTypeBatchImport: {
 				JobType:          models.JobTypeBatchImport,
@@ -76,12 +79,21 @@ func NewJobService(
 				Recoverable:      false,
 				Timeout:          30 * time.Minute,
 			},
+			models.JobTypeCleanup: {
+				JobType:          models.JobTypeCleanup,
+				MaxConcurrent:    1,
+				ExclusiveKey:     "cleanup",
+				CanRunBackground: true,
+				Recoverable:      false,
+				Timeout:          5 * time.Minute,
+			},
 		},
 		running: make(map[uint]context.CancelFunc),
 	}
 
 	service.RegisterHandler(NewBatchImportHandler())
 	service.RegisterHandler(NewSingleImportHandler())
+	service.RegisterHandler(NewCleanupHandler())
 	go service.watchTimeouts()
 
 	return service
@@ -308,6 +320,117 @@ func (s *JobService) NormalizeUnfinishedJobs() error {
 	}
 
 	return nil
+}
+
+func (s *JobService) SubmitJobCleanup() (*models.Job, error) {
+	if s.configService == nil {
+		return nil, fmt.Errorf("config service not initialized")
+	}
+	config, err := s.configService.GetJobRetentionConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get retention config: %w", err)
+	}
+	payload, err := json.Marshal(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal retention config: %w", err)
+	}
+	handler, policy, err := s.handlerAndPolicy(models.JobTypeCleanup)
+	if err != nil {
+		return nil, err
+	}
+	if err := handler.Validate(payload); err != nil {
+		return nil, err
+	}
+	if err := s.ensureConcurrency(policy, 0); err != nil {
+		return nil, err
+	}
+	job := &models.Job{
+		JobType:           models.JobTypeCleanup,
+		Status:            models.JobStatusPending,
+		Title:             "清理历史任务记录",
+		Payload:           payload,
+		ProgressTotal:     1,
+		ProgressCompleted: 0,
+		ProgressMessage:   "等待开始清理",
+		ExclusiveKey:      policy.ExclusiveKey,
+		CanResume:         policy.Recoverable,
+	}
+	if err := s.jobRepo.Create(job); err != nil {
+		return nil, err
+	}
+	s.emitJobEvent("job:created", job)
+	go s.runJob(job.ID, false)
+	return job, nil
+}
+
+func (s *JobService) DeleteJobRecord(id uint) error {
+	job, err := s.jobRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	terminal := []string{
+		models.JobStatusCompleted,
+		models.JobStatusFailed,
+		models.JobStatusCancelled,
+		models.JobStatusTimedOut,
+		models.JobStatusCleanupFailed,
+	}
+	found := false
+	for _, status := range terminal {
+		if job.Status == status {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("only terminal jobs can be deleted")
+	}
+	return s.jobRepo.DeleteByIDs([]uint{id})
+}
+
+func (s *JobService) MaybeSubmitAutoCleanup() error {
+	if s.configService == nil {
+		return nil
+	}
+	config, err := s.configService.GetJobRetentionConfig()
+	if err != nil {
+		return err
+	}
+	if !config.Enabled || (config.MaxCount <= 0 && config.MaxDays <= 0) {
+		return nil
+	}
+	terminal, err := s.jobRepo.ListByStatuses(
+		models.JobStatusCompleted,
+		models.JobStatusFailed,
+		models.JobStatusCancelled,
+		models.JobStatusTimedOut,
+		models.JobStatusCleanupFailed,
+	)
+	if err != nil {
+		return err
+	}
+	needs := false
+	if config.MaxCount > 0 && len(terminal) > config.MaxCount {
+		needs = true
+	}
+	if config.MaxDays > 0 {
+		cutoff := time.Now().AddDate(0, 0, -config.MaxDays)
+		for _, j := range terminal {
+			created, err := time.Parse(time.RFC3339, j.CreatedAt)
+			if err != nil {
+				continue
+			}
+			if created.Before(cutoff) {
+				needs = true
+				break
+			}
+		}
+	}
+	if !needs {
+		return nil
+	}
+	_, err = s.SubmitJobCleanup()
+	return err
 }
 
 func (s *JobService) HasBackgroundJobsForCloseProtection() (bool, int, error) {

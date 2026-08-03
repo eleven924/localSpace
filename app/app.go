@@ -31,6 +31,7 @@ type App struct {
 	configService    *services.ConfigService
 	thumbnailService *services.ThumbnailService
 	jobService       *services.JobService
+	collectionService *services.CollectionService
 }
 
 // NewApp creates a new App application struct
@@ -161,11 +162,13 @@ func (a *App) initializeApp() {
 	a.fileService = services.NewFileService(fileRepo, collectionRepo, a.storageService, a.aiService, a.thumbnailService)
 	a.fileService.SetAgentService(a.agentService)
 	a.configService = services.NewConfigService(configRepo)
+	a.collectionService = services.NewCollectionService(collectionRepo, fileRepo, a.storageService)
 	a.jobService = services.NewJobService(
 		repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db)),
 		a.fileService,
 		a.aiService,
 		a.agentService,
+		a.configService,
 	)
 	a.jobService.SetEventEmitter(func(eventName string, data interface{}) {
 		if a.ctx != nil {
@@ -174,6 +177,10 @@ func (a *App) initializeApp() {
 	})
 	if err := a.jobService.NormalizeUnfinishedJobs(); err != nil {
 		fmt.Printf("Failed to normalize unfinished jobs: %v\n", err)
+	}
+
+	if err := a.jobService.MaybeSubmitAutoCleanup(); err != nil {
+		fmt.Printf("Failed to submit auto cleanup job: %v\n", err)
 	}
 
 	if err := a.fileService.CleanupOrphanedTempFiles(24 * time.Hour); err != nil {
@@ -307,21 +314,29 @@ func (a *App) SubmitSingleImportJob(
 	})
 }
 
-// GetFiles returns a list of files
-func (a *App) GetFiles(page, pageSize int, fileType string) ([]*models.File, error) {
+// GetFiles returns a paginated list of files.
+func (a *App) GetFiles(page, pageSize int, fileType string, collectionID uint) (*models.FileListResponse, error) {
 	if !a.waitForInitialization(5 * time.Second) {
-		return []*models.File{}, fmt.Errorf("app not initialized")
+		return &models.FileListResponse{Items: []*models.File{}, Page: page, PageSize: pageSize, Total: 0}, fmt.Errorf("app not initialized")
 	}
-	return a.fileService.ListFiles(services.FileFilter{
-		Page:     page,
-		PageSize: pageSize,
-		FileType: fileType,
+	var cid *uint
+	if collectionID > 0 {
+		cid = &collectionID
+	}
+	return a.fileService.ListFilesResponse(services.FileFilter{
+		Page:         page,
+		PageSize:     pageSize,
+		FileType:     fileType,
+		CollectionID: cid,
 	})
 }
 
-// SearchFiles searches for files
-func (a *App) SearchFiles(query string) ([]*models.File, error) {
-	return a.fileService.SearchFiles(query)
+// SearchFiles searches for files with pagination.
+func (a *App) SearchFiles(query string, page, pageSize int) (*models.FileListResponse, error) {
+	if !a.isInitialized() {
+		return &models.FileListResponse{Items: []*models.File{}, Page: page, PageSize: pageSize, Total: 0}, fmt.Errorf("app not initialized")
+	}
+	return a.fileService.SearchFilesResponse(query, page, pageSize)
 }
 
 // GetFile returns a single file by ID
@@ -359,6 +374,82 @@ func (a *App) UpdateFileMetadata(id uint, tags []string, description string, col
 		cid = &collectionID
 	}
 	return a.fileService.UpdateFileMetadata(id, tags, description, cid)
+}
+
+// GetCollections returns all collections.
+func (a *App) GetCollections() ([]models.Collection, error) {
+	if !a.isInitialized() {
+		return nil, fmt.Errorf("app not initialized")
+	}
+	return a.collectionService.GetCollections()
+}
+
+// AddCollection creates a new collection.
+func (a *App) AddCollection(name string) (uint, error) {
+	if !a.isInitialized() {
+		return 0, fmt.Errorf("app not initialized")
+	}
+	return a.collectionService.AddCollection(name)
+}
+
+// RemoveCollection removes a collection.
+func (a *App) RemoveCollection(id uint) error {
+	if !a.isInitialized() {
+		return fmt.Errorf("app not initialized")
+	}
+	return a.collectionService.RemoveCollection(id)
+}
+
+// BatchUpdateFilesCollection updates the collection for multiple files.
+func (a *App) BatchUpdateFilesCollection(ids []uint, collectionID uint) (models.BatchMoveResult, error) {
+	if !a.isInitialized() {
+		return models.BatchMoveResult{}, fmt.Errorf("app not initialized")
+	}
+	var cid *uint
+	if collectionID > 0 {
+		cid = &collectionID
+	}
+	return a.collectionService.BatchUpdateFilesCollection(ids, cid)
+}
+
+// BatchDeleteFiles deletes multiple files.
+func (a *App) BatchDeleteFiles(ids []uint) (models.BatchDeleteResult, error) {
+	if !a.isInitialized() {
+		return models.BatchDeleteResult{}, fmt.Errorf("app not initialized")
+	}
+	return a.collectionService.BatchDeleteFiles(ids)
+}
+
+// GetJobRetentionConfig returns the job retention configuration.
+func (a *App) GetJobRetentionConfig() (*models.JobRetentionConfig, error) {
+	if !a.isInitialized() {
+		return nil, fmt.Errorf("app not initialized")
+	}
+	return a.configService.GetJobRetentionConfig()
+}
+
+// UpdateJobRetentionConfig updates the job retention configuration.
+func (a *App) UpdateJobRetentionConfig(config models.JobRetentionConfig) error {
+	if !a.isInitialized() {
+		return fmt.Errorf("app not initialized")
+	}
+	return a.configService.UpdateJobRetentionConfig(config)
+}
+
+// SubmitJobCleanup submits a manual job cleanup task.
+func (a *App) SubmitJobCleanup() (*models.Job, error) {
+	if !a.isInitialized() {
+		return nil, fmt.Errorf("app not initialized")
+	}
+	return a.jobService.SubmitJobCleanup()
+}
+
+// DeleteJobRecord deletes a terminal job record.
+func (a *App) DeleteJobRecord(id uint) error {
+	if !a.isInitialized() {
+		return fmt.Errorf("app not initialized")
+	}
+	return a.jobService.DeleteJobRecord(id)
 }
 
 // OpenFile opens a file with a preferred app when configured, otherwise system default.
