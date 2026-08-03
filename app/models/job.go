@@ -5,6 +5,7 @@ import "encoding/json"
 const (
 	JobTypeBatchImport  = "batch_import"
 	JobTypeSingleImport = "single_import"
+	JobTypeCleanup      = "job_cleanup"
 )
 
 const (
@@ -55,6 +56,14 @@ type JobListResponse struct {
 	Page     int    `json:"page"`
 	PageSize int    `json:"pageSize"`
 	Total    int    `json:"total"`
+}
+
+type JobRetentionConfig struct {
+	ID        uint   `json:"id"`
+	Enabled   bool   `json:"enabled"`
+	MaxCount  int    `json:"maxCount"`
+	MaxDays   int    `json:"maxDays"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type BatchImportJobRequest struct {

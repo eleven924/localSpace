@@ -4,23 +4,24 @@ import "encoding/json"
 
 // File represents a file in LocalSpace
 type File struct {
-	ID          uint      `json:"id"`
-	FileName    string    `json:"fileName"`
-	OriginalName string   `json:"originalName"`
-	CollectionName string `json:"collectionName"`
-	FilePath    string    `json:"filePath"`
-	FileType    string    `json:"fileType"`
-	FileSubType string    `json:"fileSubType"`
-	FileSize    int64     `json:"fileSize"`
-	Tags        []string  `json:"tags" gorm:"serializer:json"`
-	Description string    `json:"description"`
-	Metadata    Metadata  `json:"metadata" gorm:"serializer:json"`
-	Thumbnail   string    `json:"thumbnail"`
-	Checksum    string    `json:"checksum"`
-	IsDeleted   bool      `json:"isDeleted"`
-	DeletedAt   string    `json:"deletedAt"`
-	CreatedAt   string    `json:"createdAt"`
-	ModifiedAt  string    `json:"modifiedAt"`
+	ID             uint     `json:"id"`
+	FileName       string   `json:"fileName"`
+	OriginalName   string   `json:"originalName"`
+	CollectionName string   `json:"collectionName"`
+	CollectionID   *uint    `json:"collectionId"`
+	FilePath       string   `json:"filePath"`
+	FileType       string   `json:"fileType"`
+	FileSubType    string   `json:"fileSubType"`
+	FileSize       int64    `json:"fileSize"`
+	Tags           []string `json:"tags" gorm:"serializer:json"`
+	Description    string   `json:"description"`
+	Metadata       Metadata `json:"metadata" gorm:"serializer:json"`
+	Thumbnail      string   `json:"thumbnail"`
+	Checksum       string   `json:"checksum"`
+	IsDeleted      bool     `json:"isDeleted"`
+	DeletedAt      string   `json:"deletedAt"`
+	CreatedAt      string   `json:"createdAt"`
+	ModifiedAt     string   `json:"modifiedAt"`
 }
 
 // Metadata represents file metadata

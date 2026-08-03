@@ -63,6 +63,12 @@ var migrations = []Migration{
 		Up:      migration008_Up,
 		Down:    migration008_Down,
 	},
+	{
+		Version: 9,
+		Name:    "add_collections_and_file_collection_id",
+		Up:      migration009_Up,
+		Down:    migration009_Down,
+	},
 }
 
 // RunMigrations 运行数据库迁移
@@ -640,4 +646,40 @@ func migration008_Down(db *sql.DB) error {
 	_, _ = db.Exec(`DROP TABLE IF EXISTS batch_import_items`)
 	_, _ = db.Exec(`DROP TABLE IF EXISTS jobs`)
 	return nil
+}
+
+func migration009_Up(db *sql.DB) error {
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS collections (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)
+	`); err != nil {
+		return fmt.Errorf("failed to create collections table: %w", err)
+	}
+
+	var exists bool
+	if err := db.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('files')
+		WHERE name = 'collection_id'
+	`).Scan(&exists); err != nil {
+		return fmt.Errorf("failed to check collection_id column: %w", err)
+	}
+	if !exists {
+		if _, err := db.Exec(`ALTER TABLE files ADD COLUMN collection_id INTEGER DEFAULT NULL`); err != nil {
+			return fmt.Errorf("failed to add collection_id column: %w", err)
+		}
+	}
+
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_files_collection_id ON files(collection_id)`); err != nil {
+		return fmt.Errorf("failed to create collection_id index: %w", err)
+	}
+	return nil
+}
+
+func migration009_Down(db *sql.DB) error {
+	return fmt.Errorf("SQLite rollback not supported for collection_id addition")
 }
