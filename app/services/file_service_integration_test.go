@@ -133,7 +133,8 @@ func TestImportFile_StagedPipeline_MovesFileAndDeletesSource(t *testing.T) {
 	aiService := NewAIService(configRepo)
 	thumbnailService := NewThumbnailService(filepath.Join(tempDir, "thumbnails"))
 
-	fileService := NewFileService(fileRepo, storageService, aiService, thumbnailService)
+	collectionRepo := repositories.NewCollectionRepository(repositories.NewSQLiteDBWrapper(db))
+	fileService := NewFileService(fileRepo, collectionRepo, storageService, aiService, thumbnailService)
 
 	masterDir := filepath.Join(tempDir, "master")
 	if err := os.MkdirAll(masterDir, 0755); err != nil {

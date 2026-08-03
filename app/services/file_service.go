@@ -24,10 +24,15 @@ type fileMetadataUpdater interface {
 	UpdateMetadata(id uint, tags []string, description string) error
 }
 
+type collectionResolver interface {
+	FindByID(id uint) (*models.Collection, error)
+}
+
 // FileService handles file operations.
 type FileService struct {
 	fileRepo         *repositories.FileRepository
 	metadataRepo     fileMetadataUpdater
+	collectionRepo   collectionResolver
 	storageService   *StorageService
 	aiService        *AIService
 	agentService     *AgentService
@@ -81,6 +86,7 @@ type FileFilter struct {
 // NewFileService creates a new FileService.
 func NewFileService(
 	fileRepo *repositories.FileRepository,
+	collectionRepo collectionResolver,
 	storageService *StorageService,
 	aiService *AIService,
 	thumbnailService *ThumbnailService,
@@ -88,6 +94,7 @@ func NewFileService(
 	return &FileService{
 		fileRepo:         fileRepo,
 		metadataRepo:     fileRepo,
+		collectionRepo:   collectionRepo,
 		storageService:   storageService,
 		aiService:        aiService,
 		thumbnailService: thumbnailService,
@@ -585,7 +592,7 @@ func (s *FileService) normalizeMetadataDescription(description string) string {
 	return strings.TrimSpace(description)
 }
 
-func (s *FileService) UpdateFileMetadata(id uint, tags []string, description string) error {
+func (s *FileService) UpdateFileMetadata(id uint, tags []string, description string, collectionID *uint) error {
 	if id == 0 {
 		return fmt.Errorf("file id cannot be empty")
 	}
@@ -593,18 +600,37 @@ func (s *FileService) UpdateFileMetadata(id uint, tags []string, description str
 		return fmt.Errorf("file repository not initialized")
 	}
 
-	if _, err := s.metadataRepo.FindByID(id); err != nil {
+	file, err := s.metadataRepo.FindByID(id)
+	if err != nil {
 		return fmt.Errorf("failed to get file: %w", err)
 	}
 
 	normalizedTags := s.normalizeMetadataTags(tags)
 	normalizedDescription := s.normalizeMetadataDescription(description)
 
-	if err := s.metadataRepo.UpdateMetadata(id, normalizedTags, normalizedDescription); err != nil {
-		return fmt.Errorf("failed to update file metadata: %w", err)
+	changedCollection := !sameCollectionID(file.CollectionID, collectionID)
+	if changedCollection {
+		if err := moveFileToCollection(s.fileRepo, s.storageService, s.collectionRepo, file, collectionID); err != nil {
+			return fmt.Errorf("failed to move file to collection: %w", err)
+		}
 	}
 
+	file.Tags = normalizedTags
+	file.Description = normalizedDescription
+	if err := s.fileRepo.Update(file); err != nil {
+		return fmt.Errorf("failed to update file metadata: %w", err)
+	}
 	return nil
+}
+
+func sameCollectionID(a, b *uint) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }
 
 // ListFiles returns a list of files.

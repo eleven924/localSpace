@@ -70,9 +70,7 @@ func TestNormalizeMetadataDescription_TrimsWhitespace(t *testing.T) {
 
 type metadataRepoStub struct {
 	findByIDCalledWith uint
-	updatedID          uint
-	updatedTags        []string
-	updatedDescription string
+	findFile           *models.File
 	findErr            error
 	updateErr          error
 }
@@ -82,53 +80,77 @@ func (r *metadataRepoStub) FindByID(id uint) (*models.File, error) {
 	if r.findErr != nil {
 		return nil, r.findErr
 	}
+	if r.findFile != nil {
+		copy := *r.findFile
+		copy.ID = id
+		return &copy, nil
+	}
 	return &models.File{ID: id}, nil
 }
 
 func (r *metadataRepoStub) UpdateMetadata(id uint, tags []string, description string) error {
-	r.updatedID = id
-	r.updatedTags = append([]string{}, tags...)
-	r.updatedDescription = description
 	return r.updateErr
 }
 
 func TestUpdateFileMetadata_NormalizesInputBeforePersisting(t *testing.T) {
-	repo := &metadataRepoStub{}
-	service := &FileService{metadataRepo: repo}
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
 
-	err := service.UpdateFileMetadata(7, []string{" 工作 ", "工作", "重要", ""}, "  新描述  ")
+	fileRepo := repositories.NewFileRepository(repositories.NewSQLiteDBWrapper(db))
+	service := &FileService{metadataRepo: fileRepo, fileRepo: fileRepo}
+
+	file := &models.File{
+		FileName:     "test.txt",
+		OriginalName: "test.txt",
+		FilePath:     filepath.Join(tempDir, "test.txt"),
+		FileType:     "document",
+		FileSubType:  "txt",
+		FileSize:     5,
+		Checksum:     "abc",
+	}
+	if err := fileRepo.Create(file); err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+
+	err = service.UpdateFileMetadata(file.ID, []string{" 工作 ", "工作", "重要", ""}, "  新描述  ", nil)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	if repo.findByIDCalledWith != 7 {
-		t.Fatalf("expected FindByID to be called with 7, got %d", repo.findByIDCalledWith)
+	updated, err := fileRepo.FindByID(file.ID)
+	if err != nil {
+		t.Fatalf("failed to find updated file: %v", err)
 	}
 
 	wantTags := []string{"工作", "重要"}
-	if len(repo.updatedTags) != len(wantTags) {
-		t.Fatalf("expected %d tags, got %d (%v)", len(wantTags), len(repo.updatedTags), repo.updatedTags)
+	if len(updated.Tags) != len(wantTags) {
+		t.Fatalf("expected %d tags, got %d (%v)", len(wantTags), len(updated.Tags), updated.Tags)
 	}
 	for i := range wantTags {
-		if repo.updatedTags[i] != wantTags[i] {
-			t.Fatalf("expected tag %d to be %q, got %q", i, wantTags[i], repo.updatedTags[i])
+		if updated.Tags[i] != wantTags[i] {
+			t.Fatalf("expected tag %d to be %q, got %q", i, wantTags[i], updated.Tags[i])
 		}
 	}
 
-	if repo.updatedDescription != "新描述" {
-		t.Fatalf("expected trimmed description, got %q", repo.updatedDescription)
+	if updated.Description != "新描述" {
+		t.Fatalf("expected trimmed description, got %q", updated.Description)
 	}
 }
 
 func TestUpdateFileMetadata_PropagatesRepositoryErrors(t *testing.T) {
-	repo := &metadataRepoStub{updateErr: errors.New("boom")}
+	repo := &metadataRepoStub{findErr: errors.New("boom")}
 	service := &FileService{metadataRepo: repo}
 
-	err := service.UpdateFileMetadata(9, []string{"tag"}, "desc")
+	err := service.UpdateFileMetadata(9, []string{"tag"}, "desc", nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if got, want := err.Error(), "failed to update file metadata: boom"; got != want {
+	if got, want := err.Error(), "failed to get file: boom"; got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
 }

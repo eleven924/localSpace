@@ -145,6 +145,7 @@ func (a *App) initializeApp() {
 	// Initialize repositories
 	fileRepo := repositories.NewFileRepository(repositories.NewSQLiteDBWrapper(db))
 	configRepo := repositories.NewConfigRepository(repositories.NewSQLiteDBWrapper(db))
+	collectionRepo := repositories.NewCollectionRepository(repositories.NewSQLiteDBWrapper(db))
 
 	// Initialize services
 	a.storageService = services.NewStorageService(configRepo)
@@ -157,7 +158,7 @@ func (a *App) initializeApp() {
 	thumbnailDir := filepath.Join(dataDir, "thumbnails")
 	a.thumbnailService = services.NewThumbnailService(thumbnailDir)
 
-	a.fileService = services.NewFileService(fileRepo, a.storageService, a.aiService, a.thumbnailService)
+	a.fileService = services.NewFileService(fileRepo, collectionRepo, a.storageService, a.aiService, a.thumbnailService)
 	a.fileService.SetAgentService(a.agentService)
 	a.configService = services.NewConfigService(configRepo)
 	a.jobService = services.NewJobService(
@@ -340,12 +341,16 @@ func (a *App) RenameFile(id uint, newName string) error {
 	return a.fileService.RenameFile(id, newName)
 }
 
-// UpdateFileMetadata updates file tags and description.
-func (a *App) UpdateFileMetadata(id uint, tags []string, description string) error {
+// UpdateFileMetadata updates file tags, description, and collection.
+func (a *App) UpdateFileMetadata(id uint, tags []string, description string, collectionID uint) error {
 	if !a.isInitialized() {
 		return fmt.Errorf("app not initialized")
 	}
-	return a.fileService.UpdateFileMetadata(id, tags, description)
+	var cid *uint
+	if collectionID > 0 {
+		cid = &collectionID
+	}
+	return a.fileService.UpdateFileMetadata(id, tags, description, cid)
 }
 
 // OpenFile opens a file with a preferred app when configured, otherwise system default.
