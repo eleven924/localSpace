@@ -29,13 +29,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, withDefaults } from 'vue'
 import { api } from '@/api'
 import type { Collection, File } from '@/types'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   files: File[]
-}>()
+}>(), {
+  files: () => [],
+})
 
 const collections = ref<Collection[]>([])
 const newName = ref('')
@@ -44,7 +46,7 @@ const error = ref('')
 
 const fileCountMap = computed(() => {
   const map: Record<number, number> = {}
-  props.files.forEach((file) => {
+  ;(props.files || []).forEach((file) => {
     if (file.collectionId) {
       map[file.collectionId] = (map[file.collectionId] || 0) + 1
     }
