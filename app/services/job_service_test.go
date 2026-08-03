@@ -196,6 +196,42 @@ func (h *slowJobHandler) Resume(ctx context.Context, job *models.Job, runtime Jo
 }
 func (h *slowJobHandler) Cleanup(ctx context.Context, job *models.Job, runtime JobRuntime) error { return nil }
 
+func TestJobService_DeleteJobRecord_OnlyTerminal(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	repo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
+	svc := NewJobService(repo, nil, nil, nil, nil)
+
+	job := &models.Job{JobType: models.JobTypeBatchImport, Status: models.JobStatusRunning}
+	if err := repo.Create(job); err != nil {
+		t.Fatalf("failed to create job: %v", err)
+	}
+
+	if err := svc.DeleteJobRecord(job.ID); err == nil {
+		t.Fatal("expected error deleting non-terminal job")
+	}
+
+	job.Status = models.JobStatusCompleted
+	if err := repo.Update(job); err != nil {
+		t.Fatalf("failed to update job: %v", err)
+	}
+
+	if err := svc.DeleteJobRecord(job.ID); err != nil {
+		t.Fatalf("expected no error deleting terminal job: %v", err)
+	}
+
+	_, err = repo.FindByID(job.ID)
+	if err == nil {
+		t.Fatal("expected job to be deleted")
+	}
+}
+
 func TestJobService_PrepareForShutdown_WaitsForRunningJob(t *testing.T) {
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")

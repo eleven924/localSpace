@@ -7,21 +7,17 @@
         <section class="page-topbar tasks-topbar">
           <div class="page-topbar-copy">
             <h1 class="page-topbar-title">任务中心</h1>
-            <p class="page-topbar-note">查看导入任务进度、恢复中断任务，并分页回看历史记录。</p>
+            <p class="page-topbar-note">查看任务进度、恢复中断任务，并分页管理历史记录。</p>
           </div>
 
           <div class="page-topbar-meta">
             <div class="metric-badge">
-              <strong>{{ jobsStore.totalRunningCount }}</strong>
+              <strong>{{ jobsStore.activeJobs.length }}</strong>
               <span>活动任务</span>
             </div>
             <div class="metric-badge">
-              <strong>{{ resumableCount }}</strong>
-              <span>等待继续</span>
-            </div>
-            <div class="metric-badge">
-              <strong>{{ jobsStore.history.total }}</strong>
-              <span>历史记录</span>
+              <strong>{{ jobsStore.total }}</strong>
+              <span>总记录</span>
             </div>
           </div>
         </section>
@@ -29,120 +25,119 @@
         <section class="section-panel section-shell">
           <div class="section-head">
             <div>
-              <p class="eyebrow">Running Now</p>
-              <h2 class="section-title">当前任务</h2>
-              <p class="section-copy">右上角入口用于快速查看，这里保留完整操作。</p>
+              <p class="eyebrow">All Tasks</p>
+              <h2 class="section-title">任务列表</h2>
+              <p class="section-copy">支持分页浏览，失败任务可展开查看详情。</p>
             </div>
+
             <div class="section-actions">
               <button class="btn secondary" type="button" @click="refreshAll">刷新状态</button>
               <button class="btn primary" type="button" @click="router.push('/import')">返回导入</button>
             </div>
           </div>
 
-          <div v-if="activeAndResumable.length === 0" class="empty-surface">
-            当前没有需要关注的任务。
+          <div v-if="jobsStore.loading && jobsStore.jobs.length === 0" class="empty-surface">
+            正在加载任务列表...
           </div>
 
-          <div v-else class="active-grid">
-            <article v-for="job in activeAndResumable" :key="job.id" class="job-card">
-              <div class="job-card-head">
-                <div>
-                  <strong>{{ job.title }}</strong>
-                  <p>{{ job.progressMessage || jobStatusLabel(job.status) }}</p>
-                </div>
-                <span class="status-pill">{{ jobStatusLabel(job.status) }}</span>
-              </div>
-
-              <ProgressBar :percentage="jobProgressPercent(job)" :show-label="true" striped animated />
-
-              <div class="job-card-foot">
-                <span class="job-count">{{ job.progressCompleted }} / {{ job.progressTotal }}</span>
-                <div class="job-actions">
-                  <button
-                    v-if="job.status === 'awaiting_resume' || job.status === 'timed_out'"
-                    class="btn primary"
-                    type="button"
-                    @click="jobsStore.resumeJob(job.id)"
-                  >
-                    继续任务
-                  </button>
-                  <button class="btn secondary" type="button" @click="jobsStore.cancelJob(job.id)">
-                    {{ job.status === 'awaiting_resume' || job.status === 'timed_out' ? '放弃并清理' : '取消任务' }}
-                  </button>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="section-panel section-shell">
-          <div class="section-head history-head">
-            <div>
-              <p class="eyebrow">History</p>
-              <h2 class="section-title">导入历史</h2>
-              <p class="section-copy">支持分页浏览，并可指定每页展示数量。</p>
-            </div>
-
-            <div class="toolbar">
-              <div class="range-pill">{{ showingRange }}</div>
-              <label class="size-picker">
-                <span>每页</span>
-                <select v-model.number="pageSize" @change="changePageSize">
-                  <option :value="10">10</option>
-                  <option :value="20">20</option>
-                  <option :value="50">50</option>
-                </select>
-              </label>
-            </div>
+          <div v-else-if="jobsStore.jobs.length === 0" class="empty-surface">
+            暂时还没有任务记录。
           </div>
 
-          <div v-if="jobsStore.history.items.length === 0" class="empty-surface">
-            暂时还没有导入历史。
+          <div v-else class="task-table-wrap">
+            <table class="task-table">
+              <thead>
+                <tr>
+                  <th class="col-title">任务</th>
+                  <th class="col-time">开始时间</th>
+                  <th class="col-time">结束时间</th>
+                  <th class="col-progress">进度</th>
+                  <th class="col-status">状态</th>
+                  <th class="col-actions">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template v-for="job in jobsStore.jobs" :key="job.id">
+                  <tr class="task-row" :class="{ 'is-expanded': expandedJobs.has(job.id) }">
+                    <td class="col-title">
+                      <strong>{{ job.title }}</strong>
+                      <p class="task-message">{{ job.progressMessage || jobStatusLabel(job.status) }}</p>
+                    </td>
+                    <td class="col-time">{{ formatDate(job.startedAt) || '—' }}</td>
+                    <td class="col-time">{{ formatDate(job.finishedAt) || '—' }}</td>
+                    <td class="col-progress">
+                      <ProgressBar :percentage="jobProgressPercent(job)" :show-label="false" small />
+                      <span class="progress-count">{{ job.progressCompleted }} / {{ job.progressTotal }}</span>
+                    </td>
+                    <td class="col-status">
+                      <span class="status-pill" :class="`status-${job.status}`">{{ jobStatusLabel(job.status) }}</span>
+                    </td>
+                    <td class="col-actions">
+                      <div class="action-cell">
+                        <button
+                          v-if="canResume(job)"
+                          class="btn primary small"
+                          type="button"
+                          @click="jobsStore.resumeJob(job.id)"
+                        >
+                          继续
+                        </button>
+                        <button
+                          v-if="canDelete(job)"
+                          class="btn ghost small"
+                          type="button"
+                          @click="confirmDelete(job.id)"
+                        >
+                          删除
+                        </button>
+                        <button
+                          v-if="hasDetails(job)"
+                          class="btn ghost small"
+                          type="button"
+                          @click="toggleExpanded(job.id)"
+                        >
+                          {{ expandedJobs.has(job.id) ? '收起' : '详情' }}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-if="expandedJobs.has(job.id)" class="task-detail-row">
+                    <td colspan="6">
+                      <div class="task-detail-card">
+                        <div v-if="job.errorMessage" class="detail-block">
+                          <strong>错误信息</strong>
+                          <p class="error-text">{{ job.errorMessage }}</p>
+                        </div>
+                        <div v-if="job.result" class="detail-block">
+                          <strong>执行结果</strong>
+                          <p>成功 {{ job.result.successCount }} 个 · 失败 {{ job.result.failedCount }} 个</p>
+                          <ul v-if="job.result.failedItems && job.result.failedItems.length > 0" class="failed-items">
+                            <li v-for="(item, index) in job.result.failedItems" :key="index">
+                              {{ item.displayName || item.fileName || item.sourcePath || `文件 ${item.fileId}` }}：{{ item.error }}
+                            </li>
+                          </ul>
+                        </div>
+                        <div class="detail-block">
+                          <strong>任务 ID</strong>
+                          <p class="meta-text">{{ job.id }}</p>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
           </div>
 
-          <div v-else class="history-list">
-            <article v-for="job in jobsStore.history.items" :key="job.id" class="history-card">
-              <div class="history-main">
-                <div class="history-copy">
-                  <div class="history-title-line">
-                    <strong>{{ job.title }}</strong>
-                    <span class="status-pill">{{ jobStatusLabel(job.status) }}</span>
-                  </div>
-                  <p>{{ job.progressMessage || '没有额外进度说明' }}</p>
-                  <div class="history-meta">
-                    <span>创建于 {{ formatDate(job.createdAt) }}</span>
-                    <span v-if="job.finishedAt">完成于 {{ formatDate(job.finishedAt) }}</span>
-                  </div>
-                </div>
-
-                <div class="history-side">
-                  <span class="percent">{{ jobProgressPercent(job) }}%</span>
-                  <span class="count">{{ job.progressCompleted }} / {{ job.progressTotal }}</span>
-                </div>
-              </div>
-
-              <ProgressBar :percentage="jobProgressPercent(job)" :show-label="false" small />
-
-              <div v-if="job.result" class="result-summary">
-                <span>成功 {{ job.result.successCount }}</span>
-                <span>失败 {{ job.result.failedCount }}</span>
-              </div>
-
-              <div v-if="job.errorMessage" class="history-error">
-                {{ job.errorMessage }}
-              </div>
-            </article>
-          </div>
-
-          <div class="pagination">
-            <button class="btn secondary" type="button" :disabled="page <= 1" @click="goToPage(page - 1)">
-              上一页
-            </button>
-            <span class="page-indicator">第 {{ page }} / {{ totalPages }} 页</span>
-            <button class="btn secondary" type="button" :disabled="page >= totalPages" @click="goToPage(page + 1)">
-              下一页
-            </button>
-          </div>
+          <PaginationControls
+            v-if="!jobsStore.loading || jobsStore.jobs.length > 0"
+            :page="jobsStore.page"
+            :page-size="jobsStore.pageSize"
+            :total="jobsStore.total"
+            :page-sizes="[10, 20, 50]"
+            @change="jobsStore.loadJobs"
+            @change-size="handleSizeChange"
+          />
         </section>
       </div>
     </div>
@@ -150,9 +145,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
+import PaginationControls from '@/components/PaginationControls.vue'
 import ProgressBar from '@/components/ProgressBar.vue'
 import { useJobsStore } from '@/store/modules/jobs'
 import { jobProgressPercent, jobStatusLabel, type Job } from '@/types/jobs'
@@ -160,52 +156,35 @@ import { formatDate } from '@/utils/constants'
 
 const jobsStore = useJobsStore()
 const router = useRouter()
+const expandedJobs = ref<Set<number>>(new Set())
 
-const page = ref(jobsStore.history.page || 1)
-const pageSize = ref(jobsStore.history.pageSize || 10)
+const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled', 'timed_out', 'cleanup_failed']
+const RESUMABLE_STATUSES = ['awaiting_resume', 'timed_out']
 
-const activeAndResumable = computed(() => {
-  const deduped = new Map<number, Job>()
-  for (const job of jobsStore.resumableJobs) deduped.set(job.id, job)
-  for (const job of jobsStore.activeJobs) {
-    if (!deduped.has(job.id)) deduped.set(job.id, job)
+const canResume = (job: Job) => RESUMABLE_STATUSES.includes(job.status)
+const canDelete = (job: Job) => TERMINAL_STATUSES.includes(job.status)
+const hasDetails = (job: Job) => Boolean(job.errorMessage || job.result)
+
+const toggleExpanded = (jobId: number) => {
+  if (expandedJobs.value.has(jobId)) {
+    expandedJobs.value.delete(jobId)
+  } else {
+    expandedJobs.value.add(jobId)
   }
-  return Array.from(deduped.values())
-})
+}
 
-const resumableCount = computed(() => jobsStore.resumableJobs.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(jobsStore.history.total / pageSize.value)))
-const showingRange = computed(() => {
-  if (jobsStore.history.total === 0) return '0 条记录'
-  const start = (page.value - 1) * pageSize.value + 1
-  const end = Math.min(page.value * pageSize.value, jobsStore.history.total)
-  return `${start}-${end} / ${jobsStore.history.total}`
-})
+const confirmDelete = async (jobId: number) => {
+  if (!window.confirm('确定删除该任务记录？')) return
+  await jobsStore.deleteJobRecord(jobId)
+}
+
+const handleSizeChange = async (size: number) => {
+  await jobsStore.loadJobs(1, size)
+}
 
 const refreshAll = async () => {
-  await Promise.all([
-    jobsStore.loadActiveJobs(),
-    jobsStore.loadResumableJobs(),
-    jobsStore.loadJobHistory(page.value, pageSize.value),
-  ])
+  await Promise.all([jobsStore.loadActiveJobs(), jobsStore.loadJobs(jobsStore.page, jobsStore.pageSize)])
 }
-
-const goToPage = async (nextPage: number) => {
-  page.value = nextPage
-  await jobsStore.loadJobHistory(page.value, pageSize.value)
-}
-
-const changePageSize = async () => {
-  page.value = 1
-  await jobsStore.loadJobHistory(page.value, pageSize.value)
-}
-
-watch(
-  () => jobsStore.history.page,
-  (value) => {
-    if (value) page.value = value
-  }
-)
 
 onMounted(() => {
   void refreshAll()
@@ -221,178 +200,268 @@ onMounted(() => {
   padding: 22px;
 }
 
-.section-head,
-.job-card-head,
-.job-card-foot,
-.history-main,
-.pagination,
-.toolbar,
-.section-actions {
+.section-head {
   display: flex;
   justify-content: space-between;
-  gap: 14px;
-}
-
-.section-head,
-.pagination,
-.job-card-foot,
-.toolbar,
-.section-actions {
   align-items: center;
-}
-
-.active-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 14px;
-  margin-top: 18px;
+  flex-wrap: wrap;
 }
 
-.job-card,
-.history-card,
-.range-pill {
-  border: 1px solid rgba(146, 165, 192, 0.18);
-  background: rgba(255, 255, 255, 0.58);
-}
-
-.job-card,
-.history-card {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 24px;
-}
-
-.job-card-head strong,
-.history-title-line strong {
-  font-size: 15px;
-  color: var(--text-color);
-}
-
-.job-card-head p,
-.history-copy p,
-.job-count,
-.count,
-.history-meta {
-  margin-top: 6px;
-  color: var(--text-soft);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.job-actions,
-.history-title-line,
-.history-meta {
+.section-actions {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.empty-surface {
   margin-top: 18px;
-}
-
-.history-side {
-  min-width: 90px;
-  text-align: right;
-}
-
-.percent {
-  display: block;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-color);
-}
-
-.toolbar {
-  flex-wrap: wrap;
-}
-
-.range-pill {
-  padding: 10px 12px;
-  border-radius: 999px;
-  font-size: 12px;
+  padding: 32px;
+  text-align: center;
+  border-radius: 24px;
+  border: 1px solid rgba(146, 165, 192, 0.18);
+  background: rgba(255, 255, 255, 0.58);
   color: var(--text-soft);
 }
 
-.size-picker {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.task-table-wrap {
+  margin-top: 18px;
+  overflow-x: auto;
+  border-radius: 16px;
+}
+
+.task-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 13px;
+}
+
+.task-table th {
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-soft);
+  border-bottom: 1px solid rgba(146, 165, 192, 0.18);
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+}
+
+.task-row {
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(146, 165, 192, 0.18);
+  transition: background-color 0.2s ease;
+}
+
+[data-theme='dark'] .task-row {
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.task-row:hover {
+  background: rgba(255, 255, 255, 0.64);
+}
+
+[data-theme='dark'] .task-row:hover {
+  background: rgba(30, 41, 59, 0.58);
+}
+
+.task-row td {
+  padding: 14px;
+  vertical-align: middle;
+}
+
+.col-title {
+  min-width: 200px;
+}
+
+.col-title strong {
+  display: block;
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+.task-message {
+  margin-top: 4px;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.col-time {
+  white-space: nowrap;
   color: var(--text-soft);
 }
 
-.size-picker select {
-  width: auto;
-  min-width: 84px;
-  padding: 9px 12px;
-  border-radius: 999px;
+.col-progress {
+  min-width: 140px;
 }
 
-.result-summary {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
+.progress-count {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
   color: var(--text-faint);
 }
 
-.history-error {
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: rgba(204, 108, 108, 0.08);
-  border: 1px solid rgba(204, 108, 108, 0.18);
-  color: #a85d5d;
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
   font-size: 12px;
-}
-
-.page-indicator {
-  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface-muted);
   color: var(--text-soft);
 }
 
-@media (max-width: 1040px) {
-  .section-head,
-  .pagination {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-
-  .section-actions {
-    flex-wrap: wrap;
-  }
+.status-pill.status-running,
+.status-pill.status-recovering,
+.status-pill.status-pending {
+  background: rgba(45, 140, 240, 0.12);
+  color: #2d8cf0;
 }
 
-@media (max-width: 760px) {
-  .history-main,
-  .job-card-head,
-  .job-card-foot,
-  .toolbar,
-  .section-actions {
+.status-pill.status-completed {
+  background: rgba(82, 196, 26, 0.12);
+  color: #52c41a;
+}
+
+.status-pill.status-failed,
+.status-pill.status-timed_out,
+.status-pill.status-cleanup_failed {
+  background: rgba(204, 108, 108, 0.12);
+  color: #a85d5d;
+}
+
+.status-pill.status-cancelled,
+.status-pill.status-awaiting_resume {
+  background: rgba(250, 173, 20, 0.12);
+  color: #d48806;
+}
+
+.col-actions {
+  white-space: nowrap;
+}
+
+.action-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn.small {
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.task-detail-row td {
+  padding: 0;
+  border-bottom: 1px solid rgba(146, 165, 192, 0.18);
+}
+
+.task-detail-card {
+  padding: 16px 20px;
+  background: rgba(248, 250, 252, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme='dark'] .task-detail-card {
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.detail-block {
+  margin-bottom: 14px;
+}
+
+.detail-block:last-child {
+  margin-bottom: 0;
+}
+
+.detail-block strong {
+  display: block;
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+
+.detail-block p {
+  margin: 0;
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+.detail-block .error-text {
+  color: #a85d5d;
+}
+
+.detail-block .meta-text {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.failed-items {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+@media (max-width: 980px) {
+  .section-head {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .history-side {
-    min-width: 0;
-    text-align: left;
+  .task-table th,
+  .task-row td {
+    padding: 10px 12px;
   }
 }
 
-@media (max-width: 640px) {
-  .section-shell {
-    padding: 16px;
+@media (max-width: 760px) {
+  .task-table {
+    display: block;
   }
 
-  .section-actions,
-  .job-actions,
-  .pagination {
-    width: 100%;
-    flex-direction: column;
+  .task-table thead {
+    display: none;
+  }
+
+  .task-row,
+  .task-detail-row {
+    display: block;
+    margin-bottom: 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(146, 165, 192, 0.18);
+  }
+
+  .task-row td,
+  .task-detail-row td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border: none;
+  }
+
+  .task-row td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-soft);
+  }
+
+  .col-title,
+  .col-progress,
+  .col-actions {
+    min-width: 0;
+  }
+
+  .action-cell {
+    justify-content: flex-end;
   }
 }
 </style>

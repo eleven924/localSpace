@@ -4,31 +4,29 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { api, isWailsAvailable } from '@/api'
 import type { BatchImportJobRequest, Job, JobListResponse } from '@/types/jobs'
 
-const DEFAULT_HISTORY_PAGE_SIZE = 10
+const DEFAULT_PAGE_SIZE = 10
+
+const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled', 'timed_out', 'cleanup_failed']
+const ACTIVE_STATUSES = ['pending', 'running', 'recovering']
+const RESUMABLE_STATUSES = ['awaiting_resume', 'timed_out']
 
 export const useJobsStore = defineStore('jobs', () => {
+  const jobs = ref<Job[]>([])
+  const page = ref(1)
+  const pageSize = ref(DEFAULT_PAGE_SIZE)
+  const total = ref(0)
   const activeJobs = ref<Job[]>([])
-  const resumableJobs = ref<Job[]>([])
-  const history = ref<JobListResponse>({
-    items: [],
-    page: 1,
-    pageSize: DEFAULT_HISTORY_PAGE_SIZE,
-    total: 0,
-  })
   const loading = ref(false)
   const initialized = ref(false)
 
-  const activeJob = computed(() => activeJobs.value[0] ?? null)
-  const resumableJob = computed(() => resumableJobs.value[0] ?? null)
-  const totalRunningCount = computed(() => activeJobs.value.length + resumableJobs.value.length)
+  const totalRunningCount = computed(() => activeJobs.value.length)
 
   const summaryJobs = computed(() => {
-    const priorityJobs = [...resumableJobs.value, ...activeJobs.value]
     const map = new Map<number, Job>()
-    for (const job of priorityJobs) {
+    for (const job of activeJobs.value) {
       map.set(job.id, job)
     }
-    for (const job of history.value.items) {
+    for (const job of jobs.value) {
       if (!map.has(job.id)) {
         map.set(job.id, job)
       }
@@ -45,23 +43,6 @@ export const useJobsStore = defineStore('jobs', () => {
     target.unshift(incoming)
   }
 
-  const upsertHistoryJob = (incoming: Job) => {
-    const items = [...history.value.items]
-    const index = items.findIndex((item) => item.id === incoming.id)
-    if (index >= 0) {
-      items.splice(index, 1, incoming)
-    } else {
-      items.unshift(incoming)
-      if (items.length > history.value.pageSize) {
-        items.length = history.value.pageSize
-      }
-    }
-    history.value = {
-      ...history.value,
-      items,
-    }
-  }
-
   const removeJob = (target: Job[], jobId: number) => {
     const index = target.findIndex((item) => item.id === jobId)
     if (index >= 0) {
@@ -74,22 +55,13 @@ export const useJobsStore = defineStore('jobs', () => {
       return
     }
 
-    upsertHistoryJob(job)
+    upsertJob(jobs.value, job)
 
-    if (['pending', 'running', 'recovering'].includes(job.status)) {
+    if (ACTIVE_STATUSES.includes(job.status) || RESUMABLE_STATUSES.includes(job.status)) {
       upsertJob(activeJobs.value, job)
-      removeJob(resumableJobs.value, job.id)
-      return
-    }
-
-    if (['awaiting_resume', 'timed_out'].includes(job.status)) {
-      upsertJob(resumableJobs.value, job)
+    } else {
       removeJob(activeJobs.value, job.id)
-      return
     }
-
-    removeJob(activeJobs.value, job.id)
-    removeJob(resumableJobs.value, job.id)
   }
 
   const initialize = async () => {
@@ -106,37 +78,26 @@ export const useJobsStore = defineStore('jobs', () => {
       EventsOn('job:needs-resume', (job: Job) => syncJob(job))
     }
 
-    await Promise.all([
-      loadActiveJobs(),
-      loadResumableJobs(),
-      loadJobHistory(1, history.value.pageSize),
-    ])
+    await Promise.all([loadActiveJobs(), loadJobs(1, pageSize.value)])
+  }
+
+  const loadJobs = async (p = page.value, ps = pageSize.value) => {
+    loading.value = true
+    try {
+      page.value = p
+      pageSize.value = ps
+      const resp: JobListResponse = await api.jobs.listJobs(p, ps, '')
+      jobs.value = resp.items
+      total.value = resp.total
+    } finally {
+      loading.value = false
+    }
   }
 
   const loadActiveJobs = async () => {
     loading.value = true
     try {
       activeJobs.value = await api.jobs.getActiveJobs()
-      activeJobs.value.forEach(upsertHistoryJob)
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const loadResumableJobs = async () => {
-    loading.value = true
-    try {
-      resumableJobs.value = await api.jobs.getResumableJobs()
-      resumableJobs.value.forEach(upsertHistoryJob)
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const loadJobHistory = async (page = history.value.page, pageSize = history.value.pageSize, jobType = '') => {
-    loading.value = true
-    try {
-      history.value = await api.jobs.listJobs(page, pageSize, jobType)
     } finally {
       loading.value = false
     }
@@ -150,20 +111,17 @@ export const useJobsStore = defineStore('jobs', () => {
 
   const resumeJob = async (jobId: number) => {
     await api.jobs.resume(jobId)
-    await Promise.all([
-      loadActiveJobs(),
-      loadResumableJobs(),
-      loadJobHistory(history.value.page, history.value.pageSize),
-    ])
+    await Promise.all([loadActiveJobs(), loadJobs(page.value, pageSize.value)])
   }
 
   const cancelJob = async (jobId: number) => {
     await api.jobs.cancel(jobId)
-    await Promise.all([
-      loadActiveJobs(),
-      loadResumableJobs(),
-      loadJobHistory(history.value.page, history.value.pageSize),
-    ])
+    await Promise.all([loadActiveJobs(), loadJobs(page.value, pageSize.value)])
+  }
+
+  const deleteJobRecord = async (jobId: number) => {
+    await api.jobs.deleteRecord(jobId)
+    await Promise.all([loadActiveJobs(), loadJobs(page.value, pageSize.value)])
   }
 
   const refreshJob = async (jobId: number) => {
@@ -173,21 +131,21 @@ export const useJobsStore = defineStore('jobs', () => {
   }
 
   return {
+    jobs,
+    page,
+    pageSize,
+    total,
     activeJobs,
-    resumableJobs,
-    history,
-    activeJob,
-    resumableJob,
     totalRunningCount,
     summaryJobs,
     loading,
     initialize,
+    loadJobs,
     loadActiveJobs,
-    loadResumableJobs,
-    loadJobHistory,
     submitBatchImportJob,
     resumeJob,
     cancelJob,
+    deleteJobRecord,
     refreshJob,
   }
 })
