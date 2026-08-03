@@ -315,20 +315,22 @@ func (a *App) SubmitSingleImportJob(
 }
 
 // GetFiles returns a paginated list of files.
-func (a *App) GetFiles(page, pageSize int, fileType string, collectionID uint) (*models.FileListResponse, error) {
+func (a *App) GetFiles(page, pageSize int, fileType string, collectionID int64) (*models.FileListResponse, error) {
 	if !a.waitForInitialization(5 * time.Second) {
 		return &models.FileListResponse{Items: []*models.File{}, Page: page, PageSize: pageSize, Total: 0}, fmt.Errorf("app not initialized")
 	}
-	var cid *uint
-	if collectionID > 0 {
-		cid = &collectionID
+	filter := services.FileFilter{
+		Page:     page,
+		PageSize: pageSize,
+		FileType: fileType,
 	}
-	return a.fileService.ListFilesResponse(services.FileFilter{
-		Page:         page,
-		PageSize:     pageSize,
-		FileType:     fileType,
-		CollectionID: cid,
-	})
+	if collectionID > 0 {
+		cid := uint(collectionID)
+		filter.CollectionID = &cid
+	} else if collectionID == -1 {
+		filter.UnsortedOnly = true
+	}
+	return a.fileService.ListFilesResponse(filter)
 }
 
 // SearchFiles searches for files with pagination.

@@ -23,6 +23,7 @@ declare global {
           ImportFileWithKeywords: (filePath: string, fileName: string, description: string, tags: string[], keywords: string) => Promise<string>
           ImportFileWithMetadata: (filePath: string, fileName: string, description: string, tags: string[], keywords: string, collectionId: number) => Promise<string>
           GetFiles: (page: number, pageSize: number, fileType: string, collectionId: number) => Promise<any>
+
           SearchFiles: (query: string, page: number, pageSize: number) => Promise<any>
           GetFile: (id: number) => Promise<any>
           DeleteFile: (id: number) => Promise<string>
@@ -246,7 +247,7 @@ export const api = {
       }),
     list: (page: number, pageSize: number, fileType: string, collectionId?: number) =>
       safeWailsCall(
-        () => window.go!.app!.App.GetFiles(page, pageSize, fileType, collectionId || 0),
+        () => window.go!.app!.App.GetFiles(page, pageSize, fileType, collectionId ?? 0),
         { items: [], page, pageSize, total: 0 },
         `GetFiles(${fileType})`
       ),

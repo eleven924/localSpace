@@ -8,19 +8,27 @@
           <div class="toolbar-top">
             <FileTypeFilter
               v-model="filesStore.currentFileType"
-              :counts="filesStore.fileTypeCounts"
               @filter="handleFilter"
             />
           </div>
 
-          <div v-if="filesStore.collectionSummaries.length > 0" class="toolbar-middle">
+          <div class="toolbar-middle">
             <CollectionFilter
-              v-model="filesStore.currentCollectionName"
-              :options="filesStore.collectionSummaries"
-              :total-count="filesStore.collectionCounts.all"
+              v-model="filesStore.currentCollectionId"
+              :collections="collections"
+              :files="filesStore.files"
+              :total-count="filesStore.totalFiles"
               @filter="handleCollectionFilter"
             />
           </div>
+
+          <FilesBatchToolbar
+            v-if="filesStore.selectedFileIds.length > 0"
+            :selected-ids="filesStore.selectedFileIds"
+            @move="openMoveDialog"
+            @delete="confirmBatchDelete"
+            @clear="filesStore.clearSelection()"
+          />
 
           <div class="toolbar-bottom">
             <SearchBar
@@ -36,7 +44,7 @@
 
               <div class="search-row-actions">
                 <button
-                  v-if="filesStore.currentCollectionName !== 'all'"
+                  v-if="filesStore.currentCollectionId !== 'all'"
                   type="button"
                   class="btn secondary compact-button"
                   @click="clearCollectionFilter"
@@ -65,17 +73,70 @@
           <FileList
             :files="filesStore.files"
             :group-by-collection="listMode === 'grouped'"
+            :selectable="true"
+            :selected-ids="filesStore.selectedFileIds"
             :empty-title="emptyStateTitle"
             :empty-description="emptyStateDescription"
             :empty-state-mode="emptyStateMode"
+            @toggle-select="filesStore.toggleSelection"
             @open="handleOpenFile"
             @click="handleClickFile"
             @delete="handleDeleteFile"
             @updated="handleUpdateFileMetadata"
           />
         </section>
+
+        <PaginationControls
+          v-if="!filesStore.loading && !filesStore.error && filesStore.totalFiles > 0"
+          :page="filesStore.currentPage"
+          :page-size="filesStore.pageSize"
+          :total="filesStore.totalFiles"
+          :page-sizes="[20, 50, 100]"
+          @change="filesStore.goToPage"
+          @change-size="filesStore.setPageSize"
+        />
       </div>
     </div>
+
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showMoveDialog" class="modal-overlay" @click="closeMoveDialog">
+          <div class="modal-content move-dialog" @click.stop>
+            <div class="modal-header">
+              <h3 class="modal-title">移动合集</h3>
+              <button type="button" class="modal-close" aria-label="Close" @click="closeMoveDialog">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+
+            <div class="modal-body">
+              <div class="form-group">
+                <label>目标合集</label>
+                <CollectionSelector v-model="targetCollectionId" :collections="collections" />
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn secondary" @click="closeMoveDialog">取消</button>
+              <button type="button" class="btn primary" :disabled="moving" @click="confirmMove">
+                {{ moving ? '正在移动...' : '确认移动' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <BatchMoveProgressOverlay
+      v-if="moving"
+      :total="moveTotal"
+      :completed="moveCompleted"
+      :message="moveMessage"
+      :collection-name="moveCollectionName"
+    />
   </div>
 </template>
 
@@ -84,20 +145,34 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, isWailsAvailable } from '@/api/index'
 import AppHeader from '@/components/AppHeader.vue'
+import BatchMoveProgressOverlay from '@/components/BatchMoveProgressOverlay.vue'
 import CollectionFilter from '@/components/CollectionFilter.vue'
+import CollectionSelector from '@/components/CollectionSelector.vue'
 import FileList from '@/components/FileList.vue'
 import FileTypeFilter from '@/components/FileTypeFilter.vue'
+import FilesBatchToolbar from '@/components/FilesBatchToolbar.vue'
 import ListDisplayModeToggle from '@/components/ListDisplayModeToggle.vue'
+import PaginationControls from '@/components/PaginationControls.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import { useFilesStore } from '@/store/modules/files'
+import type { Collection } from '@/types'
 
 const filesStore = useFilesStore()
 const route = useRoute()
 const router = useRouter()
 const searchQuery = ref('')
 const listMode = ref<'flat' | 'grouped'>('flat')
+const collections = ref<Collection[]>([])
 const checkIntervals = new Map<number, NodeJS.Timeout>()
 let isUnmounted = false
+
+const showMoveDialog = ref(false)
+const targetCollectionId = ref<number | undefined>(undefined)
+const moving = ref(false)
+const moveTotal = ref(0)
+const moveCompleted = ref(0)
+const moveMessage = ref('')
+const moveCollectionName = ref('')
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -112,7 +187,7 @@ const applyRouteState = () => {
   const routeSearch = getQueryValue(route.query.q)
 
   filesStore.currentFileType = routeType
-  filesStore.currentCollectionName = routeCollection
+  filesStore.currentCollectionId = routeCollection === 'unsorted' ? 'unsorted' : routeCollection === 'all' ? 'all' : Number(routeCollection)
   searchQuery.value = routeSearch
   listMode.value = routeView
 }
@@ -121,7 +196,9 @@ const persistRouteState = async () => {
   const query: Record<string, string> = {}
 
   if (filesStore.currentFileType !== 'all') query.type = filesStore.currentFileType
-  if (filesStore.currentCollectionName !== 'all') query.collection = filesStore.currentCollectionName
+  if (filesStore.currentCollectionId !== 'all') {
+    query.collection = String(filesStore.currentCollectionId)
+  }
   if (listMode.value !== 'flat') query.view = listMode.value
   if (searchQuery.value.trim()) query.q = searchQuery.value.trim()
 
@@ -130,11 +207,11 @@ const persistRouteState = async () => {
 
 const refreshCurrentResults = async () => {
   if (searchQuery.value.trim()) {
-    await filesStore.searchFiles(searchQuery.value.trim())
+    await filesStore.searchFiles(searchQuery.value.trim(), filesStore.currentPage, filesStore.pageSize)
     return
   }
 
-  await filesStore.loadFiles(filesStore.currentFileType)
+  await filesStore.loadFiles(filesStore.currentFileType, filesStore.currentPage, filesStore.pageSize)
 }
 
 const waitForWails = async (timeoutMs = 5000, intervalMs = 100) => {
@@ -159,23 +236,24 @@ const loadInitialFiles = async () => {
   }
 }
 
+const loadCollections = async () => {
+  try {
+    collections.value = await api.collection.getAll()
+  } catch (err) {
+    console.error('Failed to load collections:', err)
+  }
+}
+
 const resultsSummary = computed(() => {
-  const fileCount = filesStore.files.length
-  const collectionCount = filesStore.collectionSummaries.length
-
   if (searchQuery.value.trim()) {
-    return `搜索到 ${fileCount} 个文件`
+    return `搜索到 ${filesStore.totalFiles} 个文件`
   }
 
-  if (listMode.value === 'grouped') {
-    return `当前共 ${fileCount} 个文件，按 ${collectionCount} 个合集分组`
+  if (filesStore.currentCollectionId !== 'all') {
+    return `当前筛选共 ${filesStore.totalFiles} 个文件`
   }
 
-  if (filesStore.currentCollectionName !== 'all') {
-    return `当前合集下共 ${fileCount} 个文件`
-  }
-
-  return `当前显示 ${fileCount} 个文件`
+  return `共 ${filesStore.totalFiles} 个文件`
 })
 
 const emptyStateTitle = computed(() => {
@@ -194,6 +272,7 @@ const emptyStateMode = computed<'library' | 'search'>(() => {
 
 onMounted(() => {
   applyRouteState()
+  void loadCollections()
   void loadInitialFiles()
 })
 
@@ -203,39 +282,42 @@ onUnmounted(() => {
   checkIntervals.clear()
 })
 
-watch([() => filesStore.currentFileType, () => filesStore.currentCollectionName, listMode], () => {
+watch([() => filesStore.currentFileType, () => filesStore.currentCollectionId, listMode], () => {
   void persistRouteState()
 })
 
 const handleFilter = async (fileType: string) => {
   searchQuery.value = ''
-  filesStore.searchQuery = ''
-  await filesStore.loadFiles(fileType)
+  filesStore.selectedFileIds = []
+  await filesStore.setCurrentFileType(fileType)
 }
 
-const handleCollectionFilter = (collectionName: string) => {
-  filesStore.setCurrentCollectionName(collectionName)
+const handleCollectionFilter = async (collectionId: 'all' | 'unsorted' | number) => {
+  filesStore.selectedFileIds = []
+  await filesStore.setCurrentCollectionId(collectionId)
 }
 
 const clearCollectionFilter = () => {
-  filesStore.setCurrentCollectionName('all')
+  handleCollectionFilter('all')
 }
 
 const handleSearch = async (query: string) => {
   const trimmedQuery = query.trim()
   searchQuery.value = trimmedQuery
+  filesStore.selectedFileIds = []
 
   if (!trimmedQuery) {
     await handleClearSearch()
     return
   }
 
-  await filesStore.searchFiles(trimmedQuery)
+  await filesStore.searchFiles(trimmedQuery, 1, filesStore.pageSize)
   await persistRouteState()
 }
 
 const handleClearSearch = async () => {
   searchQuery.value = ''
+  filesStore.selectedFileIds = []
   await filesStore.clearSearch()
   await persistRouteState()
 }
@@ -317,11 +399,84 @@ const handleUpdateFileMetadata = async () => {
 }
 
 const handleDeleteFile = async () => {
+  filesStore.selectedFileIds = filesStore.selectedFileIds.filter(
+    (id) => !filesStore.files.some((file) => file.id === id)
+  )
   await refreshCurrentResults()
 }
 
 const handleRetry = async () => {
   await refreshCurrentResults()
+}
+
+const openMoveDialog = () => {
+  targetCollectionId.value = undefined
+  showMoveDialog.value = true
+}
+
+const closeMoveDialog = () => {
+  showMoveDialog.value = false
+  targetCollectionId.value = undefined
+}
+
+const confirmMove = async () => {
+  const ids = filesStore.selectedFileIds
+  if (ids.length === 0) {
+    closeMoveDialog()
+    return
+  }
+
+  const targetName = collections.value.find((c) => c.id === targetCollectionId.value)?.name || '未分配'
+  moveCollectionName.value = targetName
+  moveTotal.value = ids.length
+  moveCompleted.value = 0
+  moveMessage.value = '准备移动...'
+  moving.value = true
+  closeMoveDialog()
+
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      moveCompleted.value = i
+      moveMessage.value = `正在处理第 ${i + 1} / ${ids.length} 个文件`
+      const res = await api.file.batchUpdateCollection([ids[i]], targetCollectionId.value)
+      if (res.failedCount > 0) {
+        console.error('Failed to move file:', res.failedItems)
+      }
+    }
+    moveCompleted.value = ids.length
+    moveMessage.value = '移动完成'
+    filesStore.clearSelection()
+    await refreshCurrentResults()
+  } catch (error) {
+    console.error('Failed to batch move files:', error)
+    window.alert('移动文件失败')
+  } finally {
+    setTimeout(() => {
+      moving.value = false
+    }, 600)
+  }
+}
+
+const confirmBatchDelete = async () => {
+  const ids = filesStore.selectedFileIds
+  if (ids.length === 0) return
+
+  if (!window.confirm(`确定要删除选中的 ${ids.length} 个文件吗？`)) {
+    return
+  }
+
+  try {
+    const res = await api.file.batchDelete(ids)
+    if (res.failedCount > 0) {
+      console.error('Failed to delete files:', res.failedItems)
+      window.alert(`删除完成：成功 ${res.successCount} 个，失败 ${res.failedCount} 个`)
+    }
+    filesStore.clearSelection()
+    await refreshCurrentResults()
+  } catch (error) {
+    console.error('Failed to batch delete files:', error)
+    window.alert('删除文件失败')
+  }
 }
 </script>
 
@@ -399,6 +554,97 @@ const handleRetry = async () => {
 .error-state h3 {
   font-size: 22px;
   color: var(--text-color);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(10px);
+}
+
+.move-dialog {
+  width: min(420px, 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.modal-header,
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title {
+  font-size: 20px;
+  color: var(--text-color);
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  background: var(--surface-muted);
+  color: var(--text-color);
+}
+
+.modal-body {
+  padding: 22px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.modal-footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-color);
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-active .modal-content,
+.modal-leave-active .modal-content {
+  transition: transform 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal-content,
+.modal-leave-to .modal-content {
+  transform: scale(0.96) translateY(-8px);
 }
 
 @media (max-width: 980px) {

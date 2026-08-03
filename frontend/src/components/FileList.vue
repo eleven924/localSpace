@@ -53,10 +53,13 @@
             v-for="file in group.files"
             :key="file.id"
             :file="file"
+            :selectable="selectable"
+            :selected="selectedIds.includes(file.id)"
             @open="handleOpen"
             @click="handleClick"
             @delete="handleDelete"
             @updated="handleUpdated"
+            @toggle-select="handleToggleSelect"
           />
         </div>
       </section>
@@ -72,10 +75,13 @@
         v-for="file in files"
         :key="file.id"
         :file="file"
+        :selectable="selectable"
+        :selected="selectedIds.includes(file.id)"
         @open="handleOpen"
         @click="handleClick"
         @delete="handleDelete"
         @updated="handleUpdated"
+        @toggle-select="handleToggleSelect"
       />
     </div>
   </div>
@@ -96,11 +102,15 @@ interface FileGroup {
 const props = withDefaults(defineProps<{
   files: LibraryFile[]
   groupByCollection?: boolean
+  selectable?: boolean
+  selectedIds?: number[]
   emptyTitle?: string
   emptyDescription?: string
   emptyStateMode?: 'library' | 'search'
 }>(), {
   groupByCollection: false,
+  selectable: false,
+  selectedIds: () => [],
   emptyTitle: '暂无文件',
   emptyDescription: '从导入页面添加文件后，会在这里展示。',
   emptyStateMode: 'library',
@@ -111,6 +121,7 @@ const emit = defineEmits<{
   click: [file: LibraryFile]
   delete: [id: number]
   updated: [id: number]
+  toggleSelect: [id: number]
 }>()
 
 const columns = ref(3)
@@ -168,6 +179,7 @@ const handleOpen = (id: number) => emit('open', id)
 const handleClick = (file: LibraryFile) => emit('click', file)
 const handleDelete = (id: number) => emit('delete', id)
 const handleUpdated = (id: number) => emit('updated', id)
+const handleToggleSelect = (id: number) => emit('toggleSelect', id)
 </script>
 
 <style scoped>

@@ -26,6 +26,7 @@ type FileFilter struct {
 	PageSize     int
 	FileType     string
 	CollectionID *uint
+	UnsortedOnly bool
 	SortBy       string
 	SortOrder    string
 }
@@ -175,7 +176,9 @@ func (r *FileRepository) List(filter FileFilter) ([]*models.File, error) {
 	}
 
 	// Add collection filter
-	if filter.CollectionID != nil {
+	if filter.UnsortedOnly {
+		query += " AND collection_id IS NULL"
+	} else if filter.CollectionID != nil {
 		query += fmt.Sprintf(" AND collection_id = $%d", argIndex)
 		args = append(args, *filter.CollectionID)
 		argIndex++
@@ -260,7 +263,9 @@ func (r *FileRepository) Count(filter FileFilter) (int, error) {
 		args = append(args, filter.FileType)
 		argIndex++
 	}
-	if filter.CollectionID != nil {
+	if filter.UnsortedOnly {
+		whereParts = append(whereParts, "collection_id IS NULL")
+	} else if filter.CollectionID != nil {
 		whereParts = append(whereParts, fmt.Sprintf("collection_id = $%d", argIndex))
 		args = append(args, *filter.CollectionID)
 		argIndex++

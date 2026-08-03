@@ -80,6 +80,7 @@ type FileFilter struct {
 	PageSize     int
 	FileType     string
 	CollectionID *uint
+	UnsortedOnly bool
 	SortBy       string
 	SortOrder    string
 }
@@ -646,11 +647,13 @@ func sameCollectionID(a, b *uint) bool {
 // ListFiles returns a list of files.
 func (s *FileService) ListFiles(filter FileFilter) ([]*models.File, error) {
 	files, err := s.fileRepo.List(repositories.FileFilter{
-		Page:      filter.Page,
-		PageSize:  filter.PageSize,
-		FileType:  filter.FileType,
-		SortBy:    filter.SortBy,
-		SortOrder: filter.SortOrder,
+		Page:         filter.Page,
+		PageSize:     filter.PageSize,
+		FileType:     filter.FileType,
+		CollectionID: filter.CollectionID,
+		UnsortedOnly: filter.UnsortedOnly,
+		SortBy:       filter.SortBy,
+		SortOrder:    filter.SortOrder,
 	})
 	if err != nil {
 		return nil, err
@@ -722,6 +725,7 @@ func (s *FileService) ListFilesResponse(filter FileFilter) (*models.FileListResp
 	total, err := s.fileRepo.Count(repositories.FileFilter{
 		FileType:     filter.FileType,
 		CollectionID: filter.CollectionID,
+		UnsortedOnly: filter.UnsortedOnly,
 	})
 	if err != nil {
 		return nil, err

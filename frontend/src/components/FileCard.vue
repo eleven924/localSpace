@@ -1,5 +1,13 @@
 <template>
   <div class="file-card" :class="{ 'menu-open': showMenu }" @click="handleClick">
+    <label v-if="selectable" class="select-box" @click.stop>
+      <input
+        type="checkbox"
+        :checked="selected"
+        @change="emit('toggleSelect', props.file.id)"
+      />
+    </label>
+
     <button class="menu-button" type="button" @click.stop="toggleMenu">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
         <circle cx="12" cy="5" r="1.8" />
@@ -191,6 +199,8 @@ interface File {
 
 const props = defineProps<{
   file: File
+  selectable?: boolean
+  selected?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -198,6 +208,7 @@ const emit = defineEmits<{
   click: [file: File]
   delete: [id: number]
   updated: [id: number]
+  toggleSelect: [id: number]
 }>()
 
 const thumbnailError = ref(false)
@@ -489,6 +500,25 @@ onUnmounted(() => {
 
 .file-card.menu-open {
   z-index: 90;
+}
+
+.select-box {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.select-box input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
 }
 
 .menu-button {

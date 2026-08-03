@@ -1,49 +1,69 @@
 <template>
-  <div v-if="options.length > 0" class="collection-filter">
+  <div class="collection-filter">
     <button type="button" :class="{ active: currentValue === 'all' }" @click="handleFilter('all')">
-      <span class="collection-filter-label">全部合集</span>
+      <span class="collection-filter-label">全部</span>
       <span class="collection-filter-count">{{ totalCount }}</span>
     </button>
 
+    <button type="button" :class="{ active: currentValue === 'unsorted' }" @click="handleFilter('unsorted')">
+      <span class="collection-filter-label">未分配</span>
+      <span class="collection-filter-count">{{ unsortedCount }}</span>
+    </button>
+
     <button
-      v-for="option in options"
-      :key="option.value"
+      v-for="collection in collections"
+      :key="collection.id"
       type="button"
-      :class="{ active: currentValue === option.value }"
-      :title="option.label"
-      @click="handleFilter(option.value)"
+      :class="{ active: currentValue === collection.id }"
+      :title="collection.name"
+      @click="handleFilter(collection.id)"
     >
-      <span class="collection-filter-label">{{ option.label }}</span>
-      <span class="collection-filter-count">{{ option.count }}</span>
+      <span class="collection-filter-label">{{ collection.name }}</span>
+      <span class="collection-filter-count">{{ countMap[collection.id] ?? 0 }}</span>
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { CollectionSummary } from '@/types'
+import type { Collection, File } from '@/types'
 
 const props = defineProps<{
-  modelValue: string
-  options: CollectionSummary[]
+  modelValue: 'all' | 'unsorted' | number
+  collections: Collection[]
+  files: File[]
   totalCount?: number
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  filter: [value: string]
+  'update:modelValue': [value: 'all' | 'unsorted' | number]
+  filter: [value: 'all' | 'unsorted' | number]
 }>()
 
 const currentValue = computed({
   get: () => props.modelValue,
-  set: (value: string) => emit('update:modelValue', value),
+  set: (value: 'all' | 'unsorted' | number) => emit('update:modelValue', value),
+})
+
+const countMap = computed(() => {
+  const map: Record<number, number> = {}
+  props.files.forEach((file) => {
+    if (file.collectionId) {
+      map[file.collectionId] = (map[file.collectionId] || 0) + 1
+    }
+  })
+  return map
+})
+
+const unsortedCount = computed(() => {
+  return props.files.filter((file) => !file.collectionId).length
 })
 
 const totalCount = computed(() => {
-  return props.totalCount ?? props.options.reduce((sum, option) => sum + option.count, 0)
+  return props.totalCount ?? props.files.length
 })
 
-const handleFilter = (value: string) => {
+const handleFilter = (value: 'all' | 'unsorted' | number) => {
   currentValue.value = value
   emit('filter', value)
 }
