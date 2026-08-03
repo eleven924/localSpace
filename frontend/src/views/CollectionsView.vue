@@ -49,24 +49,39 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import CollectionCard from '@/components/CollectionCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import FileTypeFilter from '@/components/FileTypeFilter.vue'
 import { useFilesStore } from '@/store/modules/files'
+import { isWailsAvailable } from '@/api'
 
 const filesStore = useFilesStore()
 const router = useRouter()
 const route = useRoute()
 const collectionQuery = ref('')
+let isUnmounted = false
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const getRouteType = () => {
   return typeof route.query.type === 'string' ? route.query.type : 'all'
 }
 
+const waitForWails = async (timeoutMs = 5000, intervalMs = 100) => {
+  const deadline = Date.now() + timeoutMs
+  while (!isWailsAvailable() && Date.now() < deadline) {
+    if (isUnmounted) return false
+    await sleep(intervalMs)
+  }
+  return isWailsAvailable()
+}
+
 const ensureLibraryLoaded = async () => {
+  const wailsReady = await waitForWails()
+  if (!wailsReady || isUnmounted) return
   filesStore.searchQuery = ''
   await filesStore.loadFiles(filesStore.currentFileType)
 }
@@ -85,6 +100,10 @@ const filteredCollections = computed(() => {
 onMounted(() => {
   filesStore.setCurrentFileType(getRouteType())
   void ensureLibraryLoaded()
+})
+
+onUnmounted(() => {
+  isUnmounted = true
 })
 
 const handleTypeFilter = async (fileType: string) => {
@@ -109,6 +128,8 @@ const openCollection = (collectionName: string) => {
 }
 
 const handleRetry = async () => {
+  const wailsReady = await waitForWails()
+  if (!wailsReady || isUnmounted) return
   await filesStore.loadFiles(filesStore.currentFileType)
 }
 </script>

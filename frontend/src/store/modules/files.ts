@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/api/index'
-import type { File as LibraryFile, FileListResponse } from '@/types'
+import type { CollectionSummary, File as LibraryFile, FileListResponse } from '@/types'
 
 export const useFilesStore = defineStore('files', () => {
   const files = ref<LibraryFile[]>([])
@@ -141,12 +141,55 @@ export const useFilesStore = defineStore('files', () => {
 
   const totalPages = computed(() => Math.max(1, Math.ceil(totalFiles.value / pageSize.value)))
 
+  const fileTypeCounts = computed(() => {
+    const counts: Record<string, number> = {}
+    files.value.forEach((file) => {
+      counts[file.fileType] = (counts[file.fileType] || 0) + 1
+    })
+    return counts
+  })
+
+  const collectionSummaries = computed((): CollectionSummary[] => {
+    const groups = new Map<string, CollectionSummary>()
+
+    files.value.forEach((file) => {
+      const value = file.collectionName?.trim() || '_unsorted'
+      const label = file.collectionName?.trim() || '未分配'
+      const existing = groups.get(value)
+
+      if (existing) {
+        existing.count++
+        existing.fileTypes[file.fileType] = (existing.fileTypes[file.fileType] || 0) + 1
+        if (file.modifiedAt && file.modifiedAt > existing.latestModifiedAt) {
+          existing.latestModifiedAt = file.modifiedAt
+        }
+      } else {
+        groups.set(value, {
+          value,
+          label,
+          count: 1,
+          fileTypes: { [file.fileType]: 1 },
+          latestModifiedAt: file.modifiedAt || file.createdAt || '',
+        })
+      }
+    })
+
+    return Array.from(groups.values()).sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count
+      }
+      return left.label.localeCompare(right.label, 'zh-CN')
+    })
+  })
+
   return {
     files,
     currentPage,
     pageSize,
     totalFiles,
     totalPages,
+    fileTypeCounts,
+    collectionSummaries,
     currentFileType,
     currentCollectionId,
     searchQuery,

@@ -52,6 +52,56 @@ export namespace models {
 	        this.webSearchMaxResults = source["webSearchMaxResults"];
 	    }
 	}
+	export class BatchDeleteFailedItem {
+	    fileId: number;
+	    fileName: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BatchDeleteFailedItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.fileId = source["fileId"];
+	        this.fileName = source["fileName"];
+	        this.error = source["error"];
+	    }
+	}
+	export class BatchDeleteResult {
+	    successCount: number;
+	    failedCount: number;
+	    failedItems: BatchDeleteFailedItem[];
+	
+	    static createFrom(source: any = {}) {
+	        return new BatchDeleteResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.successCount = source["successCount"];
+	        this.failedCount = source["failedCount"];
+	        this.failedItems = this.convertValues(source["failedItems"], BatchDeleteFailedItem);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class BatchImportFileInput {
 	    sourcePath: string;
 	    displayName: string;
@@ -70,7 +120,7 @@ export namespace models {
 	    files: BatchImportFileInput[];
 	    sharedTags: string[];
 	    sharedDescription: string;
-	    collectionName: string;
+	    collectionId?: number;
 	    enableAIGeneratedTags: boolean;
 	    enableAIGeneratedDescription: boolean;
 	
@@ -83,7 +133,7 @@ export namespace models {
 	        this.files = this.convertValues(source["files"], BatchImportFileInput);
 	        this.sharedTags = source["sharedTags"];
 	        this.sharedDescription = source["sharedDescription"];
-	        this.collectionName = source["collectionName"];
+	        this.collectionId = source["collectionId"];
 	        this.enableAIGeneratedTags = source["enableAIGeneratedTags"];
 	        this.enableAIGeneratedDescription = source["enableAIGeneratedDescription"];
 	    }
@@ -105,6 +155,74 @@ export namespace models {
 		    }
 		    return a;
 		}
+	}
+	export class BatchMoveFailedItem {
+	    fileId: number;
+	    fileName: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BatchMoveFailedItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.fileId = source["fileId"];
+	        this.fileName = source["fileName"];
+	        this.error = source["error"];
+	    }
+	}
+	export class BatchMoveResult {
+	    successCount: number;
+	    failedCount: number;
+	    failedItems: BatchMoveFailedItem[];
+	
+	    static createFrom(source: any = {}) {
+	        return new BatchMoveResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.successCount = source["successCount"];
+	        this.failedCount = source["failedCount"];
+	        this.failedItems = this.convertValues(source["failedItems"], BatchMoveFailedItem);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Collection {
+	    id: number;
+	    name: string;
+	    createdAt: string;
+	    updatedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Collection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
 	}
 	export class Metadata {
 	    size?: number;
@@ -135,6 +253,7 @@ export namespace models {
 	    fileName: string;
 	    originalName: string;
 	    collectionName: string;
+	    collectionId?: number;
 	    filePath: string;
 	    fileType: string;
 	    fileSubType: string;
@@ -159,6 +278,7 @@ export namespace models {
 	        this.fileName = source["fileName"];
 	        this.originalName = source["originalName"];
 	        this.collectionName = source["collectionName"];
+	        this.collectionId = source["collectionId"];
 	        this.filePath = source["filePath"];
 	        this.fileType = source["fileType"];
 	        this.fileSubType = source["fileSubType"];
@@ -172,6 +292,42 @@ export namespace models {
 	        this.deletedAt = source["deletedAt"];
 	        this.createdAt = source["createdAt"];
 	        this.modifiedAt = source["modifiedAt"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class FileListResponse {
+	    items: File[];
+	    page: number;
+	    pageSize: number;
+	    total: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new FileListResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = this.convertValues(source["items"], File);
+	        this.page = source["page"];
+	        this.pageSize = source["pageSize"];
+	        this.total = source["total"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -295,6 +451,26 @@ export namespace models {
 		    }
 		    return a;
 		}
+	}
+	export class JobRetentionConfig {
+	    id: number;
+	    enabled: boolean;
+	    maxCount: number;
+	    maxDays: number;
+	    updatedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new JobRetentionConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.enabled = source["enabled"];
+	        this.maxCount = source["maxCount"];
+	        this.maxDays = source["maxDays"];
+	        this.updatedAt = source["updatedAt"];
+	    }
 	}
 	
 	export class OpenWithConfig {
