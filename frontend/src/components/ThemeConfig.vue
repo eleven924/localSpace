@@ -1,49 +1,49 @@
 <template>
   <div class="theme-config">
-    <div class="config-header">
-      <h4>主题设置</h4>
-      <p class="subtitle">自定义应用的外观和风格</p>
-    </div>
-
     <div class="config-content">
-      <!-- 主题模式选择 -->
-      <div class="config-section">
-        <h5>主题模式</h5>
-        <div class="theme-modes">
+      <section class="config-section preference-row">
+        <div class="section-copy">
+          <h5>主题模式</h5>
+          <p>选择适合当前环境的界面明暗模式。</p>
+        </div>
+        <div class="theme-modes" role="group" aria-label="主题模式">
           <button
             v-for="mode in themeModes"
             :key="mode.value"
+            type="button"
             :class="{ active: themeStore.themeMode === mode.value }"
             @click="handleSetThemeMode(mode.value)"
           >
-            <span class="mode-icon">{{ mode.icon }}</span>
-            <span class="mode-label">{{ mode.label }}</span>
+            {{ mode.label }}
           </button>
         </div>
-      </div>
+      </section>
 
-      <!-- 主题颜色选择 -->
-      <div class="config-section">
-        <h5>主题颜色</h5>
-        <div class="color-options">
-          <div
-            v-for="color in presetColors"
-            :key="color"
-            class="color-option"
-            :class="{ active: themeStore.primaryColor === color }"
-            :style="{ backgroundColor: color }"
-            @click="handleSetColor(color)"
-            :title="color"
-          >
-            <span v-if="themeStore.primaryColor === color" class="checkmark">✓</span>
-          </div>
+      <section class="config-section color-section">
+        <div class="section-copy">
+          <h5>强调色</h5>
+          <p>用于导航选中态、主要按钮和关键操作提示。</p>
         </div>
-        <div class="custom-color">
-          <label for="custom-color" class="custom-color-label">
-            <span class="custom-color-icon">🎨</span>
-            <span>自定义颜色</span>
-          </label>
+
+        <div class="color-controls">
+          <div class="color-options" role="listbox" aria-label="预设强调色">
+            <button
+              v-for="color in presetColors"
+              :key="color"
+              type="button"
+              class="color-option"
+              :class="{ active: themeStore.primaryColor === color }"
+              :style="{ backgroundColor: color }"
+              :aria-label="`选择颜色 ${color}`"
+              :aria-selected="themeStore.primaryColor === color"
+              @click="handleSetColor(color)"
+            >
+              <span v-if="themeStore.primaryColor === color" class="checkmark">✓</span>
+            </button>
+          </div>
+
           <div class="color-input-wrapper">
+            <label for="custom-color" class="custom-color-label">自定义</label>
             <input
               id="custom-color"
               type="color"
@@ -60,25 +60,27 @@
             />
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 背景设置 -->
-      <div class="config-section">
-        <h5>背景图片</h5>
+      <section class="config-section background-section">
+        <div class="section-copy">
+          <h5>背景图片</h5>
+          <p>背景会在应用外层透出，设置页内容区会保留稳定浅色遮罩以保证可读。</p>
+        </div>
+
         <div class="background-options">
-          <div class="current-background" v-if="themeStore.backgroundImage">
-            <div class="background-preview" :style="{ backgroundImage: `url(${themeStore.backgroundImage})` }"></div>
-            <button class="remove-bg-button" @click="handleRemoveBackground">
-              移除背景
-            </button>
+          <div
+            class="background-preview"
+            :class="{ empty: !themeStore.backgroundImage }"
+            :style="themeStore.backgroundImage ? { backgroundImage: `url(${themeStore.backgroundImage})` } : undefined"
+            role="img"
+            :aria-label="themeStore.backgroundImage ? '当前背景图片预览' : '未设置背景图片'"
+          >
+            <span v-if="!themeStore.backgroundImage">未设置背景图片</span>
           </div>
-          <div v-else class="no-background">
-            <span class="no-bg-icon">🖼️</span>
-            <p>未设置背景图片</p>
-          </div>
+
           <div class="upload-section">
             <label for="background-upload" class="upload-button">
-              <span class="upload-icon">📤</span>
               <span>上传背景图片</span>
             </label>
             <input
@@ -88,42 +90,33 @@
               accept="image/*"
               class="hidden-input"
             />
-            <p class="upload-hint">支持 JPG、PNG、GIF 格式</p>
+            <button
+              v-if="themeStore.backgroundImage"
+              type="button"
+              class="remove-bg-button"
+              @click="handleRemoveBackground"
+            >
+              移除背景
+            </button>
+            <p class="upload-hint">支持 JPG、PNG、GIF、WebP，最大 5MB</p>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 重置按钮 -->
-      <div class="config-section">
-        <button class="btn reset-button" @click="handleResetTheme">
-          <span class="reset-icon">🔄</span>
+      <section class="config-section theme-actions">
+        <div class="section-copy">
+          <h5>恢复默认</h5>
+          <p>重置主题模式、强调色和背景图片。</p>
+        </div>
+        <button type="button" class="btn reset-button" @click="handleResetTheme">
           <span>重置为默认主题</span>
         </button>
-      </div>
-    </div>
-
-    <!-- 预览卡片 -->
-    <div class="theme-preview">
-      <h5>预览</h5>
-      <div class="preview-card">
-        <div class="preview-header">
-          <div class="preview-title">示例标题</div>
-          <div class="preview-badge">标签</div>
-        </div>
-        <div class="preview-body">
-          <p>这是一段示例文本，用于展示当前主题的样式效果。</p>
-        </div>
-        <div class="preview-footer">
-          <button class="preview-button">主要按钮</button>
-          <button class="preview-button secondary">次要按钮</button>
-        </div>
-      </div>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
 import { useThemeStore } from '@/store/modules/theme'
 
 const emit = defineEmits<{
@@ -134,26 +127,22 @@ const emit = defineEmits<{
 const themeStore = useThemeStore()
 
 const themeModes = [
-  { value: 'light', label: '浅色', icon: '☀️' },
-  { value: 'dark', label: '深色', icon: '🌙' }
+  { value: 'light', label: '浅色' },
+  { value: 'dark', label: '深色' }
 ]
 
 const presetColors = [
-  '#2196F3', // Blue
-  '#4CAF50', // Green
-  '#FF9800', // Orange
-  '#E91E63', // Pink
-  '#9C27B0', // Purple
-  '#00BCD4', // Cyan
-  '#F44336', // Red
-  '#607D8B', // Blue Gray
-  '#3F51B5', // Indigo
-  '#FF5722', // Deep Orange
+  '#2196F3',
+  '#4CAF50',
+  '#FF9800',
+  '#E91E63',
+  '#9C27B0',
+  '#00BCD4',
+  '#F44336',
+  '#607D8B',
+  '#3F51B5',
+  '#FF5722',
 ]
-
-onMounted(() => {
-  // 主题已通过 main.ts 初始化
-})
 
 const handleSetThemeMode = (mode: 'light' | 'dark') => {
   themeStore.setThemeMode(mode)
@@ -175,7 +164,7 @@ const handleColorTextChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   const color = target.value.trim()
 
-  // 验证颜色格式
+  // 输入框只在完整 Hex 颜色时提交，避免用户输入一半时频繁写入无效主题。
   if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
     themeStore.setPrimaryColor(color)
     emit('themeChanged')
@@ -188,20 +177,20 @@ const handleBackgroundUpload = async (event: Event) => {
 
   if (!file) return
 
-  // 验证文件类型
+  // 上传前校验图片类型，避免把非图片内容写入主题配置。
   if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
     alert('请选择有效的图片文件（JPG、PNG、GIF、WebP）')
     return
   }
 
-  // 验证文件大小（最大 5MB）
+  // 背景图存为 Data URL，限制体积可以避免配置过大影响启动速度。
   if (file.size > 5 * 1024 * 1024) {
     alert('图片文件不能超过 5MB')
     return
   }
 
   try {
-    // 读取文件为 Data URL
+    // 读取为 Data URL 后交给主题 Store 持久化，页面会立即应用新背景。
     const reader = new FileReader()
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string
@@ -241,103 +230,131 @@ const handleResetTheme = () => {
   width: 100%;
 }
 
-.config-header {
-  margin-bottom: 14px;
-}
-
-.config-header h4 {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-color);
-  margin: 0 0 8px 0;
-}
-
-.subtitle {
-  font-size: 14px;
-  color: var(--text-color);
-  opacity: 0.7;
-  margin: 0;
-}
-
 .config-content {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 0;
 }
 
 .config-section {
-  padding: 14px 0;
+  display: grid;
+  gap: 14px;
+  padding: 18px 0;
   background-color: transparent;
   border: none;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
   border-radius: 0;
 }
 
+.preference-row,
+.theme-actions {
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, auto);
+  align-items: center;
+  gap: 24px;
+}
+
+.config-section:first-child {
+  padding-top: 0;
+}
+
+.config-section:last-child {
+  border-bottom: none;
+}
+
+.section-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
 .config-section h5 {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--text-color);
-  margin: 0 0 10px 0;
+  margin: 0;
+}
+
+.section-copy p {
+  max-width: 560px;
+  margin: 0;
+  color: color-mix(in srgb, var(--text-soft) 92%, var(--text-color));
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 /* 主题模式 */
 .theme-modes {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  display: inline-flex;
+  justify-self: end;
+  min-width: 260px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface-muted) 70%, transparent);
 }
 
 .theme-modes button {
-  min-height: 38px;
-  padding: 8px 12px;
-  background-color: var(--surface-color);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  flex: 1;
+  min-height: 30px;
+  padding: 5px 16px;
+  background-color: transparent;
+  color: color-mix(in srgb, var(--text-color) 84%, var(--text-soft));
+  border: none;
+  border-radius: 5px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.16s ease, color 0.16s ease;
 }
 
 .theme-modes button:hover {
-  border-color: var(--primary-color);
-  background-color: var(--surface-color);
+  color: var(--text-color);
+  background: color-mix(in srgb, var(--surface-color) 72%, transparent);
 }
 
 .theme-modes button.active {
-  border-color: var(--primary-color);
-  background-color: var(--primary-color);
-  color: white;
+  background: color-mix(in srgb, var(--surface-color) 96%, transparent);
+  color: var(--primary-color);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--shadow-color) 18%, transparent);
 }
 
-.mode-icon {
-  font-size: 18px;
-}
-
-.mode-label {
-  font-size: 14px;
-  font-weight: 500;
+.theme-modes button:focus-visible,
+.color-option:focus-visible,
+.upload-button:focus-visible,
+.remove-bg-button:focus-visible,
+.reset-button:focus-visible,
+.color-text-input:focus-visible,
+.color-input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
+  outline-offset: 2px;
 }
 
 /* 主题颜色 */
+.color-section {
+  grid-template-columns: minmax(180px, 0.34fr) minmax(360px, 0.66fr);
+  gap: 18px 24px;
+  align-items: start;
+}
+
+.color-controls {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
 .color-options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 14px;
+  min-width: 0;
 }
 
 .color-option {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
   cursor: pointer;
-  border: 2px solid transparent;
-  transition: all 0.2s ease;
+  border: 1px solid color-mix(in srgb, var(--text-color) 12%, transparent);
+  transition: box-shadow 0.16s ease, border-color 0.16s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -345,56 +362,49 @@ const handleResetTheme = () => {
 }
 
 .color-option:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 8px var(--shadow-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-color) 10%, transparent);
 }
 
 .color-option.active {
-  border-color: var(--text-color);
-  box-shadow: 0 0 0 2px var(--bg-color), 0 0 0 4px var(--text-color);
+  border-color: color-mix(in srgb, var(--text-color) 76%, transparent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--surface-color) 96%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--text-color) 62%, transparent);
 }
 
 .checkmark {
   color: white;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.custom-color {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.35fr) minmax(180px, 0.65fr);
-  gap: 8px 14px;
-  align-items: center;
 }
 
 .custom-color-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-color);
-  cursor: pointer;
-}
-
-.custom-color-icon {
-  font-size: 18px;
+  align-self: stretch;
+  min-height: 34px;
+  color: color-mix(in srgb, var(--text-color) 88%, var(--text-soft));
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .color-input-wrapper {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 44px minmax(140px, 1fr);
   gap: 8px;
+  align-items: center;
+  max-width: 420px;
 }
 
 .color-input {
-  width: 44px;
-  height: 38px;
+  width: 42px;
+  height: 34px;
   padding: 2px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
+  border-radius: 7px;
   cursor: pointer;
-  background-color: var(--bg-color);
+  background-color: color-mix(in srgb, var(--surface-color) 94%, transparent);
 }
 
 .color-input::-webkit-color-swatch-wrapper {
@@ -403,118 +413,95 @@ const handleResetTheme = () => {
 
 .color-input::-webkit-color-swatch {
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
 }
 
 .color-text-input {
-  flex: 1;
-  min-height: 38px;
-  padding: 8px 11px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background-color: var(--bg-color);
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
+  border-radius: 7px;
+  background-color: color-mix(in srgb, var(--surface-color) 94%, transparent);
   color: var(--text-color);
-  font-size: 14px;
-  font-family: monospace;
-}
-
-.color-text-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* 背景设置 */
-.background-options {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.background-section {
+  gap: 16px;
 }
 
-.current-background {
-  display: flex;
-  flex-direction: column;
+.background-options {
+  display: grid;
   gap: 12px;
 }
 
 .background-preview {
   width: 100%;
-  height: 96px;
-  background-size: cover;
+  min-height: 220px;
+  max-height: 360px;
+  aspect-ratio: 16 / 9;
+  background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
+  background-color: color-mix(in srgb, var(--surface-muted) 68%, transparent);
+}
+
+.background-preview.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 136px;
+  aspect-ratio: auto;
+  color: color-mix(in srgb, var(--text-soft) 90%, var(--text-color));
+  font-size: 13px;
 }
 
 .remove-bg-button {
-  padding: 8px 16px;
-  background-color: var(--error-color);
-  color: white;
-  border: none;
+  min-height: 34px;
+  padding: 6px 12px;
+  background-color: transparent;
+  color: var(--error-color);
+  border: 1px solid color-mix(in srgb, var(--error-color) 32%, transparent);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  align-self: flex-start;
 }
 
 .remove-bg-button:hover {
-  opacity: 0.9;
-}
-
-.no-background {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 12px;
-  border: 1px dashed var(--border-color);
-  border-radius: 8px;
-  color: var(--text-color);
-  opacity: 0.6;
-}
-
-.no-bg-icon {
-  font-size: 26px;
-  margin-bottom: 0;
-}
-
-.no-background p {
-  font-size: 14px;
-  margin: 0;
+  background-color: color-mix(in srgb, var(--error-color) 8%, transparent);
 }
 
 .upload-section {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.55fr) minmax(140px, 0.45fr);
-  gap: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
   align-items: center;
 }
 
 .upload-button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 9px 14px;
-  background-color: var(--surface-color);
+  min-height: 34px;
+  padding: 6px 12px;
+  background-color: color-mix(in srgb, var(--surface-color) 72%, transparent);
   color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 6px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.16s ease, border-color 0.16s ease;
 }
 
 .upload-button:hover {
-  background-color: var(--border-color);
-  border-color: var(--text-color);
-}
-
-.upload-icon {
-  font-size: 18px;
+  background-color: var(--surface-muted);
+  border-color: color-mix(in srgb, var(--primary-color) 36%, var(--border-color));
 }
 
 .hidden-input {
@@ -522,140 +509,59 @@ const handleResetTheme = () => {
 }
 
 .upload-hint {
-  font-size: 12px;
-  color: var(--text-color);
-  opacity: 0.6;
+  color: color-mix(in srgb, var(--text-soft) 92%, var(--text-color));
+  font-size: 13px;
   margin: 0;
 }
 
 /* 重置按钮 */
 .reset-button {
-  width: 100%;
-  min-height: 38px;
-  padding: 9px 14px;
-  background-color: var(--surface-color);
+  justify-self: end;
+  width: fit-content;
+  min-height: 34px;
+  padding: 6px 12px;
+  background-color: color-mix(in srgb, var(--surface-color) 72%, transparent);
   color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 6px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
+  transition: background 0.16s ease, border-color 0.16s ease;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
 }
 
 .reset-button:hover {
-  background-color: var(--border-color);
-  border-color: var(--text-color);
-}
-
-.reset-icon {
-  font-size: 16px;
-}
-
-/* 预览 */
-.theme-preview {
-  margin-top: 0;
-  padding: 14px 0 0;
-  background-color: transparent;
-  border: none;
-  border-radius: 0;
-}
-
-.theme-preview h5 {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--text-color);
-  margin: 0 0 12px 0;
-}
-
-.preview-card {
-  padding: 14px;
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-}
-
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.preview-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.preview-badge {
-  padding: 4px 12px;
-  background-color: var(--primary-color);
-  color: white;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.preview-body {
-  margin-bottom: 12px;
-}
-
-.preview-body p {
-  font-size: 14px;
-  color: var(--text-color);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.preview-footer {
-  display: flex;
-  gap: 12px;
-}
-
-.preview-button {
-  flex: 1;
-  min-height: 36px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.preview-button {
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-}
-
-.preview-button:hover {
-  opacity: 0.9;
-}
-
-.preview-button.secondary {
-  background-color: var(--surface-color);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-}
-
-.preview-button.secondary:hover {
-  background-color: var(--border-color);
+  background-color: var(--surface-muted);
+  border-color: color-mix(in srgb, var(--primary-color) 36%, var(--border-color));
 }
 
 @media (max-width: 768px) {
-  .theme-modes {
+  .preference-row,
+  .color-section,
+  .theme-actions {
     grid-template-columns: 1fr;
   }
 
-  .custom-color,
-  .upload-section {
-    grid-template-columns: 1fr;
+  .theme-modes,
+  .reset-button {
+    justify-self: stretch;
+  }
+
+  .theme-modes {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .color-input-wrapper {
+    grid-template-columns: 1fr 44px minmax(120px, 1fr);
+    max-width: none;
+  }
+
+  .background-preview {
+    min-height: 180px;
   }
 }
 </style>

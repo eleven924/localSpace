@@ -61,7 +61,6 @@
         </div>
 
         <div v-if="extensionRules.length === 0" class="empty-state">
-          <span class="empty-icon">🧩</span>
           <p>暂无扩展名覆盖规则</p>
         </div>
 
@@ -115,7 +114,6 @@
         :disabled="saving"
       >
         <span v-if="saving" class="spinner small"></span>
-        <span v-else>💾</span>
         {{ saving ? '保存中...' : '保存配置' }}
       </button>
       <button
@@ -416,14 +414,15 @@ const handleReset = () => {
 .section-title h5 {
   margin: 0 0 6px 0;
   font-size: 16px;
+  font-weight: 700;
   color: var(--text-color);
 }
 
 .section-title p {
   margin: 0;
   font-size: 13px;
-  color: var(--text-color);
-  opacity: 0.7;
+  color: var(--text-soft);
+  opacity: 1;
   line-height: 1.6;
 }
 
@@ -440,7 +439,7 @@ const handleReset = () => {
   gap: 12px;
   align-items: center;
   padding: 12px 0;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
 }
 
 .form-group label {
@@ -451,14 +450,14 @@ const handleReset = () => {
 
 .label-main {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-color);
 }
 
 .label-sub {
   font-size: 12px;
-  color: var(--text-color);
-  opacity: 0.6;
+  color: var(--text-soft);
+  opacity: 1;
 }
 
 .path-editor {
@@ -472,8 +471,8 @@ const handleReset = () => {
   min-height: 38px;
   padding: 8px 11px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background-color: var(--bg-color);
+  border-radius: 6px;
+  background-color: color-mix(in srgb, var(--surface-color) 90%, transparent);
   color: var(--text-color);
   font-size: 14px;
 }
@@ -489,7 +488,7 @@ const handleReset = () => {
 .btn {
   min-height: 38px;
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -499,15 +498,16 @@ const handleReset = () => {
 .mini-btn,
 .add-rule-btn,
 .btn.secondary {
-  background-color: var(--surface-color);
+  background-color: color-mix(in srgb, var(--surface-color) 76%, transparent);
   color: var(--text-color);
-  border: 1px solid var(--border-color);
+  border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
 }
 
 .mini-btn:hover:not(:disabled),
 .add-rule-btn:hover,
 .btn.secondary:hover {
-  background-color: var(--border-color);
+  background-color: var(--surface-muted);
+  border-color: color-mix(in srgb, var(--primary-color) 34%, var(--border-color));
 }
 
 .mini-btn.ghost {
@@ -515,7 +515,8 @@ const handleReset = () => {
 }
 
 .mini-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.78;
+  color: color-mix(in srgb, var(--text-soft) 72%, var(--text-color));
   cursor: not-allowed;
 }
 
@@ -527,18 +528,20 @@ const handleReset = () => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px;
-  border: 1px dashed var(--border-color);
-  border-radius: 8px;
-  color: var(--text-color);
-  opacity: 0.7;
+  padding: 14px 0;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  border-radius: 0;
+  color: var(--text-soft);
+  opacity: 1;
 }
 
 .rule-card {
-  padding: 14px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background-color: var(--bg-color);
+  padding: 14px 0;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  border-radius: 0;
+  background-color: transparent;
 }
 
 .rule-grid {
@@ -580,14 +583,14 @@ const handleReset = () => {
 }
 
 .btn.primary {
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
+  background-color: color-mix(in srgb, var(--primary-color) 11%, transparent);
+  color: var(--primary-color);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 34%, transparent);
 }
 
 .btn.primary:hover:not(:disabled) {
-  opacity: 0.92;
-  box-shadow: 0 2px 8px var(--shadow-color);
+  background-color: color-mix(in srgb, var(--primary-color) 16%, transparent);
+  box-shadow: none;
 }
 
 .btn:disabled {

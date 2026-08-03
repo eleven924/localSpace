@@ -59,7 +59,6 @@
     <div class="config-actions">
       <button class="btn primary" @click="handleSave" :disabled="saving">
         <span v-if="saving" class="spinner small"></span>
-        <span v-else>💾</span>
         {{ saving ? '保存中...' : '保存规则' }}
       </button>
       <button v-if="hasChanges" class="btn secondary" @click="handleReset">

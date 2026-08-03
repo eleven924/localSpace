@@ -89,13 +89,18 @@ onMounted(load)
 <style scoped>
 .collections-settings {
   display: grid;
-  gap: 24px;
+  gap: 0;
 }
 
 .section-block h5 {
   margin: 0 0 14px;
   font-size: 15px;
   color: var(--text-color);
+}
+
+.section-block {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .add-row {
@@ -116,10 +121,10 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.58);
-  border: 1px solid rgba(146, 165, 192, 0.16);
+  padding: 11px 0;
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
 }
 
 .collection-row span:first-child {

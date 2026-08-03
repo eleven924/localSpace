@@ -41,7 +41,7 @@
               @input="handleConfigChange"
             />
             <button class="toggle-visibility" @click="showApiKey = !showApiKey">
-              {{ showApiKey ? '🙈' : '👁️' }}
+              {{ showApiKey ? '隐藏' : '显示' }}
             </button>
           </div>
           <p class="form-hint">您的 API Key 将被安全存储在本地</p>
@@ -219,7 +219,6 @@
             :disabled="testing || !isFormValid"
           >
             <span v-if="testing" class="spinner small"></span>
-            <span v-else>🧪</span>
             {{ testing ? '测试中...' : '测试连接' }}
           </button>
           <p v-if="testResult" class="test-result" :class="testResult.success ? 'success' : 'error'">
@@ -229,7 +228,6 @@
       </div>
 
       <div v-else class="disabled-hint">
-        <div class="hint-icon">🔒</div>
         <h5>AI 功能已禁用</h5>
         <p>启用上方开关以配置 AI 功能</p>
       </div>
@@ -242,7 +240,6 @@
         :disabled="saving || (config.enabled && !isFormValid)"
       >
         <span v-if="saving" class="spinner small"></span>
-        <span v-else>💾</span>
         {{ saving ? '保存中...' : '保存配置' }}
       </button>
       <button
@@ -250,7 +247,7 @@
         class="btn secondary"
         @click="handleResetConfig"
       >
-        🔄 重置
+        重置
       </button>
     </div>
   </div>
@@ -546,7 +543,7 @@ const handleResetConfig = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--border-color);
+  background-color: color-mix(in srgb, var(--border-color) 78%, var(--text-faint));
   transition: 0.3s;
   border-radius: 28px;
 }
@@ -629,7 +626,7 @@ const handleResetConfig = () => {
   min-height: 38px;
   padding: 8px 11px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
   background-color: var(--bg-color);
   color: var(--text-color);
   font-size: 14px;
@@ -672,19 +669,23 @@ const handleResetConfig = () => {
 }
 
 .toggle-visibility {
-  width: 42px;
+  width: auto;
+  min-width: 46px;
   min-height: 38px;
-  padding: 8px;
+  padding: 8px 10px;
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 16px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
   transition: all 0.2s ease;
 }
 
 .toggle-visibility:hover {
-  background-color: var(--border-color);
+  background-color: var(--surface-muted);
+  color: var(--text-color);
 }
 
 .form-hint {
@@ -712,7 +713,7 @@ const handleResetConfig = () => {
 }
 
 .test-button {
-  width: 100%;
+  width: fit-content;
   min-height: 40px;
   padding: 10px 14px;
   background-color: var(--surface-color);
@@ -730,8 +731,8 @@ const handleResetConfig = () => {
 }
 
 .test-button:hover:not(:disabled) {
-  background-color: var(--border-color);
-  border-color: var(--text-color);
+  background-color: var(--surface-muted);
+  border-color: color-mix(in srgb, var(--primary-color) 36%, var(--border-color));
 }
 
 .test-button:disabled {
@@ -761,19 +762,14 @@ const handleResetConfig = () => {
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
-  padding: 18px;
+  gap: 10px;
+  padding: 16px 0;
   text-align: left;
   color: var(--text-color);
   background-color: transparent;
-  border: 1px dashed var(--border-color);
-  border-radius: 8px;
-}
-
-.hint-icon {
-  font-size: 28px;
-  margin-bottom: 0;
-  opacity: 0.7;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
 }
 
 .disabled-hint h5 {
@@ -808,15 +804,15 @@ const handleResetConfig = () => {
 }
 
 .save-button {
-  flex: 2;
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
+  flex: 0 0 auto;
+  background-color: color-mix(in srgb, var(--primary-color) 11%, transparent);
+  color: var(--primary-color);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 34%, transparent);
 }
 
 .save-button:hover:not(:disabled) {
-  opacity: 0.9;
-  box-shadow: 0 2px 8px var(--shadow-color);
+  background-color: color-mix(in srgb, var(--primary-color) 16%, transparent);
+  box-shadow: none;
 }
 
 .save-button:disabled {
@@ -825,7 +821,7 @@ const handleResetConfig = () => {
 }
 
 .config-actions .btn.secondary {
-  flex: 1;
+  flex: 0 0 auto;
   background-color: var(--surface-color);
   color: var(--text-color);
   border: 1px solid var(--border-color);

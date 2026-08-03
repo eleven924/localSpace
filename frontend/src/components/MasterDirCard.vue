@@ -2,11 +2,10 @@
   <div class="master-dir-card" :class="{ inactive: !master.isActive }">
     <div class="card-header" @click="toggleExpanded">
       <div class="header-left">
-        <div class="expand-icon" :class="{ expanded: master.expanded }">
-          <span v-if="master.expanded">▼</span>
-          <span v-else>▶</span>
+        <div class="expand-icon" :class="{ expanded: master.expanded }" aria-hidden="true">
+          <span>›</span>
         </div>
-        <div class="master-icon">📁</div>
+        <div class="master-icon" aria-hidden="true">目录</div>
         <div class="master-info">
           <h5 class="master-path">{{ master.path }}</h5>
           <div class="master-meta">
@@ -25,21 +24,20 @@
           title="设为默认"
           @click.stop="handleSetDefault"
         >
-          ⭐
+          设为默认
         </button>
         <button
           class="action-button delete"
           title="删除"
           @click.stop="handleDelete"
         >
-          🗑️
+          删除
         </button>
       </div>
     </div>
 
     <div v-if="master.expanded" class="subdirs-panel">
       <div v-if="master.subDirs.length === 0" class="empty-subdirs">
-        <span class="empty-icon">📂</span>
         <span class="empty-text">暂无子目录</span>
       </div>
       <div v-else class="subdirs-list">
@@ -48,7 +46,6 @@
           :key="sub.id"
           class="subdir-item"
         >
-          <div class="subdir-icon">{{ getSubDirIcon(sub.fileType) }}</div>
           <div class="subdir-info">
             <span class="subdir-type">{{ getSubDirLabel(sub.fileType) }}</span>
             <span class="subdir-size">{{ formatSize(sub.currentSize) }}</span>
@@ -91,11 +88,6 @@ const formatSize = (bytes: number): string => {
   return formatFileSize(bytes)
 }
 
-const getSubDirIcon = (fileType: string): string => {
-  const type = FILE_TYPES.find(t => t.value === fileType)
-  return type?.icon || '📁'
-}
-
 const getSubDirLabel = (fileType: string): string => {
   const type = FILE_TYPES.find(t => t.value === fileType)
   return type?.label || fileType
@@ -116,16 +108,17 @@ const handleDelete = () => {
 
 <style scoped>
 .master-dir-card {
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
   overflow: hidden;
   transition: all 0.2s ease;
 }
 
 .master-dir-card:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 2px 8px var(--shadow-color);
+  border-color: var(--border-color);
+  box-shadow: none;
 }
 
 .master-dir-card.inactive {
@@ -136,13 +129,13 @@ const handleDelete = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
+  padding: 14px 0;
   cursor: pointer;
   user-select: none;
 }
 
 .card-header:hover {
-  background-color: var(--bg-color);
+  background-color: transparent;
 }
 
 .header-left {
@@ -154,7 +147,7 @@ const handleDelete = () => {
 }
 
 .expand-icon {
-  width: 20px;
+  width: 18px;
   text-align: center;
   font-size: 12px;
   color: var(--text-color);
@@ -167,7 +160,12 @@ const handleDelete = () => {
 }
 
 .master-icon {
-  font-size: 20px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -191,17 +189,17 @@ const handleDelete = () => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-color);
-  opacity: 0.7;
+  color: var(--text-soft);
+  opacity: 1;
 }
 
 .default-badge {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 2px 6px;
+  background-color: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  color: var(--primary-color);
+  padding: 2px 7px;
   border-radius: 4px;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .size-info {
@@ -214,53 +212,52 @@ const handleDelete = () => {
 
 .header-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .action-button {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border-radius: 50%;
-  background-color: var(--bg-color);
+  width: auto;
+  min-height: 30px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
   transition: all 0.2s ease;
 }
 
 .action-button:hover {
-  background-color: var(--border-color);
-  transform: scale(1.1);
+  background-color: var(--surface-muted);
+  color: var(--text-color);
 }
 
 .action-button.delete:hover {
-  background-color: var(--error-color);
+  background-color: color-mix(in srgb, var(--error-color) 8%, transparent);
   border-color: var(--error-color);
+  color: var(--error-color);
 }
 
 .subdirs-panel {
   border-top: 1px solid var(--border-color);
-  padding: 10px 14px;
-  background-color: var(--bg-color);
+  padding: 8px 0 12px 36px;
+  background-color: transparent;
 }
 
 .empty-subdirs {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
   padding: 10px;
   color: var(--text-color);
   opacity: 0.6;
-}
-
-.empty-icon {
-  font-size: 20px;
 }
 
 .empty-text {
@@ -277,13 +274,9 @@ const handleDelete = () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 8px;
-  background-color: var(--surface-color);
+  padding: 7px 0;
+  background-color: transparent;
   border-radius: 6px;
-}
-
-.subdir-icon {
-  font-size: 16px;
 }
 
 .subdir-info {

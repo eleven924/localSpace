@@ -18,7 +18,6 @@
 
     <div v-else class="storage-content">
       <div v-if="masterDirectories.length === 0" class="empty-state">
-        <div class="empty-icon">📁</div>
         <h4>暂无主目录</h4>
         <p>点击下方按钮添加主目录</p>
       </div>
@@ -35,7 +34,7 @@
       </div>
 
       <button class="add-button" @click="showAddDialog = true">
-        <span class="add-icon">➕</span>
+        <span class="add-icon">+</span>
         <span class="add-text">添加主目录</span>
       </button>
     </div>
@@ -324,18 +323,14 @@ const handleToggleExpanded = (id: number) => {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 18px;
-  border: 1px dashed var(--border-color);
-  border-radius: 8px;
-  background-color: var(--bg-color);
+  padding: 16px 0;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  background-color: transparent;
   color: var(--text-color);
-  opacity: 0.6;
+  opacity: 1;
   text-align: left;
-}
-
-.empty-icon {
-  font-size: 28px;
-  margin-bottom: 0;
 }
 
 .empty-state h4 {
@@ -346,6 +341,7 @@ const handleToggleExpanded = (id: number) => {
 
 .empty-state p {
   font-size: 14px;
+  color: var(--text-soft);
   margin: 0;
 }
 
@@ -362,15 +358,15 @@ const handleToggleExpanded = (id: number) => {
 }
 
 .add-button {
-  width: 100%;
+  width: fit-content;
   min-height: 40px;
-  padding: 10px 16px;
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
+  padding: 8px 13px;
+  background-color: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -380,12 +376,15 @@ const handleToggleExpanded = (id: number) => {
 }
 
 .add-button:hover {
-  opacity: 0.9;
-  box-shadow: 0 2px 8px var(--shadow-color);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  background-color: color-mix(in srgb, var(--primary-color) 7%, transparent);
+  color: var(--primary-color);
+  box-shadow: none;
 }
 
 .add-icon {
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .dialog-overlay {
@@ -403,7 +402,8 @@ const handleToggleExpanded = (id: number) => {
 
 .dialog-content {
   background-color: var(--surface-color);
-  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
   padding: 20px;
   max-width: 500px;
   width: 90%;
@@ -455,7 +455,7 @@ const handleToggleExpanded = (id: number) => {
   background-color: var(--surface-color);
   color: var(--text-color);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -489,9 +489,9 @@ const handleToggleExpanded = (id: number) => {
 
 .usage-preview {
   padding: 12px;
-  background-color: var(--bg-color);
+  background-color: var(--surface-muted);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .preview-text {
