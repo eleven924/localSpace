@@ -98,6 +98,14 @@
                 <AIConfigForm @config-saved="handleAIConfigSaved" @config-reset="handleAIConfigReset" />
               </section>
 
+              <section v-show="activeSetting === 'collections'" class="settings-page">
+                <CollectionsSettings :files="filesStore.files" />
+              </section>
+
+              <section v-show="activeSetting === 'tasks'" class="settings-page">
+                <TaskRetentionSettings />
+              </section>
+
               <section v-show="activeSetting === 'about'" class="settings-page about-page">
                 <div class="about-content">
                   <div class="app-info">
@@ -149,12 +157,15 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AIConfigForm from '@/components/AIConfigForm.vue'
 import AppHeader from '@/components/AppHeader.vue'
+import CollectionsSettings from '@/components/CollectionsSettings.vue'
 import OpenWithConfig from '@/components/OpenWithConfig.vue'
 import StorageDirSelector from '@/components/StorageDirSelector.vue'
 import StorageLayoutConfig from '@/components/StorageLayoutConfig.vue'
+import TaskRetentionSettings from '@/components/TaskRetentionSettings.vue'
 import ThemeConfig from '@/components/ThemeConfig.vue'
+import { useFilesStore } from '@/store/modules/files'
 
-type SettingId = 'storage' | 'openWith' | 'theme' | 'ai' | 'layout' | 'about'
+type SettingId = 'storage' | 'openWith' | 'theme' | 'ai' | 'layout' | 'collections' | 'tasks' | 'about'
 
 interface SettingItem {
   id: SettingId
@@ -162,6 +173,8 @@ interface SettingItem {
   description: string
   iconPaths: string[]
 }
+
+const filesStore = useFilesStore()
 
 const router = useRouter()
 const activeSetting = ref<SettingId>('storage')
@@ -201,6 +214,18 @@ const settingIconPaths = {
     'M9.9 14.1l-2.1 2.1',
     'M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z',
   ],
+  collections: [
+    'M4 6h16',
+    'M4 12h16',
+    'M4 18h10',
+  ],
+  tasks: [
+    'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2',
+    'M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2',
+    'M12 12h.01',
+    'M9 12h.01',
+    'M15 12h.01',
+  ],
   about: [
     'M12 17v-6',
     'M12 7h.01',
@@ -214,6 +239,8 @@ const settingItems: SettingItem[] = [
   { id: 'openWith', label: '打开方式', description: '文件类型与应用', iconPaths: settingIconPaths.openWith },
   { id: 'theme', label: '主题设置', description: '外观、主色、背景', iconPaths: settingIconPaths.theme },
   { id: 'ai', label: 'AI 配置', description: '标签与描述辅助', iconPaths: settingIconPaths.ai },
+  { id: 'collections', label: '合集', description: '管理与删除合集', iconPaths: settingIconPaths.collections },
+  { id: 'tasks', label: '任务', description: '历史任务保留策略', iconPaths: settingIconPaths.tasks },
   { id: 'about', label: '文档与关于', description: '说明、许可、版本', iconPaths: settingIconPaths.about },
 ]
 

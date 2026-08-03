@@ -80,7 +80,7 @@
 
                   <label class="field field-full">
                     <span>合集 / 系列</span>
-                    <input v-model="singleForm.collectionName" type="text" placeholder="例如：2026 课程资料" />
+                    <CollectionSelector v-model="singleForm.collectionId" :collections="collections" />
                   </label>
                 </div>
 
@@ -174,7 +174,7 @@
 
                   <label class="field">
                     <span>合集 / 系列</span>
-                    <input v-model="batchForm.collectionName" type="text" placeholder="例如：2026 课程资料" />
+                    <CollectionSelector v-model="batchForm.collectionId" :collections="collections" />
                   </label>
 
                   <label class="field field-full">
@@ -231,13 +231,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
-import AppHeader from '@/components/AppHeader.vue'
-import FileMetadataFields from '@/components/FileMetadataFields.vue'
 import { api } from '@/api'
-import { formatFileSize } from '@/utils/constants'
+import AppHeader from '@/components/AppHeader.vue'
+import CollectionSelector from '@/components/CollectionSelector.vue'
+import FileMetadataFields from '@/components/FileMetadataFields.vue'
 import type { BatchImportJobRequest, SelectedFile, SingleImportJobRequest } from '@/types/jobs'
+import type { Collection } from '@/types'
+import { formatFileSize } from '@/utils/constants'
 import { useJobsStore } from '@/store/modules/jobs'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 type ImportMode = 'single' | 'batch'
 
@@ -289,6 +291,11 @@ const EXTENSION_TO_TYPE: Record<string, string> = {
 
 const jobsStore = useJobsStore()
 
+const collections = ref<Collection[]>([])
+onMounted(async () => {
+  collections.value = await api.collection.getAll()
+})
+
 const mode = ref<ImportMode>('single')
 const singleFile = ref<RichSelectedFile | null>(null)
 const selectedFiles = ref<RichSelectedFile[]>([])
@@ -302,7 +309,7 @@ const batchSuccess = ref('')
 const singleForm = reactive({
   fileName: '',
   keywords: '',
-  collectionName: '',
+  collectionId: undefined as number | undefined,
   tags: [] as string[],
   description: '',
 })
@@ -310,7 +317,7 @@ const singleForm = reactive({
 const batchForm = reactive({
   sharedTagsText: '',
   sharedDescription: '',
-  collectionName: '',
+  collectionId: undefined as number | undefined,
   enableAIGeneratedTags: true,
   enableAIGeneratedDescription: false,
 })
@@ -389,7 +396,7 @@ const clearFiles = () => {
 const resetSingleForm = () => {
   singleForm.fileName = singleFile.value?.name || ''
   singleForm.keywords = ''
-  singleForm.collectionName = ''
+  singleForm.collectionId = undefined
   singleForm.tags = []
   singleForm.description = ''
   singleError.value = ''
@@ -399,7 +406,7 @@ const resetSingleForm = () => {
 const resetBatchForm = () => {
   batchForm.sharedTagsText = ''
   batchForm.sharedDescription = ''
-  batchForm.collectionName = ''
+  batchForm.collectionId = undefined
   batchForm.enableAIGeneratedTags = true
   batchForm.enableAIGeneratedDescription = false
   batchError.value = ''
@@ -420,7 +427,7 @@ const submitSingleImport = async () => {
       description: singleForm.description.trim(),
       tags: singleForm.tags,
       keywords: singleForm.keywords.trim(),
-      collectionName: singleForm.collectionName.trim(),
+      collectionId: singleForm.collectionId,
     }
 
     await api.jobs.submitSingleImportJob(payload)
@@ -451,7 +458,7 @@ const submitBatchJob = async () => {
       .map((item) => item.trim())
       .filter(Boolean),
     sharedDescription: batchForm.sharedDescription.trim(),
-    collectionName: batchForm.collectionName.trim(),
+    collectionId: batchForm.collectionId,
     enableAIGeneratedTags: batchForm.enableAIGeneratedTags,
     enableAIGeneratedDescription: batchForm.enableAIGeneratedDescription,
   }

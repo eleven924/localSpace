@@ -13,6 +13,11 @@
               <div class="file-name">{{ file.fileName }}</div>
             </div>
 
+            <div class="form-group">
+              <label>合集</label>
+              <CollectionSelector v-model="collectionId" :collections="collections" />
+            </div>
+
             <FileMetadataFields
               :file-name="file.fileName"
               :file-type="file.fileType"
@@ -37,6 +42,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { api } from '@/api'
+import type { Collection } from '@/types'
+import CollectionSelector from './CollectionSelector.vue'
 import FileMetadataFields from './FileMetadataFields.vue'
 
 const props = defineProps<{
@@ -47,7 +54,9 @@ const props = defineProps<{
     fileType: string
     tags: string[]
     description?: string
+    collectionId?: number
   }
+  collections: Collection[]
 }>()
 
 const emit = defineEmits<{
@@ -57,13 +66,15 @@ const emit = defineEmits<{
 
 const tags = ref<string[]>([])
 const description = ref('')
+const collectionId = ref<number | undefined>(undefined)
 const saving = ref(false)
 
 watch(
-  () => [props.show, props.file.id, props.file.tags, props.file.description] as const,
+  () => [props.show, props.file.id, props.file.tags, props.file.description, props.file.collectionId] as const,
   () => {
     tags.value = [...props.file.tags]
     description.value = props.file.description || ''
+    collectionId.value = props.file.collectionId
   },
   { immediate: true }
 )
@@ -73,7 +84,7 @@ const close = () => emit('update:show', false)
 const handleSave = async () => {
   saving.value = true
   try {
-    await api.file.updateMetadata(props.file.id, tags.value, description.value)
+    await api.file.updateMetadata(props.file.id, tags.value, description.value, collectionId.value)
     emit('updated')
     close()
   } catch (error) {
