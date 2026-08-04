@@ -1,6 +1,6 @@
 <template>
   <div class="metadata-fields">
-    <div class="form-group">
+    <div class="field-block">
       <label for="file-tags">
         <span class="label-text">标签</span>
         <span class="label-hint">用逗号分隔</span>
@@ -14,12 +14,12 @@
       <div v-if="parsedTags.length > 0" class="tags-preview">
         <span v-for="tag in parsedTags" :key="tag" class="tag-preview">
           {{ tag }}
-          <button class="tag-remove" @click="removeTag(tag)">✕</button>
+          <button class="tag-remove" type="button" @click="removeTag(tag)">×</button>
         </span>
       </div>
     </div>
 
-    <div class="form-group">
+    <div class="field-block">
       <label for="file-description">
         <span class="label-text">描述</span>
         <span class="label-hint">可选</span>
@@ -37,13 +37,19 @@
 
     <div v-if="aiEnabled" class="ai-section">
       <div class="ai-header">
-        <span class="ai-icon">🤖</span>
-        <h4>AI 分析</h4>
+        <div class="ai-title-copy">
+          <span class="ai-icon">AI</span>
+          <div>
+            <h4>AI 分析</h4>
+            <p>生成可选用的标签和描述建议。</p>
+          </div>
+        </div>
+
         <div class="ai-actions">
-          <button v-if="!aiLoading" class="ai-trigger-button" @click="handleAIAnalyze">
+          <button v-if="!aiLoading" class="ai-trigger-button" type="button" @click="handleAIAnalyze">
             {{ aiAnalysis ? '重新生成' : '生成' }}
           </button>
-          <button v-if="aiLoading" class="ai-trigger-button" disabled>
+          <button v-if="aiLoading" class="ai-trigger-button" type="button" disabled>
             分析中...
           </button>
         </div>
@@ -58,9 +64,9 @@
         <div class="ai-section-block">
           <h5>建议标签</h5>
           <div class="ai-tags">
-            <span v-for="tag in aiAnalysis.tags" :key="tag" class="ai-tag" @click="addTag(tag)">
+            <button v-for="tag in aiAnalysis.tags" :key="tag" class="ai-tag" type="button" @click="addTag(tag)">
               {{ tag }}
-            </span>
+            </button>
           </div>
         </div>
 
@@ -68,18 +74,18 @@
           <h5>建议描述</h5>
           <div class="ai-description">{{ aiAnalysis.description }}</div>
           <div class="ai-buttons">
-            <button class="apply-button" @click="applyAIDescription">
-              应用此描述
+            <button class="apply-button" type="button" @click="applyAIDescription">
+              应用描述
             </button>
-            <button class="apply-all-button" @click="applyAllAI">
-              一键应用全部
+            <button class="apply-all-button" type="button" @click="applyAllAI">
+              应用全部
             </button>
           </div>
         </div>
       </div>
 
       <div v-if="!aiLoading && !aiAnalysis" class="ai-hint">
-        <p>点击"生成"按钮，AI 将为您分析文件并生成建议的标签和描述</p>
+        <p>生成后会在这里显示建议内容，不会自动覆盖已填写的信息。</p>
       </div>
     </div>
   </div>
@@ -157,6 +163,7 @@ const addTag = (tag: string) => {
 const handleAIAnalyze = async () => {
   aiLoading.value = true
   try {
+    // 使用当前表单内容作为上下文，让 AI 建议贴近用户已经填写的信息。
     aiAnalysis.value = await api.ai.analyze(
       props.fileName,
       props.fileType,
@@ -195,177 +202,282 @@ const applyAllAI = () => {
 
 <style scoped>
 .metadata-fields {
-  display: contents;
+  display: grid;
+  gap: 14px;
 }
 
-.form-group {
-  margin-bottom: 20px;
+.field-block {
+  display: grid;
+  gap: 8px;
 }
 
-.form-group label {
+.field-block label {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 10px;
 }
 
 .label-text {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-color);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--import-text-soft, var(--text-color));
 }
 
 .label-hint {
   font-size: 12px;
-  color: var(--text-color);
-  opacity: 0.6;
+  color: var(--import-text-faint, var(--text-faint));
 }
 
-.form-group input,
-.form-group textarea {
+.field-block input,
+.field-block textarea {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background-color: var(--bg-color);
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-color) 92%, transparent);
   color: var(--text-color);
   font-size: 14px;
   font-family: inherit;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-.form-group input:focus,
-.form-group textarea:focus {
+.field-block input:focus,
+.field-block textarea:focus {
   outline: none;
   border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 16%, transparent);
 }
 
-.form-group textarea {
+.field-block textarea {
   resize: vertical;
-  min-height: 80px;
+  min-height: 96px;
 }
 
 .char-count {
   text-align: right;
   font-size: 12px;
-  color: var(--text-color);
-  opacity: 0.6;
-  margin-top: 4px;
+  color: var(--import-text-faint, var(--text-faint));
 }
 
 .tags-preview {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
 }
 
 .tag-preview {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background-color: var(--primary-color);
-  color: white;
-  border-radius: 12px;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 18%, transparent);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .tag-remove {
   background: none;
   border: none;
-  color: white;
+  color: inherit;
   cursor: pointer;
   padding: 0;
-  font-size: 12px;
   line-height: 1;
 }
 
 .tag-remove:hover {
-  opacity: 0.8;
+  opacity: 0.82;
 }
 
 .ai-section {
-  margin-top: 24px;
-  padding: 20px;
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
   border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(126, 176, 255, 0.05), transparent),
+    color-mix(in srgb, var(--surface-color) 68%, transparent);
 }
 
 .ai-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.ai-title-copy {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
 }
 
 .ai-icon {
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(126, 176, 255, 0.12);
+  color: var(--import-accent-strong, var(--primary-color));
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
-.ai-header h4 {
-  font-size: 16px;
-  font-weight: 500;
+.ai-title-copy h4 {
+  font-size: 14px;
+  font-weight: 700;
   color: var(--text-color);
   margin: 0;
-  flex: 1;
+  line-height: 1.3;
 }
 
-.ai-trigger-button {
-  padding: 6px 12px;
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 6px;
+.ai-title-copy p {
+  margin-top: 2px;
+  color: var(--import-text-faint, var(--text-faint));
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ai-actions,
+.ai-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ai-trigger-button,
+.apply-button,
+.apply-all-button {
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 8px;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.ai-trigger-button {
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  color: var(--primary-color);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 22%, transparent);
+}
+
 .ai-trigger-button:hover:not(:disabled) {
-  opacity: 0.9;
+  background: color-mix(in srgb, var(--primary-color) 16%, transparent);
 }
 
 .ai-trigger-button:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .ai-loading {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 20px;
-  gap: 12px;
-}
-
-.ai-loading .spinner {
-  border: 2px solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  gap: 10px;
+  padding: 8px 0 2px 38px;
 }
 
 .ai-loading p {
-  font-size: 14px;
-  color: var(--text-color);
-  margin: 0;
-  opacity: 0.8;
+  font-size: 13px;
+  color: var(--import-text-soft, var(--text-color));
 }
 
 .ai-content {
-  animation: fadeIn 0.3s ease;
+  display: grid;
+  gap: 14px;
+  animation: fadeIn 0.24s ease;
+}
+
+.ai-section-block {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
+}
+
+.ai-section-block:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.ai-section-block h5 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.ai-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-tag {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 78%, transparent);
+  color: var(--text-color);
+  border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-tag:hover {
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  color: var(--primary-color);
+  border-color: color-mix(in srgb, var(--primary-color) 24%, transparent);
+}
+
+.ai-description {
+  padding: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-color) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  color: var(--text-color);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.apply-button {
+  background: color-mix(in srgb, var(--surface-color) 88%, transparent);
+  color: var(--text-color);
+  border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+}
+
+.apply-button:hover {
+  background: var(--surface-muted);
+}
+
+.apply-all-button {
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  color: var(--primary-color);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 22%, transparent);
+  font-weight: 600;
+}
+
+.apply-all-button:hover {
+  background: color-mix(in srgb, var(--primary-color) 16%, transparent);
+}
+
+.ai-hint {
+  padding-left: 38px;
+}
+
+.ai-hint p {
+  margin: 0;
+  color: var(--import-text-faint, var(--text-faint));
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 @keyframes fadeIn {
@@ -375,104 +487,5 @@ const applyAllAI = () => {
   to {
     opacity: 1;
   }
-}
-
-.ai-section-block {
-  margin-bottom: 16px;
-}
-
-.ai-section-block:last-child {
-  margin-bottom: 0;
-}
-
-.ai-section-block h5 {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-color);
-  margin: 0 0 8px 0;
-}
-
-.ai-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.ai-tag {
-  padding: 4px 10px;
-  background-color: var(--surface-color);
-  color: var(--text-color);
-  border: 1px solid var(--primary-color);
-  border-radius: 12px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.ai-tag:hover {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.ai-description {
-  padding: 12px;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--text-color);
-  line-height: 1.6;
-  margin-bottom: 12px;
-}
-
-.ai-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.apply-button {
-  padding: 6px 12px;
-  background-color: var(--surface-color);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.apply-button:hover {
-  background-color: var(--border-color);
-}
-
-.apply-all-button {
-  padding: 6px 12px;
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-weight: 500;
-}
-
-.apply-all-button:hover {
-  opacity: 0.9;
-}
-
-.ai-hint {
-  padding: 12px;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--text-color);
-  opacity: 0.7;
-}
-
-.ai-hint p {
-  margin: 0;
-  text-align: center;
 }
 </style>

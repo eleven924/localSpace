@@ -77,6 +77,8 @@ declare global {
           SelectFiles: () => Promise<any[]>
           SelectDirectory: () => Promise<string>
           SelectExecutable: () => Promise<string>
+          ConfirmQuit: () => Promise<void>
+          GetExitGuardSnapshot: () => Promise<any>
 
           // Jobs
           SubmitBatchImportJob: (payload: any) => Promise<any>
@@ -561,6 +563,18 @@ export const api = {
         () => window.go!.app!.App.SelectExecutable(),
         '',
         'SelectExecutable'
+      ),
+    confirmQuit: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.ConfirmQuit(),
+        undefined,
+        'ConfirmQuit'
+      ),
+    getExitGuardSnapshot: () =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetExitGuardSnapshot(),
+        { hasProtectedJobs: false, total: 0, statusCounts: {}, jobs: [] },
+        'GetExitGuardSnapshot'
       ),
     getMetadata: (filePath: string, fileType: string) =>
       safeWailsCall(

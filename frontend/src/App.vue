@@ -1,12 +1,14 @@
 <template>
   <div id="app" :class="themeStore.themeMode" :style="appStyle">
     <RouterView />
+    <ExitGuardDialog />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterView } from 'vue-router'
+import ExitGuardDialog from './components/ExitGuardDialog.vue'
 import { useThemeStore } from './store/modules/theme'
 
 const themeStore = useThemeStore()

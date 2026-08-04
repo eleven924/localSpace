@@ -19,8 +19,14 @@ type JobPolicy struct {
 	ExclusiveKey     string
 	CanRunBackground bool
 	Recoverable      bool
+	CloseProtection  string
 	Timeout          time.Duration
 }
+
+const (
+	CloseProtectionNone   = "none"
+	CloseProtectionActive = "active"
+)
 
 type JobHandler interface {
 	Type() string
@@ -31,11 +37,11 @@ type JobHandler interface {
 }
 
 type JobService struct {
-	jobRepo        *repositories.JobRepository
-	fileService    *FileService
-	aiService      *AIService
-	agentService   *AgentService
-	configService  *ConfigService
+	jobRepo       *repositories.JobRepository
+	fileService   *FileService
+	aiService     *AIService
+	agentService  *AgentService
+	configService *ConfigService
 
 	handlers map[string]JobHandler
 	policies map[string]JobPolicy
@@ -69,6 +75,7 @@ func NewJobService(
 				ExclusiveKey:     "import",
 				CanRunBackground: true,
 				Recoverable:      true,
+				CloseProtection:  CloseProtectionActive,
 				Timeout:          2 * time.Hour,
 			},
 			models.JobTypeSingleImport: {
@@ -77,6 +84,7 @@ func NewJobService(
 				ExclusiveKey:     "import",
 				CanRunBackground: true,
 				Recoverable:      false,
+				CloseProtection:  CloseProtectionActive,
 				Timeout:          30 * time.Minute,
 			},
 			models.JobTypeCleanup: {
@@ -85,6 +93,7 @@ func NewJobService(
 				ExclusiveKey:     "cleanup",
 				CanRunBackground: true,
 				Recoverable:      false,
+				CloseProtection:  CloseProtectionNone,
 				Timeout:          5 * time.Minute,
 			},
 		},
@@ -434,23 +443,66 @@ func (s *JobService) MaybeSubmitAutoCleanup() error {
 }
 
 func (s *JobService) HasBackgroundJobsForCloseProtection() (bool, int, error) {
-	jobs, err := s.jobRepo.ListActive()
+	snapshot, err := s.GetExitGuardSnapshot()
 	if err != nil {
 		return false, 0, err
 	}
+	return snapshot.HasProtectedJobs, snapshot.Total, nil
+}
 
-	count := 0
-	for _, job := range jobs {
-		policy, ok := s.policies[job.JobType]
-		if !ok || !policy.CanRunBackground {
-			continue
-		}
-		if job.Status == models.JobStatusRunning || job.Status == models.JobStatusRecovering || job.Status == models.JobStatusPending {
-			count++
-		}
+func (s *JobService) GetExitGuardSnapshot() (*models.ExitGuardSnapshot, error) {
+	jobs, err := s.jobRepo.ListActive()
+	if err != nil {
+		return nil, err
 	}
 
-	return count > 0, count, nil
+	snapshot := &models.ExitGuardSnapshot{
+		StatusCounts: map[string]int{
+			models.JobStatusPending:    0,
+			models.JobStatusRunning:    0,
+			models.JobStatusRecovering: 0,
+		},
+		Jobs: []*models.ExitGuardJobSnapshot{},
+	}
+
+	for _, job := range jobs {
+		if !s.shouldProtectJobOnClose(job) {
+			continue
+		}
+
+		// 退出保护只统计还在执行链路上的任务，等待恢复的任务已经停住，不需要再次拦截退出。
+		snapshot.Total++
+		snapshot.StatusCounts[job.Status]++
+		snapshot.Jobs = append(snapshot.Jobs, &models.ExitGuardJobSnapshot{
+			ID:                job.ID,
+			JobType:           job.JobType,
+			Status:            job.Status,
+			Title:             job.Title,
+			ProgressTotal:     job.ProgressTotal,
+			ProgressCompleted: job.ProgressCompleted,
+			ProgressMessage:   job.ProgressMessage,
+			CanResume:         job.CanResume,
+		})
+	}
+
+	snapshot.HasProtectedJobs = snapshot.Total > 0
+	return snapshot, nil
+}
+
+func (s *JobService) shouldProtectJobOnClose(job *models.Job) bool {
+	if job == nil {
+		return false
+	}
+	policy, ok := s.policies[job.JobType]
+	if !ok {
+		return false
+	}
+	if policy.CloseProtection != CloseProtectionActive {
+		return false
+	}
+	return job.Status == models.JobStatusPending ||
+		job.Status == models.JobStatusRunning ||
+		job.Status == models.JobStatusRecovering
 }
 
 func (s *JobService) PrepareForShutdown() error {

@@ -24,6 +24,8 @@ export function CheckStorageSpace(arg1:number):Promise<boolean>;
 
 export function ClearThumbnailCache():Promise<void>;
 
+export function ConfirmQuit():Promise<void>;
+
 export function DeleteFile(arg1:number):Promise<void>;
 
 export function DeleteJobRecord(arg1:number):Promise<void>;
@@ -43,6 +45,8 @@ export function GetCollections():Promise<Array<models.Collection>>;
 export function GetConfig(arg1:string):Promise<string>;
 
 export function GetDuplicateFiles():Promise<Record<string, Array<Record<string, any>>>>;
+
+export function GetExitGuardSnapshot():Promise<models.ExitGuardSnapshot>;
 
 export function GetFile(arg1:number):Promise<models.File>;
 
@@ -101,6 +105,8 @@ export function RemoveCollection(arg1:number):Promise<void>;
 export function RemoveStorageDirectory(arg1:number):Promise<void>;
 
 export function RenameFile(arg1:number,arg2:string):Promise<void>;
+
+export function RequestQuit():Promise<void>;
 
 export function ResumeJob(arg1:number):Promise<void>;
 

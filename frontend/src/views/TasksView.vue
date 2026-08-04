@@ -22,20 +22,7 @@
           </div>
         </section>
 
-        <section class="section-panel section-shell">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">All Tasks</p>
-              <h2 class="section-title">任务列表</h2>
-              <p class="section-copy">支持分页浏览，失败任务可展开查看详情。</p>
-            </div>
-
-            <div class="section-actions">
-              <button class="btn secondary" type="button" @click="refreshAll">刷新状态</button>
-              <button class="btn primary" type="button" @click="router.push('/import')">返回导入</button>
-            </div>
-          </div>
-
+        <section class="task-list-surface" aria-label="任务列表">
           <div v-if="jobsStore.loading && jobsStore.jobs.length === 0" class="empty-surface">
             正在加载任务列表...
           </div>
@@ -59,20 +46,20 @@
               <tbody>
                 <template v-for="job in jobsStore.jobs" :key="job.id">
                   <tr class="task-row" :class="{ 'is-expanded': expandedJobs.has(job.id) }">
-                    <td class="col-title">
+                    <td class="col-title" data-label="任务">
                       <strong>{{ job.title }}</strong>
                       <p class="task-message">{{ job.progressMessage || jobStatusLabel(job.status) }}</p>
                     </td>
-                    <td class="col-time">{{ formatDate(job.startedAt) || '—' }}</td>
-                    <td class="col-time">{{ formatDate(job.finishedAt) || '—' }}</td>
-                    <td class="col-progress">
+                    <td class="col-time" data-label="开始时间">{{ formatDate(job.startedAt) || '—' }}</td>
+                    <td class="col-time" data-label="结束时间">{{ formatDate(job.finishedAt) || '—' }}</td>
+                    <td class="col-progress" data-label="进度">
                       <ProgressBar :percentage="jobProgressPercent(job)" :show-label="false" small />
                       <span class="progress-count">{{ job.progressCompleted }} / {{ job.progressTotal }}</span>
                     </td>
-                    <td class="col-status">
+                    <td class="col-status" data-label="状态">
                       <span class="status-pill" :class="`status-${job.status}`">{{ jobStatusLabel(job.status) }}</span>
                     </td>
-                    <td class="col-actions">
+                    <td class="col-actions" data-label="操作">
                       <div class="action-cell">
                         <button
                           v-if="canResume(job)"
@@ -135,7 +122,7 @@
           </div>
 
           <PaginationControls
-            v-if="!jobsStore.loading || jobsStore.jobs.length > 0"
+            v-if="jobsStore.loading || jobsStore.total > 0"
             :page="jobsStore.page"
             :page-size="jobsStore.pageSize"
             :total="jobsStore.total"
@@ -151,7 +138,6 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
 import ProgressBar from '@/components/ProgressBar.vue'
@@ -160,7 +146,6 @@ import { jobProgressPercent, jobStatusLabel, type BatchImportResult, type Cleanu
 import { formatDate } from '@/utils/constants'
 
 const jobsStore = useJobsStore()
-const router = useRouter()
 const expandedJobs = ref<Set<number>>(new Set())
 
 const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled', 'timed_out', 'cleanup_failed']
@@ -198,12 +183,13 @@ const handleSizeChange = async (size: number) => {
   await jobsStore.loadJobs(1, size)
 }
 
-const refreshAll = async () => {
+const loadTaskCenter = async () => {
+  // 页面进入时同步活动任务和历史列表，顶部导航已经提供导入入口，这里保持列表本身轻量。
   await Promise.all([jobsStore.loadActiveJobs(), jobsStore.loadJobs(jobsStore.page, jobsStore.pageSize)])
 }
 
 onMounted(() => {
-  void refreshAll()
+  void loadTaskCenter()
 })
 </script>
 
@@ -212,39 +198,27 @@ onMounted(() => {
   align-items: center;
 }
 
-.section-shell {
-  padding: 22px;
-}
-
-.section-head {
+.task-list-surface {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.section-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .empty-surface {
-  margin-top: 18px;
   padding: 32px;
   text-align: center;
-  border-radius: 24px;
+  border-radius: 14px;
   border: 1px solid rgba(146, 165, 192, 0.18);
   background: rgba(255, 255, 255, 0.58);
   color: var(--text-soft);
 }
 
 .task-table-wrap {
-  margin-top: 18px;
   overflow-x: auto;
-  border-radius: 16px;
+  border: 1px solid rgba(146, 165, 192, 0.18);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-color) 66%, transparent);
+  box-shadow: 0 10px 28px var(--shadow-color);
 }
 
 .task-table {
@@ -254,18 +228,18 @@ onMounted(() => {
 }
 
 .task-table th {
-  padding: 12px 14px;
+  padding: 11px 14px;
   text-align: left;
   font-weight: 600;
   color: var(--text-soft);
   border-bottom: 1px solid rgba(146, 165, 192, 0.18);
-  background: rgba(255, 255, 255, 0.42);
+  background: rgba(148, 163, 184, 0.18);
   backdrop-filter: blur(8px);
   white-space: nowrap;
 }
 
 .task-row {
-  background: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.34);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid rgba(146, 165, 192, 0.18);
   transition: background-color 0.2s ease;
@@ -284,7 +258,7 @@ onMounted(() => {
 }
 
 .task-row td {
-  padding: 14px;
+  padding: 13px 14px;
   vertical-align: middle;
 }
 
@@ -427,11 +401,6 @@ onMounted(() => {
 }
 
 @media (max-width: 980px) {
-  .section-head {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .task-table th,
   .task-row td {
     padding: 10px 12px;

@@ -14,7 +14,7 @@ import (
 
 type panicJobHandler struct{}
 
-func (h *panicJobHandler) Type() string { return "panic_test" }
+func (h *panicJobHandler) Type() string                           { return "panic_test" }
 func (h *panicJobHandler) Validate(payload json.RawMessage) error { return nil }
 func (h *panicJobHandler) Execute(ctx context.Context, job *models.Job, runtime JobRuntime) error {
 	panic("intentional panic")
@@ -22,11 +22,13 @@ func (h *panicJobHandler) Execute(ctx context.Context, job *models.Job, runtime 
 func (h *panicJobHandler) Resume(ctx context.Context, job *models.Job, runtime JobRuntime) error {
 	panic("intentional panic")
 }
-func (h *panicJobHandler) Cleanup(ctx context.Context, job *models.Job, runtime JobRuntime) error { return nil }
+func (h *panicJobHandler) Cleanup(ctx context.Context, job *models.Job, runtime JobRuntime) error {
+	return nil
+}
 
 type successTestHandler struct{}
 
-func (h *successTestHandler) Type() string { return "success_test" }
+func (h *successTestHandler) Type() string                           { return "success_test" }
 func (h *successTestHandler) Validate(payload json.RawMessage) error { return nil }
 func (h *successTestHandler) Execute(ctx context.Context, job *models.Job, runtime JobRuntime) error {
 	return nil
@@ -184,7 +186,7 @@ type slowJobHandler struct {
 	block chan struct{}
 }
 
-func (h *slowJobHandler) Type() string { return "slow_test" }
+func (h *slowJobHandler) Type() string                           { return "slow_test" }
 func (h *slowJobHandler) Validate(payload json.RawMessage) error { return nil }
 func (h *slowJobHandler) Execute(ctx context.Context, job *models.Job, runtime JobRuntime) error {
 	<-h.block
@@ -194,7 +196,9 @@ func (h *slowJobHandler) Resume(ctx context.Context, job *models.Job, runtime Jo
 	<-h.block
 	return ctx.Err()
 }
-func (h *slowJobHandler) Cleanup(ctx context.Context, job *models.Job, runtime JobRuntime) error { return nil }
+func (h *slowJobHandler) Cleanup(ctx context.Context, job *models.Job, runtime JobRuntime) error {
+	return nil
+}
 
 func TestJobService_DeleteJobRecord_OnlyTerminal(t *testing.T) {
 	tempDir := t.TempDir()
@@ -229,6 +233,121 @@ func TestJobService_DeleteJobRecord_OnlyTerminal(t *testing.T) {
 	_, err = repo.FindByID(job.ID)
 	if err == nil {
 		t.Fatal("expected job to be deleted")
+	}
+}
+
+func TestJobService_GetExitGuardSnapshot_ProtectsOnlyConfiguredActiveStatuses(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
+	service := NewJobService(jobRepo, nil, nil, nil, nil)
+
+	jobs := []*models.Job{
+		{JobType: models.JobTypeBatchImport, Status: models.JobStatusPending, Title: "pending import"},
+		{JobType: models.JobTypeBatchImport, Status: models.JobStatusRunning, Title: "running import"},
+		{JobType: models.JobTypeBatchImport, Status: models.JobStatusRecovering, Title: "recovering import"},
+		{JobType: models.JobTypeBatchImport, Status: models.JobStatusAwaitingResume, Title: "waiting import"},
+		{JobType: models.JobTypeBatchImport, Status: models.JobStatusCompleted, Title: "completed import"},
+	}
+	for _, job := range jobs {
+		if err := jobRepo.Create(job); err != nil {
+			t.Fatalf("failed to create job %q: %v", job.Title, err)
+		}
+	}
+
+	snapshot, err := service.GetExitGuardSnapshot()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if !snapshot.HasProtectedJobs {
+		t.Fatal("expected protected jobs")
+	}
+	if snapshot.Total != 3 {
+		t.Fatalf("expected 3 protected jobs, got %d", snapshot.Total)
+	}
+	if snapshot.StatusCounts[models.JobStatusPending] != 1 {
+		t.Fatalf("expected 1 pending job, got %d", snapshot.StatusCounts[models.JobStatusPending])
+	}
+	if snapshot.StatusCounts[models.JobStatusRunning] != 1 {
+		t.Fatalf("expected 1 running job, got %d", snapshot.StatusCounts[models.JobStatusRunning])
+	}
+	if snapshot.StatusCounts[models.JobStatusRecovering] != 1 {
+		t.Fatalf("expected 1 recovering job, got %d", snapshot.StatusCounts[models.JobStatusRecovering])
+	}
+	for _, job := range snapshot.Jobs {
+		if job.Status == models.JobStatusAwaitingResume || job.Status == models.JobStatusCompleted {
+			t.Fatalf("status %s should not be close-protected", job.Status)
+		}
+	}
+}
+
+func TestJobService_GetExitGuardSnapshot_IgnoresCleanupByPolicy(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
+	service := NewJobService(jobRepo, nil, nil, nil, nil)
+
+	for _, status := range []string{models.JobStatusPending, models.JobStatusRunning, models.JobStatusRecovering} {
+		job := &models.Job{JobType: models.JobTypeCleanup, Status: status, Title: "cleanup"}
+		if err := jobRepo.Create(job); err != nil {
+			t.Fatalf("failed to create cleanup job: %v", err)
+		}
+	}
+
+	snapshot, err := service.GetExitGuardSnapshot()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if snapshot.HasProtectedJobs || snapshot.Total != 0 {
+		t.Fatalf("cleanup jobs should not be protected, got total %d", snapshot.Total)
+	}
+}
+
+func TestJobService_GetExitGuardSnapshot_NewTypeUsesPolicyCloseProtection(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
+	service := NewJobService(jobRepo, nil, nil, nil, nil)
+	service.policies["custom_protected"] = JobPolicy{JobType: "custom_protected", CloseProtection: CloseProtectionActive}
+	service.policies["custom_unprotected"] = JobPolicy{JobType: "custom_unprotected", CloseProtection: CloseProtectionNone}
+
+	protectedJob := &models.Job{JobType: "custom_protected", Status: models.JobStatusRunning, Title: "protected"}
+	unprotectedJob := &models.Job{JobType: "custom_unprotected", Status: models.JobStatusRunning, Title: "unprotected"}
+	if err := jobRepo.Create(protectedJob); err != nil {
+		t.Fatalf("failed to create protected job: %v", err)
+	}
+	if err := jobRepo.Create(unprotectedJob); err != nil {
+		t.Fatalf("failed to create unprotected job: %v", err)
+	}
+
+	snapshot, err := service.GetExitGuardSnapshot()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if snapshot.Total != 1 {
+		t.Fatalf("expected only custom protected job, got %d", snapshot.Total)
+	}
+	if len(snapshot.Jobs) != 1 || snapshot.Jobs[0].JobType != "custom_protected" {
+		t.Fatalf("expected custom_protected snapshot, got %#v", snapshot.Jobs)
 	}
 }
 

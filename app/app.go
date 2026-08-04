@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	std_runtime "runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"LocalSpace/app/agents"
@@ -32,6 +33,8 @@ type App struct {
 	thumbnailService  *services.ThumbnailService
 	jobService        *services.JobService
 	collectionService *services.CollectionService
+	closeMu           sync.Mutex
+	allowNextClose    bool
 }
 
 // NewApp creates a new App application struct
@@ -83,38 +86,70 @@ func (a *App) Shutdown(ctx context.Context) {
 	}
 }
 
-// BeforeClose intercepts app shutdown when a recoverable job is still active.
+// BeforeClose intercepts app shutdown when protected jobs are still active.
 func (a *App) BeforeClose(ctx context.Context) (prevent bool) {
+	a.closeMu.Lock()
+	if a.allowNextClose {
+		// 用户已经在前端退出检查中确认，本次关闭直接放行，避免重复弹窗。
+		a.allowNextClose = false
+		a.closeMu.Unlock()
+		return false
+	}
+	a.closeMu.Unlock()
+
 	if a.jobService == nil {
 		return false
 	}
 
-	hasJobs, count, err := a.jobService.HasBackgroundJobsForCloseProtection()
-	if err != nil || !hasJobs {
+	snapshot, err := a.jobService.GetExitGuardSnapshot()
+	if err != nil || !snapshot.HasProtectedJobs {
 		return false
 	}
 
-	response, dialogErr := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
-		Type:          runtime.QuestionDialog,
-		Title:         "批量导入仍在运行",
-		Message:       fmt.Sprintf("当前有 %d 个后台任务仍在运行，关闭程序可能中断导入。是否仍然退出？", count),
-		Buttons:       []string{"继续运行", "仍然退出"},
-		DefaultButton: "继续运行",
-		CancelButton:  "继续运行",
-	})
-	if dialogErr != nil {
-		fmt.Printf("Failed to show before-close dialog: %v\n", dialogErr)
-		return false
+	// 原生窗口关闭只做兜底拦截，具体确认界面交给前端全局退出检查弹层展示。
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "exit:guard", snapshot)
+	}
+	return true
+}
+
+// GetExitGuardSnapshot returns the current close-protection snapshot.
+func (a *App) GetExitGuardSnapshot() (*models.ExitGuardSnapshot, error) {
+	if a.jobService == nil {
+		return &models.ExitGuardSnapshot{
+			HasProtectedJobs: false,
+			Total:            0,
+			StatusCounts:     map[string]int{},
+			Jobs:             []*models.ExitGuardJobSnapshot{},
+		}, nil
+	}
+	return a.jobService.GetExitGuardSnapshot()
+}
+
+// RequestQuit asks Wails to close the application window.
+func (a *App) RequestQuit() {
+	if a.ctx == nil {
+		return
+	}
+	runtime.Quit(a.ctx)
+}
+
+// ConfirmQuit prepares shutdown work and then allows the next close request.
+func (a *App) ConfirmQuit() error {
+	if a.jobService != nil {
+		if err := a.jobService.PrepareForShutdown(); err != nil {
+			return err
+		}
 	}
 
-	if response == "继续运行" {
-		return true
-	}
+	a.closeMu.Lock()
+	a.allowNextClose = true
+	a.closeMu.Unlock()
 
-	if err := a.jobService.PrepareForShutdown(); err != nil {
-		fmt.Printf("Failed to update jobs before close: %v\n", err)
+	if a.ctx != nil {
+		runtime.Quit(a.ctx)
 	}
-	return false
+	return nil
 }
 
 // initializeApp initializes the application

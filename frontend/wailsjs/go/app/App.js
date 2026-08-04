@@ -46,6 +46,10 @@ export function ClearThumbnailCache() {
   return window['go']['app']['App']['ClearThumbnailCache']();
 }
 
+export function ConfirmQuit() {
+  return window['go']['app']['App']['ConfirmQuit']();
+}
+
 export function DeleteFile(arg1) {
   return window['go']['app']['App']['DeleteFile'](arg1);
 }
@@ -84,6 +88,10 @@ export function GetConfig(arg1) {
 
 export function GetDuplicateFiles() {
   return window['go']['app']['App']['GetDuplicateFiles']();
+}
+
+export function GetExitGuardSnapshot() {
+  return window['go']['app']['App']['GetExitGuardSnapshot']();
 }
 
 export function GetFile(arg1) {
@@ -200,6 +208,10 @@ export function RemoveStorageDirectory(arg1) {
 
 export function RenameFile(arg1, arg2) {
   return window['go']['app']['App']['RenameFile'](arg1, arg2);
+}
+
+export function RequestQuit() {
+  return window['go']['app']['App']['RequestQuit']();
 }
 
 export function ResumeJob(arg1) {

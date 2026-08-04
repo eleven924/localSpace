@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -85,12 +86,31 @@ func TestWaitForInitializationTimesOutWhenServicesStayNil(t *testing.T) {
 
 func TestResolvePreferredAppPrefersExtensionOverType(t *testing.T) {
 	config := &models.OpenWithConfig{
-		ByFileType: map[string]string{"video": "C:\\Tools\\VLC.exe"},
+		ByFileType:  map[string]string{"video": "C:\\Tools\\VLC.exe"},
 		ByExtension: map[string]string{".mkv": "C:\\Tools\\PotPlayer.exe"},
 	}
 
 	appPath := resolvePreferredApp("episode01.mkv", "video", config)
 	if appPath != "C:\\Tools\\PotPlayer.exe" {
 		t.Fatalf("expected extension mapping to win, got %q", appPath)
+	}
+}
+
+func TestConfirmQuitAllowsNextBeforeClose(t *testing.T) {
+	app := NewApp()
+
+	if err := app.ConfirmQuit(); err != nil {
+		t.Fatalf("expected ConfirmQuit to succeed, got %v", err)
+	}
+
+	if !app.allowNextClose {
+		t.Fatal("expected ConfirmQuit to allow the next close request")
+	}
+
+	if prevent := app.BeforeClose(context.Background()); prevent {
+		t.Fatal("expected confirmed close request to pass through")
+	}
+	if app.allowNextClose {
+		t.Fatal("expected allowNextClose to be consumed")
 	}
 }

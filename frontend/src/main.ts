@@ -5,6 +5,7 @@ import router from './router'
 import { useJobsStore } from './store/modules/jobs'
 import { useNotificationsStore } from './store/modules/notifications'
 import { useThemeStore } from './store/modules/theme'
+import { useExitGuardStore } from './store/modules/exitGuard'
 import './assets/styles/main.css'
 
 const app = createApp(App)
@@ -24,3 +25,6 @@ jobsStore.initialize()
 
 const notificationsStore = useNotificationsStore()
 notificationsStore.initialize()
+
+const exitGuardStore = useExitGuardStore()
+exitGuardStore.initialize()

@@ -85,17 +85,18 @@
             @delete="handleDeleteFile"
             @updated="handleUpdateFileMetadata"
           />
-        </section>
 
-        <PaginationControls
-          v-if="!filesStore.loading && !filesStore.error && filesStore.totalFiles > 0"
-          :page="filesStore.currentPage"
-          :page-size="filesStore.pageSize"
-          :total="filesStore.totalFiles"
-          :page-sizes="[20, 50, 100]"
-          @change="filesStore.goToPage"
-          @change-size="filesStore.setPageSize"
-        />
+          <PaginationControls
+            v-if="filesStore.totalFiles > 0"
+            variant="overlay"
+            :page="filesStore.currentPage"
+            :page-size="filesStore.pageSize"
+            :total="filesStore.totalFiles"
+            :page-sizes="[20, 50, 100]"
+            @change="filesStore.goToPage"
+            @change-size="filesStore.setPageSize"
+          />
+        </section>
       </div>
     </div>
 
@@ -570,6 +571,7 @@ const confirmBatchDelete = async () => {
 
 .file-list-panel {
   display: flex;
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;

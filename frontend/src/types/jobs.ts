@@ -67,6 +67,24 @@ export interface JobListResponse {
   total: number
 }
 
+export interface ExitGuardJobSnapshot {
+  id: number
+  jobType: string
+  status: string
+  title: string
+  progressTotal: number
+  progressCompleted: number
+  progressMessage: string
+  canResume: boolean
+}
+
+export interface ExitGuardSnapshot {
+  hasProtectedJobs: boolean
+  total: number
+  statusCounts: Record<string, number>
+  jobs: ExitGuardJobSnapshot[]
+}
+
 export interface SelectedFile {
   name: string
   path: string
@@ -75,6 +93,7 @@ export interface SelectedFile {
 
 export const ACTIVE_JOB_STATUSES = ['pending', 'running', 'recovering'] as const
 export const RESUMABLE_JOB_STATUSES = ['awaiting_resume', 'timed_out'] as const
+export const CLOSE_PROTECTED_JOB_STATUSES = ['pending', 'running', 'recovering'] as const
 
 export function jobProgressPercent(job: Job | null | undefined): number {
   if (!job || !job.progressTotal) {

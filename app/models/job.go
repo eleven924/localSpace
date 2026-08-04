@@ -58,6 +58,24 @@ type JobListResponse struct {
 	Total    int    `json:"total"`
 }
 
+type ExitGuardSnapshot struct {
+	HasProtectedJobs bool                    `json:"hasProtectedJobs"`
+	Total            int                     `json:"total"`
+	StatusCounts     map[string]int          `json:"statusCounts"`
+	Jobs             []*ExitGuardJobSnapshot `json:"jobs"`
+}
+
+type ExitGuardJobSnapshot struct {
+	ID                uint   `json:"id"`
+	JobType           string `json:"jobType"`
+	Status            string `json:"status"`
+	Title             string `json:"title"`
+	ProgressTotal     int    `json:"progressTotal"`
+	ProgressCompleted int    `json:"progressCompleted"`
+	ProgressMessage   string `json:"progressMessage"`
+	CanResume         bool   `json:"canResume"`
+}
+
 type JobRetentionConfig struct {
 	ID        uint   `json:"id"`
 	Enabled   bool   `json:"enabled"`
