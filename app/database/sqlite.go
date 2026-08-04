@@ -14,7 +14,6 @@ type SQLiteDB struct {
 	db *sql.DB
 }
 
-
 // NewSQLiteDB creates a new SQLite database connection
 func NewSQLiteDB(dbPath string) (*sql.DB, error) {
 	// Ensure the directory exists
@@ -100,8 +99,8 @@ func insertInitialData(db *sql.DB) error {
 		}
 	}
 
-	// Insert default theme config
-	themeConfig := `INSERT OR IGNORE INTO theme_configs (theme_mode, primary_color, background_image) VALUES ('light', '#2196F3', '')`
+	// 固定使用 id=1 作为全局主题配置，避免每次启动都插入一条新的默认主题记录。
+	themeConfig := `INSERT OR IGNORE INTO theme_configs (id, theme_mode, primary_color, background_image) VALUES (1, 'light', '#2196F3', '')`
 	if _, err := db.Exec(themeConfig); err != nil {
 		return fmt.Errorf("failed to insert theme config: %w", err)
 	}

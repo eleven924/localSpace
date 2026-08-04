@@ -480,7 +480,7 @@ export const api = {
     getConfig: () =>
       safeWailsCall(
         () => window.go!.app!.App.GetThemeConfig(),
-        { mode: 'light', primaryColor: '#2196F3' },
+        { themeMode: 'light', primaryColor: '#2196F3', backgroundImage: '' },
         'GetThemeConfig'
       ),
     updateConfig: (config: any) =>

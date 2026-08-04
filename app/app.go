@@ -723,19 +723,19 @@ func (a *App) CheckMasterStorageSpace(masterID uint, fileSize int64) (bool, erro
 
 // GetThemeConfig returns the current theme configuration
 func (a *App) GetThemeConfig() (*models.ThemeConfig, error) {
-	if !a.isInitialized() {
-		// Return default theme config if not yet initialized
-		return &models.ThemeConfig{
-			ThemeMode:       "light",
-			PrimaryColor:    "#2196F3",
-			BackgroundColor: "#1B2636",
-		}, nil
+	if !a.waitForInitialization(5 * time.Second) {
+		// 主题配置必须等服务初始化后再读取，避免启动时把已保存的背景图误恢复为空。
+		return nil, fmt.Errorf("app not initialized")
 	}
 	return a.configService.GetThemeConfig()
 }
 
 // UpdateThemeConfig updates the theme configuration
 func (a *App) UpdateThemeConfig(config models.ThemeConfig) error {
+	if !a.waitForInitialization(5 * time.Second) {
+		// 保存主题同样等待初始化完成，确保写入的是当前运行实例使用的配置库。
+		return fmt.Errorf("app not initialized")
+	}
 	return a.configService.UpdateThemeConfig(config)
 }
 
