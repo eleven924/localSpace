@@ -110,12 +110,17 @@
                         </div>
                         <div v-if="job.result" class="detail-block">
                           <strong>执行结果</strong>
-                          <p>成功 {{ job.result.successCount }} 个 · 失败 {{ job.result.failedCount }} 个</p>
-                          <ul v-if="job.result.failedItems && job.result.failedItems.length > 0" class="failed-items">
-                            <li v-for="(item, index) in job.result.failedItems" :key="index">
-                              {{ item.displayName || item.fileName || item.sourcePath || `文件 ${item.fileId}` }}：{{ item.error }}
-                            </li>
-                          </ul>
+                          <template v-if="cleanupDeleted(job) !== null">
+                            <p>已清理 {{ cleanupDeleted(job) }} 条任务记录</p>
+                          </template>
+                          <template v-else-if="batchResult(job)">
+                            <p>成功 {{ batchResult(job)?.successCount }} 个 · 失败 {{ batchResult(job)?.failedCount }} 个</p>
+                            <ul v-if="batchResult(job)?.failedItems?.length" class="failed-items">
+                              <li v-for="(item, index) in batchResult(job)?.failedItems" :key="index">
+                                {{ item.displayName || item.fileName || item.sourcePath || `文件 ${item.fileId}` }}：{{ item.error }}
+                              </li>
+                            </ul>
+                          </template>
                         </div>
                         <div class="detail-block">
                           <strong>任务 ID</strong>
@@ -151,7 +156,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
 import ProgressBar from '@/components/ProgressBar.vue'
 import { useJobsStore } from '@/store/modules/jobs'
-import { jobProgressPercent, jobStatusLabel, type Job } from '@/types/jobs'
+import { jobProgressPercent, jobStatusLabel, type BatchImportResult, type CleanupJobResult, type Job } from '@/types/jobs'
 import { formatDate } from '@/utils/constants'
 
 const jobsStore = useJobsStore()
@@ -164,6 +169,17 @@ const RESUMABLE_STATUSES = ['awaiting_resume', 'timed_out']
 const canResume = (job: Job) => RESUMABLE_STATUSES.includes(job.status)
 const canDelete = (job: Job) => TERMINAL_STATUSES.includes(job.status)
 const hasDetails = (job: Job) => Boolean(job.errorMessage || job.result)
+const cleanupDeleted = (job: Job) => {
+  // 清理任务的 result 与导入任务不同，单独读取 deleted 字段用于详情展示。
+  const result = job.result as CleanupJobResult | null
+  return job.jobType === 'job_cleanup' && typeof result?.deleted === 'number' ? result.deleted : null
+}
+const batchResult = (job: Job): BatchImportResult | null => {
+  if (!job.result || job.jobType === 'job_cleanup') {
+    return null
+  }
+  return job.result as BatchImportResult
+}
 
 const toggleExpanded = (jobId: number) => {
   if (expandedJobs.value.has(jobId)) {

@@ -64,6 +64,17 @@ export const useJobsStore = defineStore('jobs', () => {
     }
   }
 
+  const handleJobEvent = (job: Job | null | undefined) => {
+    syncJob(job)
+    if (!job) {
+      return
+    }
+    if (job.jobType === 'job_cleanup' && TERMINAL_STATUSES.includes(job.status)) {
+      // 清理任务会删除多条历史记录，完成后重新分页加载，避免列表和总数停留在旧快照。
+      void Promise.all([loadActiveJobs(), loadJobs(page.value, pageSize.value)])
+    }
+  }
+
   const initialize = async () => {
     if (initialized.value) {
       return
@@ -71,11 +82,11 @@ export const useJobsStore = defineStore('jobs', () => {
     initialized.value = true
 
     if (isWailsAvailable()) {
-      EventsOn('job:created', (job: Job) => syncJob(job))
-      EventsOn('job:updated', (job: Job) => syncJob(job))
-      EventsOn('job:completed', (job: Job) => syncJob(job))
-      EventsOn('job:failed', (job: Job) => syncJob(job))
-      EventsOn('job:needs-resume', (job: Job) => syncJob(job))
+      EventsOn('job:created', (job: Job) => handleJobEvent(job))
+      EventsOn('job:updated', (job: Job) => handleJobEvent(job))
+      EventsOn('job:completed', (job: Job) => handleJobEvent(job))
+      EventsOn('job:failed', (job: Job) => handleJobEvent(job))
+      EventsOn('job:needs-resume', (job: Job) => handleJobEvent(job))
     }
 
     await Promise.all([loadActiveJobs(), loadJobs(1, pageSize.value)])

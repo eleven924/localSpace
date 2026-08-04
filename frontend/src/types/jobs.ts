@@ -25,6 +25,8 @@ export interface BatchImportFailedItem {
   sourcePath: string
   displayName: string
   error: string
+  fileName?: string
+  fileId?: number
 }
 
 export interface BatchImportResult {
@@ -33,13 +35,19 @@ export interface BatchImportResult {
   failedItems: BatchImportFailedItem[]
 }
 
+export interface CleanupJobResult {
+  deleted: number
+}
+
+export type JobResult = BatchImportResult | CleanupJobResult
+
 export interface Job {
   id: number
   jobType: string
   status: string
   title: string
   payload: BatchImportJobRequest | null
-  result: BatchImportResult | null
+  result: JobResult | null
   progressTotal: number
   progressCompleted: number
   progressMessage: string
