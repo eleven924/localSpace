@@ -1,19 +1,51 @@
 ﻿<template>
-  <div class="page-shell collections-view">
+  <div class="page-shell collections-view" @click="showFilterPopover = false">
     <AppHeader />
 
     <div class="page-content">
       <div class="page-stack">
-        <section class="toolbar-panel collections-toolbar">
-          <FileTypeFilter
-            v-model="filesStore.currentFileType"
-            :counts="filesStore.fileTypeCounts"
-            @filter="handleTypeFilter"
-          />
+        <section class="collections-toolbar" @click.stop>
+          <div class="collection-tools-row">
+            <div class="search-bar collections-search">
+              <div class="search-input-wrapper">
+                <span class="search-icon">⌕</span>
+                <input
+                  v-model="collectionQuery"
+                  class="search-input"
+                  type="text"
+                  placeholder="搜索合集名称"
+                />
+              </div>
+            </div>
 
-          <div class="collection-search">
-            <span class="collection-search-icon">⌕</span>
-            <input v-model="collectionQuery" type="text" placeholder="搜索合集名称" />
+            <div class="collection-filter-control">
+              <button
+                type="button"
+                class="filter-trigger"
+                :class="{ active: showFilterPopover || filesStore.currentFileType !== 'all' }"
+                @click="showFilterPopover = !showFilterPopover"
+              >
+                <span class="filter-trigger-dot"></span>
+                <span>筛选</span>
+              </button>
+
+              <div v-if="showFilterPopover" class="filter-popover" @click.stop>
+                <div class="popover-head">
+                  <strong>缩小范围</strong>
+                  <button type="button" class="text-button" @click="clearTypeFilter">清除全部</button>
+                </div>
+
+                <div class="filter-group">
+                  <span class="filter-group-label">文件类型</span>
+                  <FileTypeFilter
+                    v-model="filesStore.currentFileType"
+                    :counts="filesStore.fileTypeCounts"
+                    @filter="handleTypeFilter"
+                  />
+                </div>
+              </div>
+            </div>
+
           </div>
         </section>
 
@@ -28,7 +60,7 @@
           <button class="btn primary" @click="handleRetry">重试</button>
         </div>
 
-        <div v-else-if="filteredCollections.length === 0" class="section-panel empty-panel">
+        <div v-else-if="filteredCollections.length === 0" class="collection-empty-state">
           <EmptyState
             title="还没有可见合集"
             description="你可以先导入文件并填写合集名称，或者调整当前筛选条件。"
@@ -65,6 +97,7 @@ const router = useRouter()
 const route = useRoute()
 const collectionQuery = ref('')
 const collections = ref<Collection[]>([])
+const showFilterPopover = ref(false)
 let isUnmounted = false
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -119,11 +152,17 @@ onUnmounted(() => {
 })
 
 const handleTypeFilter = async (fileType: string) => {
+  showFilterPopover.value = false
   filesStore.setCurrentFileType(fileType)
   await filesStore.loadFiles(fileType)
 
   const query = fileType === 'all' ? {} : { type: fileType }
   await router.replace({ name: 'Collections', query })
+}
+
+const clearTypeFilter = async () => {
+  // 合集页只清除它实际支持的类型筛选，合集搜索仍由输入值直接控制。
+  await handleTypeFilter('all')
 }
 
 const openCollection = (collectionName: string) => {
@@ -159,28 +198,178 @@ const handleRetry = async () => {
 
 <style scoped>
 .collections-toolbar {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-}
-
-.collection-search {
   position: relative;
-  width: min(420px, 100%);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  /* 与资料库工具条使用相同的底部节奏，确保下方空状态拥有一致的可用高度。 */
+  padding: 0 0 18px;
 }
 
-.collection-search-icon {
+.collections-view .page-stack {
+  /* 与资料库保持相同的剩余空间计算，让空状态以内容区为基准居中。 */
+  height: 100%;
+  min-height: 0;
+}
+
+.collection-tools-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+}
+
+.collections-search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.collection-filter-control {
+  position: static;
+}
+
+.filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 43px;
+  padding: 0 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.filter-trigger:hover,
+.filter-trigger.active {
+  border-color: rgba(111, 143, 216, 0.42);
+  color: var(--primary-hover);
+  background: rgba(235, 241, 250, 0.9);
+}
+
+.filter-trigger-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-color);
+}
+
+/* 合集页沿用原型里的轻量搜索字段，输入值仍直接驱动已有本地筛选逻辑。 */
+.collections-search .search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 43px;
+  padding: 0 13px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 5px 13px rgba(40, 60, 90, 0.03);
+}
+
+.collections-search .search-icon {
+  position: static;
+  flex-shrink: 0;
+  transform: none;
+}
+
+.collections-search .search-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.collections-view .filter-popover {
   position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-faint);
+  z-index: 20;
+  top: calc(100% + 9px);
+  right: 72px;
+  width: min(430px, calc(100vw - 50px));
+  padding: 16px;
+  border: 1px solid rgba(146, 165, 192, 0.36);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18px 38px rgba(29, 48, 78, 0.14);
 }
 
-.collection-search input {
-  min-height: 44px;
-  padding-left: 38px;
-  border-radius: 999px;
+.collections-view .filter-popover::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 119px;
+  width: 11px;
+  height: 11px;
+  border-top: 1px solid rgba(146, 165, 192, 0.36);
+  border-left: 1px solid rgba(146, 165, 192, 0.36);
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+.collections-view .popover-head,
+.collections-view .filter-group {
+  position: relative;
+}
+
+.collections-view .popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 13px;
+  border-bottom: 1px solid rgba(146, 165, 192, 0.24);
+}
+
+.collections-view .popover-head strong {
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+.collections-view .text-button {
+  padding: 2px 0;
+  color: var(--primary-color);
+  background: transparent;
+  font-size: 11px;
+}
+
+.collections-view .filter-group {
+  padding-top: 14px;
+}
+
+.collections-view .filter-group-label {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.collections-view .filter-popover :deep(.file-type-filter) {
+  /* 与资料库保持同一排列节奏，筛选内容在两个页面之间不发生视觉跳变。 */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.collections-view .filter-popover :deep(.file-type-filter button) {
+  justify-content: center;
+  width: auto;
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: #fbfcfe;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.collections-view .filter-popover :deep(.filter-icon),
+.collections-view .filter-popover :deep(.filter-count) {
+  display: none;
 }
 
 .collections-grid {
@@ -189,8 +378,17 @@ const handleRetry = async () => {
   gap: 18px;
 }
 
-.empty-panel {
-  padding: 10px;
+.collection-empty-state {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.collection-empty-state :deep(.empty-state) {
+  /* EmptyState 是共享组件，这里只覆盖合集页的布局，不改变其他页面事实。 */
+  flex: 1;
+  min-height: 0;
 }
 
 .state-panel {
@@ -208,7 +406,20 @@ const handleRetry = async () => {
 
 @media (max-width: 640px) {
   .collections-toolbar {
-    padding: 14px;
+    padding-bottom: 0;
+  }
+
+  .collection-tools-row {
+    flex-wrap: wrap;
+  }
+
+  .collections-search {
+    flex-basis: 100%;
+  }
+
+  .collections-view .filter-popover {
+    right: 0;
+    width: min(430px, calc(100vw - 24px));
   }
 }
 </style>

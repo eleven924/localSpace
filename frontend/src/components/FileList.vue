@@ -28,7 +28,7 @@
         </svg>
       </div>
       <h3>{{ emptyTitle }}</h3>
-       param($m) if($m.Value -like '*filesStore.loading*'){ $m.Value } else { $m.Value } 
+      <p>{{ emptyDescription }}</p>
     </div>
 
     <div v-else-if="groupByCollection" class="grouped-file-list scroll-soft">

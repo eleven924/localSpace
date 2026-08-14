@@ -1,37 +1,11 @@
 ﻿<template>
-  <div class="page-shell files-view">
+  <div class="page-shell files-view" @click="showFilterPopover = false">
     <AppHeader />
 
     <div class="page-content">
       <div class="page-stack">
-        <section class="toolbar-panel library-toolbar">
-          <div class="toolbar-top">
-            <FileTypeFilter
-              v-model="filesStore.currentFileType"
-              @filter="handleFilter"
-            />
-          </div>
-
-          <div class="toolbar-middle">
-            <CollectionFilter
-              v-model="filesStore.currentCollectionId"
-              :collections="collections"
-              :files="filesStore.files"
-              :counts="filesStore.collectionFilterCounts"
-              :total-count="filesStore.totalFiles"
-              @filter="handleCollectionFilter"
-            />
-          </div>
-
-          <FilesBatchToolbar
-            v-if="filesStore.selectedFileIds.length > 0"
-            :selected-ids="filesStore.selectedFileIds"
-            @move="openMoveDialog"
-            @delete="confirmBatchDelete"
-            @clear="filesStore.clearSelection()"
-          />
-
-          <div class="toolbar-bottom">
+        <section class="library-toolbar" @click.stop>
+          <div class="library-tools-row">
             <SearchBar
               v-model="searchQuery"
               class="toolbar-search"
@@ -40,24 +14,60 @@
               @clear="handleClearSearch"
             />
 
-            <div class="toolbar-side">
-              <p class="results-summary">{{ resultsSummary }}</p>
-
-              <div class="search-row-actions">
+            <div class="library-tool-actions">
+              <div class="filter-control">
                 <button
-                  v-if="filesStore.currentCollectionId !== 'all'"
                   type="button"
-                  class="btn secondary compact-button"
-                  @click="clearCollectionFilter"
+                  class="filter-trigger"
+                  :class="{ active: showFilterPopover || activeFilterCount > 0 }"
+                  @click="showFilterPopover = !showFilterPopover"
                 >
-                  清除合集筛选
+                  <span class="filter-trigger-dot"></span>
+                  <span>筛选</span>
+                  <span v-if="activeFilterCount" class="filter-trigger-count">{{ activeFilterCount }}</span>
                 </button>
 
-                <ListDisplayModeToggle v-model="listMode" />
+                <div v-if="showFilterPopover" class="filter-popover" @click.stop>
+                  <div class="popover-head">
+                    <strong>缩小范围</strong>
+                    <button type="button" class="text-button" @click="clearAllFilters">清除全部</button>
+                  </div>
+
+                  <div class="filter-group">
+                    <span class="filter-group-label">文件类型</span>
+                    <FileTypeFilter
+                      v-model="filesStore.currentFileType"
+                      :counts="filesStore.fileTypeCounts"
+                      @filter="handleFilter"
+                    />
+                  </div>
+
+                  <div class="filter-group">
+                    <span class="filter-group-label">合集</span>
+                    <CollectionFilter
+                      v-model="filesStore.currentCollectionId"
+                      :collections="collections"
+                      :files="filesStore.files"
+                      :counts="filesStore.collectionFilterCounts"
+                      :total-count="filesStore.totalFiles"
+                      @filter="handleCollectionFilter"
+                    />
+                  </div>
+                </div>
               </div>
+
+              <ListDisplayModeToggle v-model="listMode" />
             </div>
           </div>
         </section>
+
+        <FilesBatchToolbar
+          v-if="filesStore.selectedFileIds.length > 0"
+          :selected-ids="filesStore.selectedFileIds"
+          @move="openMoveDialog"
+          @delete="confirmBatchDelete"
+          @clear="filesStore.clearSelection()"
+        />
 
         <div v-if="filesStore.loading" class="state-panel">
           <div class="spinner"></div>
@@ -168,6 +178,7 @@ const listMode = ref<'flat' | 'grouped'>('flat')
 const collections = ref<Collection[]>([])
 const checkIntervals = new Map<number, NodeJS.Timeout>()
 let isUnmounted = false
+const showFilterPopover = ref(false)
 
 const showMoveDialog = ref(false)
 const targetCollectionId = ref<number | undefined>(undefined)
@@ -274,16 +285,11 @@ const loadCollections = async () => {
   }
 }
 
-const resultsSummary = computed(() => {
-  if (searchQuery.value.trim()) {
-    return `搜索到 ${filesStore.totalFiles} 个文件`
-  }
-
-  if (filesStore.currentCollectionId !== 'all') {
-    return `当前筛选共 ${filesStore.totalFiles} 个文件`
-  }
-
-  return `共 ${filesStore.totalFiles} 个文件`
+const activeFilterCount = computed(() => {
+  let count = 0
+  if (filesStore.currentFileType !== 'all') count += 1
+  if (filesStore.currentCollectionId !== 'all') count += 1
+  return count
 })
 
 const emptyStateTitle = computed(() => {
@@ -328,6 +334,17 @@ const handleCollectionFilter = async (collectionId: 'all' | 'unsorted' | number)
 
 const clearCollectionFilter = () => {
   handleCollectionFilter('all')
+}
+
+const clearAllFilters = async () => {
+  // 原型里的“清除全部”只重置当前已有筛选，不改变搜索文本之外的产品状态。
+  showFilterPopover.value = false
+  if (filesStore.currentFileType !== 'all') {
+    await handleFilter('all')
+  }
+  if (filesStore.currentCollectionId !== 'all') {
+    await handleCollectionFilter('all')
+  }
 }
 
 const handleSearch = async (query: string) => {
@@ -534,39 +551,214 @@ const confirmBatchDelete = async () => {
 }
 
 .library-toolbar {
-  display: grid;
-  gap: 10px;
+  position: relative;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
-  padding: 14px 16px;
+  padding: 0 0 18px;
 }
 
-.toolbar-bottom {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: end;
+.library-tools-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
 }
 
-.toolbar-side {
-  display: grid;
-  gap: 8px;
-  justify-items: end;
-  min-width: 250px;
+.toolbar-search {
+  flex: 1;
+  min-width: 200px;
 }
 
-.results-summary {
-  font-size: 13px;
-  color: var(--text-faint);
-}
-
-.search-row-actions {
+.library-tool-actions {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.compact-button {
-  min-width: 124px;
+.filter-control {
+  position: static;
+}
+
+.filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 43px;
+  padding: 0 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.filter-trigger:hover,
+.filter-trigger.active {
+  border-color: rgba(111, 143, 216, 0.42);
+  color: var(--primary-hover);
+  background: rgba(235, 241, 250, 0.9);
+}
+
+.filter-trigger-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-color);
+}
+
+.filter-trigger-count {
+  min-width: 17px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: rgba(111, 143, 216, 0.14);
+  font-size: 10px;
+  text-align: center;
+}
+
+.filter-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 9px);
+  right: 72px;
+  width: min(430px, calc(100vw - 50px));
+  padding: 16px;
+  border: 1px solid rgba(146, 165, 192, 0.36);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18px 38px rgba(29, 48, 78, 0.14);
+}
+
+.filter-popover::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 119px;
+  width: 11px;
+  height: 11px;
+  border-top: 1px solid rgba(146, 165, 192, 0.36);
+  border-left: 1px solid rgba(146, 165, 192, 0.36);
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+.popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 13px;
+  border-bottom: 1px solid rgba(146, 165, 192, 0.24);
+}
+
+.popover-head strong {
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+.text-button {
+  padding: 2px 0;
+  color: var(--primary-color);
+  background: transparent;
+  font-size: 11px;
+}
+
+.filter-group {
+  padding-top: 14px;
+}
+
+.filter-group-label {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.filter-popover :deep(.file-type-filter),
+.filter-popover :deep(.collection-filter) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+/* 筛选条件按文字长度自适应，避免短标签被拉成大块，长标签也能自然换行。 */
+.filter-popover :deep(.file-type-filter) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-popover :deep(.file-type-filter button),
+.filter-popover :deep(.collection-filter button) {
+  justify-content: center;
+  width: auto;
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: #fbfcfe;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.filter-popover :deep(.file-type-filter button) {
+  justify-content: center;
+  width: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.filter-popover :deep(.filter-icon) {
+  display: none;
+}
+
+.filter-popover :deep(.filter-label),
+.filter-popover :deep(.collection-filter-label) {
+  font-size: 11px;
+}
+
+.filter-popover :deep(.filter-count),
+.filter-popover :deep(.collection-filter-count) {
+  display: none;
+}
+
+/* 资料库搜索字段对齐原型的工具条样式，搜索仍由现有 debounce 与接口逻辑驱动。 */
+.toolbar-search :deep(.search-bar) {
+  gap: 0;
+}
+
+.toolbar-search :deep(.search-input-wrapper) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 43px;
+  padding: 0 13px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 5px 13px rgba(40, 60, 90, 0.03);
+}
+
+.toolbar-search :deep(.search-icon),
+.toolbar-search :deep(.clear-button) {
+  position: static;
+  flex-shrink: 0;
+  transform: none;
+}
+
+.toolbar-search :deep(.search-input) {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.toolbar-search :deep(.search-button) {
+  display: none;
 }
 
 .file-list-panel {
@@ -688,24 +880,28 @@ const confirmBatchDelete = async () => {
 }
 
 @media (max-width: 980px) {
-  .toolbar-bottom {
-    grid-template-columns: 1fr;
+  .library-tools-row {
+    flex-wrap: wrap;
   }
 
-  .toolbar-side {
-    justify-items: stretch;
+  .toolbar-search {
+    flex-basis: 100%;
   }
 }
 
 @media (max-width: 640px) {
   .library-toolbar {
-    padding: 12px;
+    padding-bottom: 0;
   }
 
-  .search-row-actions {
+  .library-tool-actions {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    justify-content: space-between;
+  }
+
+  .filter-popover {
+    right: 0;
+    width: min(430px, calc(100vw - 24px));
   }
 }
 </style>

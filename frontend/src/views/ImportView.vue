@@ -591,7 +591,7 @@ const submitBatchJob = async () => {
 
 .import-view .page-content {
   position: relative;
-  padding: 12px 16px 16px;
+  padding: 18px 44px 50px;
 }
 
 .import-view .page-stack {

@@ -27,8 +27,11 @@
             正在加载任务列表...
           </div>
 
-          <div v-else-if="jobsStore.jobs.length === 0" class="empty-surface">
-            暂时还没有任务记录。
+          <div v-else-if="jobsStore.jobs.length === 0" class="empty-surface task-empty-state">
+            <span class="task-empty-mark">任务</span>
+            <strong>暂时还没有任务记录</strong>
+            <p>批量导入开始后，进行中的任务和历史结果会在这里集中展示。</p>
+            <router-link class="btn secondary" to="/import">前往导入</router-link>
           </div>
 
           <div v-else class="task-table-wrap">
@@ -205,12 +208,46 @@ onMounted(() => {
 }
 
 .empty-surface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-height: 240px;
+  justify-content: center;
   padding: 32px;
   text-align: center;
   border-radius: 14px;
   border: 1px solid rgba(146, 165, 192, 0.18);
   background: rgba(255, 255, 255, 0.58);
   color: var(--text-soft);
+}
+
+.task-empty-mark {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: rgba(111, 143, 216, 0.1);
+  color: var(--primary-hover);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.task-empty-state strong {
+  color: var(--text-color);
+  font-size: 17px;
+}
+
+.task-empty-state p {
+  max-width: 360px;
+  color: var(--text-faint);
+  line-height: 1.7;
+}
+
+.task-empty-state .btn {
+  width: auto;
+  margin-top: 4px;
 }
 
 .task-table-wrap {

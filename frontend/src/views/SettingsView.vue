@@ -6,27 +6,6 @@
       <div class="page-stack">
         <div class="settings-workbench" :class="{ 'nav-collapsed': navCollapsed }">
           <aside class="settings-sidebar" aria-label="设置导航">
-            <div class="sidebar-top">
-              <div class="sidebar-title">
-                <span class="sidebar-mark">LS</span>
-                <div class="sidebar-copy">
-                  <strong>设置</strong>
-                  <span>LocalSpace preferences</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                class="collapse-button"
-                :title="navCollapsed ? '展开设置导航' : '收起设置导航'"
-                :aria-label="navCollapsed ? '展开设置导航' : '收起设置导航'"
-                :aria-expanded="String(!navCollapsed)"
-                @click="toggleNavigation"
-              >
-                <span>{{ navCollapsed ? '›' : '‹' }}</span>
-              </button>
-            </div>
-
             <nav class="settings-nav" aria-label="设置分类导航">
               <section
                 v-for="group in settingGroups"
@@ -80,6 +59,18 @@
                 </div>
               </section>
             </nav>
+
+            <button
+              type="button"
+              class="settings-nav-collapse"
+              :title="navCollapsed ? '展开设置导航' : '收起设置导航'"
+              :aria-label="navCollapsed ? '展开设置导航' : '收起设置导航'"
+              :aria-expanded="String(!navCollapsed)"
+              @click="toggleNavigation"
+            >
+              <span aria-hidden="true">{{ navCollapsed ? '›' : '‹' }}</span>
+              <span v-if="!navCollapsed">收起设置导航</span>
+            </button>
           </aside>
 
           <section class="settings-detail">
@@ -387,7 +378,7 @@ onUnmounted(() => {
 .settings-view .page-content {
   overflow: hidden;
   background: transparent;
-  padding: 6px 8px 8px;
+  padding: 18px 44px 50px;
 }
 
 .settings-view .page-stack {
@@ -448,6 +439,28 @@ onUnmounted(() => {
   overflow: hidden;
   border-right: 1px solid var(--settings-divider);
   background: var(--settings-sidebar-bg);
+}
+
+/* 设置页不再用大标题占据顶部，导航从统一内容起点开始。 */
+.settings-sidebar > .settings-nav {
+  flex: 1;
+}
+
+.settings-nav-collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  margin: auto 10px 10px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--settings-divider);
+  color: var(--settings-muted-text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.settings-nav-collapse:hover {
+  color: var(--primary-color);
 }
 
 .sidebar-top {
@@ -703,6 +716,16 @@ onUnmounted(() => {
   padding: 10px 8px;
 }
 
+.settings-workbench.nav-collapsed .settings-nav-collapse {
+  justify-content: center;
+  margin-inline: 8px;
+  padding-inline: 0;
+}
+
+.settings-workbench.nav-collapsed .settings-nav-collapse span:last-child {
+  display: none;
+}
+
 .settings-workbench.nav-collapsed .settings-nav-group {
   gap: 6px;
   padding-bottom: 8px;
@@ -734,6 +757,21 @@ onUnmounted(() => {
   min-height: 0;
   overflow-y: auto;
   padding: 28px 40px 38px;
+}
+
+.settings-panel :deep(.config-header),
+.settings-panel :deep(.selector-header) {
+  margin-bottom: 18px;
+}
+
+.settings-panel :deep(.config-header h4),
+.settings-panel :deep(.selector-header h4) {
+  font-size: 18px;
+}
+
+.settings-panel :deep(.config-header .subtitle),
+.settings-panel :deep(.selector-header .subtitle) {
+  font-size: 12px;
 }
 
 .settings-page {

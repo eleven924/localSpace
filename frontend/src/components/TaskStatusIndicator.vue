@@ -23,7 +23,8 @@
         stroke-linecap="round"
         stroke-linejoin="round"
       >
-        <line x1="12" y1="12" x2="20" y2="12" />
+        <circle cx="12" cy="12" r="8" stroke-dasharray="4 3" />
+        <path d="M12 8v4l2.5 1.5" />
       </svg>
     </button>
 
@@ -128,9 +129,7 @@ const handleFocusOut = (event: FocusEvent) => {
 .task-icon {
   width: 22px;
   height: 22px;
-  border-radius: 50%;
   color: var(--task-gradient-dark);
-  background: conic-gradient(from 90deg, var(--task-gradient-light) 0deg, var(--task-gradient-light) 90deg, var(--task-gradient-dark) 360deg);
   pointer-events: none;
 }
 

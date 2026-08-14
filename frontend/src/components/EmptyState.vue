@@ -2,9 +2,16 @@
   <div class="empty-state">
     <div class="empty-icon">
       <slot name="icon">
-        <!-- Default empty folder icon -->
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        <!-- 与资料库空状态复用同一套文件夹轮廓，避免页面切换时图标发生跳变。 -->
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2h7A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"></path>
         </svg>
       </slot>
     </div>
@@ -33,39 +40,48 @@ const props = withDefaults(defineProps<Props>(), {
 <style scoped>
 .empty-state {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 24px;
+  gap: 12px;
+  min-height: 0;
+  padding: 56px 24px;
   text-align: center;
-  min-height: 300px;
+  color: var(--text-soft);
 }
 
 .empty-icon {
-  margin-bottom: 16px;
-  color: var(--text-color);
-  opacity: 0.5;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 86px;
+  height: 86px;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: var(--surface-muted);
+  color: var(--text-faint);
 }
 
 .empty-icon svg {
-  width: 64px;
-  height: 64px;
+  width: 40px;
+  height: 40px;
 }
 
 .empty-title {
-  font-size: 18px;
+  margin: 0;
+  font-size: 24px;
   font-weight: 600;
-  margin: 0 0 8px 0;
   color: var(--text-color);
 }
 
 .empty-description {
-  font-size: 14px;
-  line-height: 1.5;
-  margin: 0 0 24px 0;
-  color: var(--text-color);
-  opacity: 0.8;
-  max-width: 400px;
+  /* 合集说明略长，保持单行后才能与资料库空状态获得相同的垂直几何中心。 */
+  max-width: 460px;
+  margin: 0;
+  color: var(--text-soft);
+  line-height: 1.7;
 }
 
 .empty-actions {
@@ -78,21 +94,11 @@ const props = withDefaults(defineProps<Props>(), {
 /* Responsive adjustments */
 @media (max-width: 480px) {
   .empty-state {
-    padding: 32px 16px;
-    min-height: 200px;
-  }
-
-  .empty-icon svg {
-    width: 48px;
-    height: 48px;
+    padding: 36px 18px;
   }
 
   .empty-title {
-    font-size: 16px;
-  }
-
-  .empty-description {
-    font-size: 13px;
+    font-size: 24px;
   }
 
   .empty-actions {
@@ -106,8 +112,4 @@ const props = withDefaults(defineProps<Props>(), {
   }
 }
 
-/* Dark mode adjustments */
-[data-theme='dark'] .empty-icon {
-  opacity: 0.6;
-}
 </style>
