@@ -526,14 +526,53 @@ const submitBatchJob = async () => {
 <style scoped>
 .import-view {
   position: relative;
+  --import-surface: rgba(255, 255, 255, 0.92);
+  --import-surface-strong: rgba(248, 250, 253, 0.98);
+  --import-surface-muted: rgba(243, 246, 250, 0.88);
+  --import-control: rgba(248, 250, 253, 0.92);
+  --import-control-hover: rgba(235, 242, 251, 0.98);
+  --import-topbar-start: rgba(255, 255, 255, 0.96);
+  --import-topbar-end: rgba(244, 248, 253, 0.94);
+  --import-highlight: rgba(45, 140, 240, 0.05);
+  --import-border: rgba(148, 163, 184, 0.28);
+  --import-border-strong: rgba(45, 140, 240, 0.38);
+  --import-accent: #2d8cf0;
+  --import-accent-strong: #1976d2;
+  --import-text: #223042;
+  --import-text-soft: #5f6f82;
+  --import-text-faint: #7f8ea3;
+  --import-on-accent: #ffffff;
+  --import-error-bg: rgba(244, 67, 54, 0.08);
+  --import-error-border: rgba(244, 67, 54, 0.22);
+  --import-error-text: #c62828;
+  --import-success-bg: rgba(76, 175, 80, 0.08);
+  --import-success-border: rgba(76, 175, 80, 0.22);
+  --import-success-text: #2e7d32;
+}
+
+:global([data-theme='dark']) .import-view {
   --import-surface: rgba(18, 26, 38, 0.82);
   --import-surface-strong: rgba(23, 32, 45, 0.94);
+  --import-surface-muted: rgba(42, 50, 61, 0.82);
+  --import-control: rgba(10, 15, 24, 0.45);
+  --import-control-hover: rgba(18, 28, 42, 0.44);
+  --import-topbar-start: rgba(21, 29, 41, 0.88);
+  --import-topbar-end: rgba(16, 23, 34, 0.78);
+  --import-highlight: rgba(126, 176, 255, 0.06);
   --import-border: rgba(173, 191, 214, 0.16);
   --import-border-strong: rgba(125, 168, 224, 0.28);
   --import-accent: #7eb0ff;
   --import-accent-strong: #aac9ff;
+  --import-text: #f6fbff;
   --import-text-soft: #c4d1df;
   --import-text-faint: #8ea0b6;
+  --import-on-accent: #ffffff;
+  --import-error-bg: rgba(244, 96, 96, 0.1);
+  --import-error-border: rgba(244, 96, 96, 0.22);
+  --import-error-text: #ffb7b7;
+  --import-success-bg: rgba(82, 184, 149, 0.1);
+  --import-success-border: rgba(82, 184, 149, 0.22);
+  --import-success-text: #b9f2d9;
 }
 
 .import-view::before {
@@ -542,12 +581,12 @@ const submitBatchJob = async () => {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(8, 12, 18, 0.32), rgba(8, 12, 18, 0.12)),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    linear-gradient(180deg, rgba(45, 140, 240, 0.035), transparent),
+    linear-gradient(90deg, rgba(45, 140, 240, 0.035) 1px, transparent 1px),
+    linear-gradient(rgba(45, 140, 240, 0.035) 1px, transparent 1px);
   background-size: auto, 64px 64px, 64px 64px;
-  mix-blend-mode: screen;
-  opacity: 0.32;
+  mix-blend-mode: normal;
+  opacity: 0.7;
 }
 
 .import-view .page-content {
@@ -563,7 +602,7 @@ const submitBatchJob = async () => {
   align-items: center;
   padding: 16px 18px;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(21, 29, 41, 0.88), rgba(16, 23, 34, 0.78));
+  background: linear-gradient(180deg, var(--import-topbar-start), var(--import-topbar-end));
   border: 1px solid var(--import-border);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.26);
   backdrop-filter: blur(18px);
@@ -587,7 +626,7 @@ const submitBatchJob = async () => {
   gap: 6px;
   padding: 4px;
   border-radius: 12px;
-  background: rgba(10, 15, 24, 0.45);
+  background: var(--import-control);
   border: 1px solid var(--import-border);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
@@ -604,8 +643,8 @@ const submitBatchJob = async () => {
 }
 
 .mode-pill.active {
-  background: linear-gradient(180deg, rgba(126, 176, 255, 0.18), rgba(126, 176, 255, 0.08));
-  color: #fff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--import-accent) 18%, transparent), color-mix(in srgb, var(--import-accent) 8%, transparent));
+  color: var(--import-on-accent);
   border: 1px solid var(--import-border-strong);
   box-shadow: 0 10px 24px rgba(28, 67, 123, 0.22);
 }
@@ -640,7 +679,7 @@ const submitBatchJob = async () => {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(126, 176, 255, 0.06), transparent 30%, rgba(255, 255, 255, 0.02));
+  background: linear-gradient(135deg, var(--import-highlight), transparent 30%, color-mix(in srgb, var(--import-text) 2%, transparent));
   pointer-events: none;
 }
 
@@ -698,7 +737,7 @@ const submitBatchJob = async () => {
 .single-form-head h3 {
   font-size: 15px;
   font-weight: 700;
-  color: #f6fbff;
+  color: var(--import-text);
 }
 
 .single-selection-head p,
@@ -731,11 +770,11 @@ const submitBatchJob = async () => {
   width: 100%;
   padding: 22px 20px;
   border-radius: 14px;
-  border: 1px dashed rgba(178, 198, 224, 0.26);
+  border: 1px dashed var(--import-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
-    rgba(10, 15, 23, 0.28);
-  color: #fff;
+    linear-gradient(180deg, color-mix(in srgb, var(--import-text) 3%, transparent), transparent),
+    var(--import-control);
+  color: var(--import-text);
   text-align: left;
 }
 
@@ -749,7 +788,7 @@ const submitBatchJob = async () => {
 
 .pick-button:hover {
   border-color: var(--import-border-strong);
-  background-color: rgba(18, 28, 42, 0.44);
+  background-color: var(--import-control-hover);
   transform: translateY(-1px);
 }
 
@@ -760,7 +799,7 @@ const submitBatchJob = async () => {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: rgba(126, 176, 255, 0.14);
+  background: color-mix(in srgb, var(--import-accent) 14%, transparent);
   color: var(--import-accent-strong);
   font-size: 22px;
   font-weight: 700;
@@ -790,12 +829,12 @@ const submitBatchJob = async () => {
   align-items: center;
   padding: 14px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(178, 198, 224, 0.14);
+  background: var(--import-surface-muted);
+  border: 1px solid var(--import-border);
 }
 
 .single-file-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--import-surface-muted) 72%, transparent);
 }
 
 .file-sheet-icon,
@@ -806,8 +845,8 @@ const submitBatchJob = async () => {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: linear-gradient(180deg, rgba(126, 176, 255, 0.18), rgba(126, 176, 255, 0.08));
-  color: #fff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--import-accent) 18%, transparent), color-mix(in srgb, var(--import-accent) 8%, transparent));
+  color: var(--import-on-accent);
   font-size: 16px;
   font-weight: 700;
 }
@@ -822,7 +861,7 @@ const submitBatchJob = async () => {
   display: block;
   font-size: 15px;
   font-weight: 700;
-  color: #f7fbff;
+  color: var(--import-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -859,14 +898,14 @@ const submitBatchJob = async () => {
   gap: 6px;
   padding: 14px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(178, 198, 224, 0.14);
+  background: var(--import-surface-muted);
+  border: 1px solid var(--import-border);
 }
 
 .summary-value {
   font-size: 20px;
   font-weight: 700;
-  color: #fff;
+  color: var(--import-text);
 }
 
 .summary-label {
@@ -899,8 +938,8 @@ const submitBatchJob = async () => {
   align-items: center;
   padding: 14px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(178, 198, 224, 0.12);
+  background: color-mix(in srgb, var(--import-surface-muted) 82%, transparent);
+  border: 1px solid var(--import-border);
 }
 
 .file-copy p {
@@ -933,7 +972,7 @@ const submitBatchJob = async () => {
 
 .single-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(178, 198, 224, 0.22), transparent);
+  background: linear-gradient(90deg, transparent, var(--import-border), transparent);
 }
 
 .toggle-grid {
@@ -946,8 +985,8 @@ const submitBatchJob = async () => {
   align-items: flex-start;
   padding: 14px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(178, 198, 224, 0.12);
+  background: var(--import-surface-muted);
+  border: 1px solid var(--import-border);
 }
 
 .toggle-card input {
@@ -960,7 +999,7 @@ const submitBatchJob = async () => {
 .toggle-card strong {
   display: block;
   font-size: 13px;
-  color: #f5f9ff;
+  color: var(--import-text);
 }
 
 .toggle-card p {
@@ -978,15 +1017,15 @@ const submitBatchJob = async () => {
 }
 
 .feedback.error {
-  background: rgba(244, 96, 96, 0.1);
-  border: 1px solid rgba(244, 96, 96, 0.22);
-  color: #ffb7b7;
+  background: var(--import-error-bg);
+  border: 1px solid var(--import-error-border);
+  color: var(--import-error-text);
 }
 
 .feedback.success {
-  background: rgba(82, 184, 149, 0.1);
-  border: 1px solid rgba(82, 184, 149, 0.22);
-  color: #b9f2d9;
+  background: var(--import-success-bg);
+  border: 1px solid var(--import-success-border);
+  color: var(--import-success-text);
 }
 
 .actions {
@@ -1004,8 +1043,8 @@ const submitBatchJob = async () => {
   min-height: 172px;
   padding: 22px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed rgba(178, 198, 224, 0.18);
+  background: color-mix(in srgb, var(--import-surface-muted) 72%, transparent);
+  border: 1px dashed var(--import-border);
 }
 
 .import-empty,
@@ -1017,7 +1056,7 @@ const submitBatchJob = async () => {
 }
 
 .empty-surface strong {
-  color: #f6fbff;
+  color: var(--import-text);
   font-size: 15px;
 }
 

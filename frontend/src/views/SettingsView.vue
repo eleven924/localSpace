@@ -84,7 +84,7 @@
 
           <section class="settings-detail">
             <div class="settings-panel scroll-soft">
-              <section v-show="activeSetting === 'storage'" class="settings-page">
+              <section v-if="activeSetting === 'storage'" class="settings-page">
                 <StorageDirSelector
                   @master-dir-added="handleDirAdded"
                   @master-dir-removed="handleDirRemoved"
@@ -92,37 +92,37 @@
                 />
               </section>
 
-              <section v-show="activeSetting === 'layout'" class="settings-page">
+              <section v-else-if="activeSetting === 'layout'" class="settings-page">
                 <StorageLayoutConfig />
               </section>
 
-              <section v-show="activeSetting === 'openWith'" class="settings-page">
+              <section v-else-if="activeSetting === 'openWith'" class="settings-page">
                 <OpenWithConfig />
               </section>
 
-              <section v-show="activeSetting === 'theme'" class="settings-page">
+              <section v-else-if="activeSetting === 'theme'" class="settings-page">
                 <ThemeConfig @theme-changed="handleThemeChanged" @theme-reset="handleThemeReset" />
               </section>
 
-              <section v-show="activeSetting === 'ai'" class="settings-page">
+              <section v-else-if="activeSetting === 'ai'" class="settings-page">
                 <AIConfigForm @config-saved="handleAIConfigSaved" @config-reset="handleAIConfigReset" />
               </section>
 
-              <section v-show="activeSetting === 'collections'" class="settings-page">
+              <section v-else-if="activeSetting === 'collections'" class="settings-page">
                 <CollectionsSettings :files="filesStore.files" />
               </section>
 
-              <section v-show="activeSetting === 'tasks'" class="settings-page">
+              <section v-else-if="activeSetting === 'tasks'" class="settings-page">
                 <TaskRetentionSettings />
               </section>
 
-              <section v-show="activeSetting === 'about'" class="settings-page about-page">
+              <section v-else-if="activeSetting === 'about'" class="settings-page about-page">
                 <div class="about-content">
                   <div class="app-info">
                     <div class="app-logo">LS</div>
                     <div>
                       <h3>LocalSpace</h3>
-                      <p class="app-version">版本 0.1.0</p>
+                      <p class="app-version">版本 0.2.0</p>
                     </div>
                   </div>
 

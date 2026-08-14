@@ -25,6 +25,7 @@ import (
 type App struct {
 	ctx               context.Context
 	db                *sql.DB
+	initErr           error
 	fileService       *services.FileService
 	storageService    *services.StorageService
 	aiService         *services.AIService
@@ -66,6 +67,18 @@ func (a *App) waitForInitialization(timeout time.Duration) bool {
 	}
 
 	return a.isInitialized()
+}
+
+// requireInitialized 统一保护启动阶段的 Wails 接口，避免前端过早调用 service。
+// 首次启动需要创建数据库、执行迁移和初始化任务，设置页可能会在这些步骤完成前挂载。
+func (a *App) requireInitialized() error {
+	if a.waitForInitialization(5 * time.Second) {
+		return nil
+	}
+	if a.initErr != nil {
+		return fmt.Errorf("app initialization failed: %w", a.initErr)
+	}
+	return fmt.Errorf("app not initialized")
 }
 
 // Startup is called when the app starts
@@ -154,26 +167,31 @@ func (a *App) ConfirmQuit() error {
 
 // initializeApp initializes the application
 func (a *App) initializeApp() {
-	// Get executable directory for database storage
-	execPath, err := os.Executable()
+	// 优先使用 EXE 旁边的 data；安装目录不可写时切换到用户数据目录，避免启动阶段直接失败。
+	// 初始化数据库；如果旧数据目录中的数据库损坏或被占用，尝试用户数据目录，保证应用可以启动。
+	dataDirs, err := resolveDataDirectories()
 	if err != nil {
-		fmt.Printf("Failed to get executable path: %v\n", err)
-		return
-	}
-	execDir := filepath.Dir(execPath)
-
-	// Ensure data directory exists in program directory
-	dataDir := filepath.Join(execDir, "data")
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		fmt.Printf("Failed to create data directory: %v\n", err)
+		a.initErr = err
+		fmt.Printf("Failed to resolve data directories: %v\n", err)
 		return
 	}
 
-	// Initialize database in program directory
-	dbPath := filepath.Join(dataDir, "localspace.db")
-	db, err := database.NewSQLiteDB(dbPath)
-	if err != nil {
-		fmt.Printf("Failed to initialize database: %v\n", err)
+	var db *sql.DB
+	var dbPath string
+	var dbErr error
+	var dataDir string
+	for _, candidateDir := range dataDirs {
+		candidatePath := filepath.Join(candidateDir, "localspace.db")
+		db, dbErr = database.NewSQLiteDB(candidatePath)
+		if dbErr == nil {
+			dataDir = candidateDir
+			dbPath = candidatePath
+			break
+		}
+		fmt.Printf("Failed to initialize database %s: %v\n", candidatePath, dbErr)
+	}
+	if db == nil {
+		a.initErr = fmt.Errorf("failed to initialize database: %w", dbErr)
 		return
 	}
 	a.db = db
@@ -228,6 +246,59 @@ func (a *App) initializeApp() {
 	fmt.Printf("Thumbnail cache: %s\n", thumbnailDir)
 }
 
+// resolveDataDirectories returns writable database locations in preference order.
+// Existing installations continue using EXE\data; new or read-only installations also get a user location.
+func resolveDataDirectories() ([]string, error) {
+	candidates := make([]string, 0, 2)
+	if execPath, err := os.Executable(); err == nil {
+		execDataDir := filepath.Join(filepath.Dir(execPath), "data")
+		if err := ensureWritableDirectory(execDataDir); err == nil {
+			candidates = append(candidates, execDataDir)
+		} else {
+			fmt.Printf("EXE data directory is not writable (%s): %v\n", execDataDir, err)
+		}
+	} else {
+		fmt.Printf("Failed to get executable path: %v\n", err)
+	}
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user data directory: %w", err)
+	}
+	userDataDir := filepath.Join(configDir, "LocalSpace", "data")
+	if err := ensureWritableDirectory(userDataDir); err == nil {
+		for _, candidate := range candidates {
+			if filepath.Clean(candidate) == filepath.Clean(userDataDir) {
+				return candidates, nil
+			}
+		}
+		candidates = append(candidates, userDataDir)
+	} else {
+		fmt.Printf("User data directory is not writable (%s): %v\n", userDataDir, err)
+	}
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no writable data directory available")
+	}
+	return candidates, nil
+}
+
+// ensureWritableDirectory creates a directory and verifies that the current process can write to it.
+func ensureWritableDirectory(path string) error {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return err
+	}
+	testFile, err := os.CreateTemp(path, ".localspace-write-test-*")
+	if err != nil {
+		return err
+	}
+	testPath := testFile.Name()
+	if err := testFile.Close(); err != nil {
+		_ = os.Remove(testPath)
+		return err
+	}
+	return os.Remove(testPath)
+}
+
 // getFileStoragePath gets the configured file storage path
 func getFileStoragePath(configRepo *repositories.ConfigRepository) string {
 	path, err := configRepo.Get("file_storage_path")
@@ -266,11 +337,17 @@ func (a *App) InitConfig(fileStoragePath string) error {
 
 // GetConfig gets a configuration value
 func (a *App) GetConfig(key string) (string, error) {
+	if err := a.requireInitialized(); err != nil {
+		return "", err
+	}
 	return a.configService.GetConfig(key)
 }
 
 // UpdateConfig updates a configuration value
 func (a *App) UpdateConfig(key, value string) error {
+	if err := a.requireInitialized(); err != nil {
+		return err
+	}
 	return a.configService.UpdateConfig(key, value)
 }
 
@@ -667,6 +744,9 @@ func (a *App) GetAIAnalysis(fileName, fileType, userKeywords string, userTags []
 
 // GetStorageDirectories returns all storage directories
 func (a *App) GetStorageDirectories() ([]models.StorageDir, error) {
+	if err := a.requireInitialized(); err != nil {
+		return nil, err
+	}
 	return a.storageService.GetStorageDirectories()
 }
 
@@ -723,6 +803,9 @@ func (a *App) CheckStorageSpace(fileSize int64) (bool, error) {
 
 // GetMasterDirectories returns all master directories
 func (a *App) GetMasterDirectories() ([]models.StorageDir, error) {
+	if err := a.requireInitialized(); err != nil {
+		return nil, err
+	}
 	return a.storageService.GetMasterDirectories()
 }
 
@@ -776,6 +859,9 @@ func (a *App) UpdateThemeConfig(config models.ThemeConfig) error {
 
 // GetOpenWithConfig returns the preferred open configuration.
 func (a *App) GetOpenWithConfig() (*models.OpenWithConfig, error) {
+	if err := a.requireInitialized(); err != nil {
+		return nil, err
+	}
 	return a.configService.GetOpenWithConfig()
 }
 
@@ -786,6 +872,9 @@ func (a *App) UpdateOpenWithConfig(config models.OpenWithConfig) error {
 
 // GetStorageLayoutConfig returns the storage layout configuration.
 func (a *App) GetStorageLayoutConfig() (*models.StorageLayoutConfig, error) {
+	if err := a.requireInitialized(); err != nil {
+		return nil, err
+	}
 	return a.configService.GetStorageLayoutConfig()
 }
 
@@ -798,6 +887,9 @@ func (a *App) UpdateStorageLayoutConfig(config models.StorageLayoutConfig) error
 
 // GetAIConfig returns the AI configuration
 func (a *App) GetAIConfig() (*models.AIConfig, error) {
+	if err := a.requireInitialized(); err != nil {
+		return nil, err
+	}
 	return a.configService.GetAIConfig()
 }
 
