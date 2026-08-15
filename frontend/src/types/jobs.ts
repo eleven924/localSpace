@@ -12,6 +12,25 @@ export interface BatchImportJobRequest {
   enableAIGeneratedDescription: boolean
 }
 
+export interface BatchImportItem {
+  id: number
+  jobId: number
+  sourcePath: string
+  displayName: string
+  detectedFileType: string
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'recovering' | string
+  itemIndex: number
+  tempPath: string
+  finalPath: string
+  expectedSize: number
+  bytesCopied: number
+  checksum: string
+  errorMessage: string
+  startedAt: string
+  finishedAt: string
+  updatedAt: string
+}
+
 export interface SingleImportJobRequest {
   filePath: string
   fileName: string

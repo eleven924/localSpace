@@ -1086,6 +1086,14 @@ func (a *App) GetJob(jobID uint) (*models.Job, error) {
 	return a.jobService.GetJob(jobID)
 }
 
+// GetBatchImportItems 返回批量导入任务的逐文件状态。
+func (a *App) GetBatchImportItems(jobID uint) ([]*models.BatchImportItem, error) {
+	if a.jobService == nil {
+		return []*models.BatchImportItem{}, fmt.Errorf("job service not initialized")
+	}
+	return a.jobService.GetBatchImportItems(jobID)
+}
+
 func (a *App) ListJobs(page, pageSize int, jobType string) (*models.JobListResponse, error) {
 	if a.jobService == nil {
 		return &models.JobListResponse{

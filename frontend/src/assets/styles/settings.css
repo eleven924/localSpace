@@ -1,0 +1,1185 @@
+/* 设置页共用样式。
+   八个分区分散在七个子组件里，如果每个组件各写一套 scoped 样式，
+   同一条设置行会有七种间距。所以行、控件、色片这类共用装置集中放在这里，
+   由 SettingsView 引入，全部以 set- 前缀命名，不外泄到其他页面。
+
+   颜色不写死：强调色跟随 --primary-color，因为「主题」分区本身就在改这个值，
+   用户选完颜色后左侧导航的选中态要当场变过来，否则这一页在骗人。 */
+
+.settings-view {
+  --set-surface: rgba(255, 255, 255, 0.92);
+  --set-surface-muted: rgba(243, 246, 250, 0.88);
+  --set-control: rgba(248, 250, 253, 0.92);
+  --set-border: rgba(148, 163, 184, 0.28);
+  --set-border-strong: rgba(148, 163, 184, 0.5);
+  --set-accent: var(--primary-color);
+  --set-accent-strong: color-mix(in srgb, var(--primary-color) 86%, var(--text-color));
+  --set-accent-soft: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  --set-success-bg: rgba(76, 175, 80, 0.1);
+  --set-success-text: #2e7d32;
+  --set-error-bg: rgba(244, 67, 54, 0.08);
+  --set-error-text: #c62828;
+  --set-danger: #a74e58;
+  --set-danger-soft: rgba(201, 115, 127, 0.1);
+  --set-danger-border: rgba(201, 115, 127, 0.36);
+}
+
+[data-theme='dark'] .settings-view {
+  --set-surface: rgba(35, 42, 52, 0.92);
+  --set-surface-muted: rgba(42, 50, 61, 0.7);
+  --set-control: rgba(30, 37, 47, 0.7);
+  --set-border: rgba(173, 191, 214, 0.16);
+  --set-border-strong: rgba(173, 191, 214, 0.3);
+  --set-success-bg: rgba(82, 184, 149, 0.14);
+  --set-success-text: #9fe6c8;
+  --set-error-bg: rgba(244, 96, 96, 0.14);
+  --set-error-text: #ffb7b7;
+  --set-danger: #eda3ad;
+  --set-danger-soft: rgba(210, 90, 110, 0.16);
+  --set-danger-border: rgba(210, 90, 110, 0.42);
+}
+
+/* ---------- 骨架 ---------- */
+
+.set-workbench {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
+  align-items: start;
+  gap: 36px;
+}
+
+.set-workbench.nav-collapsed {
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 26px;
+}
+
+/* 导航沿用说明页「页内目录」的写法：画布上的列表 + 左侧一条色条。
+   不包白卡——那会让它和全局左导航变成两张并排的纸。 */
+.set-nav {
+  position: sticky;
+  top: 0;
+  padding-top: 2px;
+}
+
+.set-nav-group + .set-nav-group {
+  margin-top: 16px;
+}
+
+.set-nav-label {
+  display: block;
+  padding: 0 12px 8px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.set-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  border-left: 2px solid transparent;
+  border-radius: 0 8px 8px 0;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  transition: color 0.16s ease, background-color 0.16s ease;
+}
+
+.set-nav-item:hover {
+  background: color-mix(in srgb, var(--surface-color) 55%, transparent);
+  color: var(--text-color);
+}
+
+.set-nav-item.active {
+  border-left-color: var(--set-accent);
+  background: color-mix(in srgb, var(--surface-color) 70%, transparent);
+  color: var(--set-accent-strong);
+}
+
+.set-nav-item svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  opacity: 0.72;
+}
+
+.set-nav-item.active svg {
+  opacity: 1;
+}
+
+.set-nav-collapse {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  margin-top: 20px;
+  padding: 10px 11px;
+  border-top: 1px solid var(--set-border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.set-nav-collapse:hover {
+  color: var(--set-accent-strong);
+}
+
+.set-nav-collapse i {
+  font-size: 13px;
+  font-style: normal;
+}
+
+/* 收起后只剩图标，导航结构还在，横向空间还给内容列。 */
+.set-workbench.nav-collapsed .set-nav-label,
+.set-workbench.nav-collapsed .set-nav-item span,
+.set-workbench.nav-collapsed .set-nav-collapse span {
+  display: none;
+}
+
+.set-workbench.nav-collapsed .set-nav-item,
+.set-workbench.nav-collapsed .set-nav-collapse {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.set-workbench.nav-collapsed .set-nav-group + .set-nav-group {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--set-border);
+}
+
+/* 当前分区就是这一页的页头：左导航和面包屑已经写过「设置」，标题再写一次是冗余。
+   头部这条通栏细线接管页面顶部的视觉重量，和导入页标签栏底部的线是同一个装置。 */
+.set-detail {
+  min-width: 0;
+  max-width: 880px;
+}
+
+.set-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--set-border);
+}
+
+.set-head h2 {
+  color: var(--text-color);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.set-head p {
+  margin-top: 6px;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* 主题、存储目录、合集没有保存按钮，因为它们本来就即时生效。
+   把这件事写出来，而不是让人去找一个不存在的按钮。 */
+.set-head-note {
+  flex: none;
+  padding: 6px 9px;
+  border: 1px solid var(--set-border);
+  border-radius: 8px;
+  background: var(--set-surface-muted);
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- 分区与设置行 ---------- */
+
+.set-section + .set-section,
+.set-rows + .set-group > .set-section:first-of-type {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid var(--set-border);
+}
+
+.set-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.set-section-head h3 {
+  color: var(--text-color);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.set-section-head p {
+  max-width: 560px;
+  margin-top: 5px;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* 说明在左、控件在右的扁平行，用细线分隔——不把每一条设置都做成一张卡。 */
+.set-rows > .set-row + .set-row {
+  border-top: 1px solid var(--set-border);
+}
+
+.set-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  align-items: center;
+  gap: 24px;
+  padding: 15px 0;
+}
+
+.set-row.stack {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 11px;
+}
+
+.set-row-copy {
+  min-width: 0;
+}
+
+.set-row-copy label,
+.set-row-copy strong {
+  display: block;
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.set-row-copy p {
+  margin-top: 5px;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.set-row-copy code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--set-surface-muted);
+  font-size: 11px;
+}
+
+.set-row-copy em {
+  margin-left: 6px;
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.set-row-copy em.req {
+  color: var(--set-danger);
+  font-weight: 600;
+}
+
+/* ---------- 控件 ---------- */
+
+.set-control {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.set-control.inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.set-field {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--set-border);
+  border-radius: 9px;
+  background: var(--set-control);
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.set-field:focus {
+  border-color: color-mix(in srgb, var(--set-accent) 55%, transparent);
+  box-shadow: 0 0 0 4px var(--set-accent-soft);
+  outline: none;
+}
+
+.set-field:disabled {
+  background: var(--set-surface-muted);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.set-field.num {
+  width: 104px;
+  text-align: right;
+}
+
+.set-field.mono {
+  font-family: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+  font-size: 12px;
+}
+
+.set-hint {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.set-unit {
+  flex: none;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.set-mini {
+  flex: none;
+  padding: 8px 11px;
+  border: 1px solid var(--set-border);
+  border-radius: 8px;
+  background: var(--set-control);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.set-mini:hover:not(:disabled) {
+  border-color: var(--set-border-strong);
+  background: var(--surface-color);
+  color: var(--text-color);
+}
+
+.set-mini.warn:hover:not(:disabled) {
+  border-color: var(--set-danger-border);
+  background: var(--set-danger-soft);
+  color: var(--set-danger);
+}
+
+.set-mini:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 开关只有一种几何尺寸，全站复用。 */
+.set-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.set-switch input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.set-switch-track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 21px;
+  padding: 2px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--text-faint) 62%, transparent);
+  transition: background-color 0.2s ease;
+}
+
+.set-switch-track::after {
+  display: block;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+  content: '';
+  transition: transform 0.2s ease;
+}
+
+.set-switch input:checked + .set-switch-track {
+  background: var(--set-accent);
+}
+
+.set-switch input:checked + .set-switch-track::after {
+  transform: translateX(15px);
+}
+
+.set-switch input:focus-visible + .set-switch-track {
+  outline: 3px solid var(--set-accent-soft);
+  outline-offset: 2px;
+}
+
+.set-switch input:disabled + .set-switch-track {
+  opacity: 0.5;
+}
+
+.set-switch-label {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.set-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-soft);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.set-check input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--set-accent);
+}
+
+/* ---------- 文件类型色片：从资料库经导入页延续到设置，第三次出现 ---------- */
+
+.set-type {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  color: #6b7b90;
+  background: #eef1f5;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.set-type.sm {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.set-type.video {
+  color: #145ab5;
+  background: #e6f0ff;
+}
+
+.set-type.document {
+  color: #46618a;
+  background: #eaf0f7;
+}
+
+.set-type.music {
+  color: #5b4a9c;
+  background: #ebe6fa;
+}
+
+.set-type.image {
+  color: #1f7a5e;
+  background: #dff3ec;
+}
+
+.set-type.archive {
+  color: #8f6210;
+  background: #fff1d6;
+}
+
+.set-type.installer {
+  color: #a1414e;
+  background: #f8e4e7;
+}
+
+[data-theme='dark'] .set-type {
+  color: #a3b2c5;
+  background: rgba(140, 160, 185, 0.16);
+}
+
+[data-theme='dark'] .set-type.video {
+  color: #9cc4f5;
+  background: rgba(45, 120, 220, 0.2);
+}
+
+[data-theme='dark'] .set-type.document {
+  color: #a8bcd4;
+  background: rgba(120, 150, 190, 0.18);
+}
+
+[data-theme='dark'] .set-type.music {
+  color: #b9a9e8;
+  background: rgba(130, 105, 215, 0.2);
+}
+
+[data-theme='dark'] .set-type.image {
+  color: #7fd3b4;
+  background: rgba(45, 170, 130, 0.2);
+}
+
+[data-theme='dark'] .set-type.archive {
+  color: #e2bd77;
+  background: rgba(190, 140, 40, 0.2);
+}
+
+[data-theme='dark'] .set-type.installer {
+  color: #eda3ad;
+  background: rgba(210, 90, 110, 0.2);
+}
+
+.set-type-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.set-type-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-family: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+  font-size: 11px;
+}
+
+/* 打开方式的说明列很短（视频 / 音频），把宽度让给真正需要空间的路径输入。 */
+.set-rows.paths .set-row {
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 18px;
+}
+
+/* ---------- 清单：纸面只留给真实存在的对象 ---------- */
+
+.set-list {
+  display: grid;
+  gap: 10px;
+}
+
+.set-dir {
+  overflow: hidden;
+  border: 1px solid var(--set-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--set-surface) 78%, transparent);
+}
+
+.set-dir-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+}
+
+.set-dir-toggle {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 12px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.set-dir-chevron {
+  color: var(--text-faint);
+  font-size: 14px;
+  font-style: normal;
+  transition: transform 0.18s ease;
+}
+
+.set-dir.open .set-dir-chevron {
+  transform: rotate(90deg);
+}
+
+.set-dir-copy {
+  min-width: 0;
+}
+
+.set-dir-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.set-dir-path strong {
+  overflow: hidden;
+  color: var(--text-color);
+  font-family: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-badge {
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--set-accent-soft);
+  color: var(--set-accent-strong);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.set-dir-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.set-dir-meta b {
+  color: var(--text-soft);
+  font-weight: 600;
+}
+
+.set-dir-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.set-subdirs {
+  padding: 4px 14px 12px 26px;
+  border-top: 1px solid var(--set-border);
+  background: color-mix(in srgb, var(--surface-muted) 55%, transparent);
+}
+
+.set-subdir {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 480px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--set-border);
+}
+
+.set-subdir:last-child {
+  border-bottom: 0;
+}
+
+.set-subdir-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-subdir b {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.set-subdir-empty {
+  padding: 13px 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.set-rule {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--set-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--set-surface) 74%, transparent);
+}
+
+.set-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.set-add-row .set-field {
+  max-width: 320px;
+}
+
+.set-add-row .btn {
+  flex: none;
+}
+
+.set-collections {
+  max-width: 560px;
+}
+
+.set-collection {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 0;
+}
+
+.set-collections > .set-collection + .set-collection {
+  border-top: 1px solid var(--set-border);
+}
+
+.set-collection strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-collection .set-count {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* ---------- 主题分区 ---------- */
+
+.set-modes {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--set-border);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--set-surface) 60%, transparent);
+}
+
+.set-modes button {
+  padding: 9px 20px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.set-modes button.active {
+  background: var(--surface-color);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  color: var(--set-accent-strong);
+}
+
+.set-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.set-swatch {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 1px rgba(21, 34, 56, 0.09);
+  color: #fff;
+  font-size: 14px;
+}
+
+.set-swatch span {
+  opacity: 0;
+}
+
+.set-swatch.active {
+  outline: 2px solid var(--text-color);
+  outline-offset: 2px;
+}
+
+.set-swatch.active span {
+  opacity: 1;
+}
+
+.set-color-input {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.set-color-input label {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.set-color-input input[type='color'] {
+  width: 36px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid var(--set-border);
+  border-radius: 8px;
+  background: var(--surface-color);
+  cursor: pointer;
+}
+
+.set-color-input .set-field {
+  width: 116px;
+}
+
+.set-bg {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.set-bg-preview {
+  height: 124px;
+  overflow: hidden;
+  border: 1px solid var(--set-border);
+  border-radius: var(--radius-md);
+  background-position: center;
+  background-size: cover;
+}
+
+.set-bg-preview.empty {
+  display: grid;
+  place-items: center;
+  background: var(--set-surface-muted);
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.set-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.set-upload input[type='file'] {
+  display: none;
+}
+
+/* ---------- 动作与反馈 ---------- */
+
+/* 添加主目录不是「提交」，所以它不进底部动作行，而是紧跟在清单下面。 */
+.set-inline-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+/* 底部动作行沿用导入页：反馈在左端，动作在右端。 */
+.set-commit {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--set-border);
+}
+
+.set-feedback {
+  display: flex;
+  align-items: center;
+  margin-right: auto;
+  padding: 9px 13px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.set-feedback.success {
+  background: var(--set-success-bg);
+  color: var(--set-success-text);
+}
+
+.set-feedback.error {
+  background: var(--set-error-bg);
+  color: var(--set-error-text);
+}
+
+.set-empty {
+  padding: 22px 16px;
+  border: 1px solid var(--set-border);
+  border-radius: var(--radius-md);
+  background: var(--set-surface-muted);
+  text-align: center;
+}
+
+.set-empty strong {
+  display: block;
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+.set-empty p {
+  margin-top: 6px;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.set-locked {
+  display: grid;
+  place-items: center;
+  min-height: 130px;
+  padding: 24px;
+  border: 1px solid var(--set-border);
+  border-radius: var(--radius-md);
+  background: var(--set-surface-muted);
+  text-align: center;
+}
+
+.set-locked strong {
+  display: block;
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+.set-locked p {
+  max-width: 430px;
+  margin-top: 7px;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.set-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--set-accent) 28%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--set-accent-soft);
+}
+
+.set-preview b {
+  flex: none;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.set-preview code {
+  color: var(--set-accent-strong);
+  font-family: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+  font-size: 12px;
+}
+
+.set-spinner {
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--set-border-strong);
+  border-radius: 50%;
+  border-top-color: var(--set-accent);
+  animation: spin 0.8s linear infinite;
+}
+
+/* ---------- 对话框 ---------- */
+
+.set-modal {
+  position: fixed;
+  inset: 0;
+  /* 侧栏是 z-index 80 的固定层，对话框必须压过它，和站内其他弹层同级。 */
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  backdrop-filter: blur(13px);
+  background: rgba(15, 24, 39, 0.52);
+}
+
+.set-modal-panel {
+  width: min(470px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--set-border);
+  border-radius: 18px;
+  background: var(--surface-color);
+  box-shadow: 0 30px 90px rgba(15, 24, 39, 0.3);
+}
+
+/* 删除主目录会清空目录内容，值得一个真正设计过的确认，而不是一句 confirm()。 */
+.set-modal-panel.danger {
+  border-top: 4px solid var(--set-danger);
+}
+
+.set-modal-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  padding: 20px 22px 17px;
+  border-bottom: 1px solid var(--set-border);
+}
+
+.set-modal-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--set-accent-soft);
+  color: var(--set-accent-strong);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.set-modal-panel.danger .set-modal-mark {
+  background: var(--set-danger-soft);
+  color: var(--set-danger);
+}
+
+.set-modal-head h3 {
+  color: var(--text-color);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.set-modal-head p {
+  margin-top: 5px;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.set-modal-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px 22px 4px;
+}
+
+.set-modal-field {
+  display: grid;
+  gap: 7px;
+}
+
+.set-modal-field label {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.set-modal-warning {
+  padding: 12px 13px;
+  border-radius: 10px;
+  background: var(--set-danger-soft);
+  color: var(--set-danger);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.set-modal-warning b {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.set-modal-target {
+  padding: 11px 12px;
+  border: 1px solid var(--set-border);
+  border-radius: 9px;
+  background: var(--set-surface-muted);
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+/* 只有真的是路径时才用等宽字体，一句说明用等宽会读起来像代码。 */
+.set-modal-target.path {
+  font-family: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+}
+
+.set-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 18px 22px;
+}
+
+/* 危险确认用描边而不是蓝色主按钮，避免一路点蓝色把资料删掉。 */
+.btn.set-danger-action {
+  border-color: var(--set-danger-border);
+  background: var(--set-danger-soft);
+  color: var(--set-danger);
+}
+
+.btn.set-danger-action:hover:not(:disabled) {
+  border-color: var(--set-danger);
+  background: color-mix(in srgb, var(--set-danger) 16%, transparent);
+}
+
+/* 元素自带 display: grid / flex 时 hidden 属性会失效，这里统一兜住。 */
+.settings-view [hidden] {
+  display: none !important;
+}
+
+@media (max-width: 980px) {
+  .set-workbench {
+    grid-template-columns: 168px minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .set-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .set-rows.paths .set-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .set-bg {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .set-workbench,
+  .set-workbench.nav-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .set-nav {
+    position: static;
+  }
+
+  .set-nav-collapse {
+    display: none;
+  }
+
+  .set-commit {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .set-feedback {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .set-rule {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

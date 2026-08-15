@@ -276,8 +276,8 @@ const handlePageSizeFocusOut = (event: FocusEvent) => {
 
 .pagination-controls.is-overlay {
   position: absolute;
-  right: 8px;
-  bottom: 8px;
+  right: 0;
+  bottom: 0;
   z-index: 5;
   display: inline-flex;
   width: auto;

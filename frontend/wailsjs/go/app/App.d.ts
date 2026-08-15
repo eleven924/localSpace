@@ -38,6 +38,8 @@ export function GetAIConfig():Promise<models.AIConfig>;
 
 export function GetActiveJobs():Promise<Array<models.Job>>;
 
+export function GetBatchImportItems(arg1:number):Promise<Array<models.BatchImportItem>>;
+
 export function GetCollectionFilterCounts(arg1:string):Promise<models.CollectionFilterCounts>;
 
 export function GetCollections():Promise<Array<models.Collection>>;

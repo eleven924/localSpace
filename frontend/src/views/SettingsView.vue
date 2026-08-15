@@ -4,149 +4,174 @@
 
     <div class="page-content">
       <div class="page-stack">
-        <div class="settings-workbench" :class="{ 'nav-collapsed': navCollapsed }">
-          <aside class="settings-sidebar" aria-label="设置导航">
-            <nav class="settings-nav" aria-label="设置分类导航">
-              <section
-                v-for="group in settingGroups"
-                :key="group.id"
-                class="settings-nav-group"
-                :class="{ active: isGroupActive(group) }"
-              >
-                <button
-                  type="button"
-                  class="settings-group-button"
-                  :title="group.label"
-                  :aria-expanded="String(!collapsedGroups[group.id])"
-                  @click="toggleGroup(group.id)"
-                >
-                  <span class="group-chevron" aria-hidden="true">
-                    {{ collapsedGroups[group.id] ? '›' : '⌄' }}
-                  </span>
-                  <span class="group-copy">
-                    <strong>{{ group.label }}</strong>
-                    <small>{{ group.description }}</small>
-                  </span>
-                </button>
+        <h1 class="visually-hidden">设置</h1>
 
-                <div
-                  v-show="!collapsedGroups[group.id] || navCollapsed"
-                  class="settings-group-items"
+        <div class="set-workbench" :class="{ 'nav-collapsed': navCollapsed }">
+          <!-- 导航沿用说明页的页内目录写法：画布上的列表 + 左侧色条，分组名做小标签。 -->
+          <aside class="set-nav" aria-label="设置导航">
+            <nav aria-label="设置分类导航">
+              <section v-for="group in settingGroups" :key="group.id" class="set-nav-group">
+                <span class="set-nav-label">{{ group.label }}</span>
+                <button
+                  v-for="item in group.items"
+                  :key="item.id"
+                  type="button"
+                  class="set-nav-item"
+                  :class="{ active: activeSetting === item.id }"
+                  :title="item.label"
+                  :aria-current="activeSetting === item.id ? 'page' : undefined"
+                  @click="activateSetting(item)"
                 >
-                  <button
-                    v-for="item in group.items"
-                    :key="item.id"
-                    type="button"
-                    class="settings-nav-item"
-                    :class="{ active: activeSetting === item.id }"
-                    :title="item.label"
-                    @click="activateSetting(item)"
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
                   >
-                    <span class="nav-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path
-                          v-for="path in item.iconPaths"
-                          :key="path"
-                          :d="path"
-                        />
-                      </svg>
-                    </span>
-                    <span class="nav-copy">
-                      <span>{{ item.label }}</span>
-                      <small>{{ item.description }}</small>
-                    </span>
-                  </button>
-                </div>
+                    <path v-for="path in item.iconPaths" :key="path" :d="path" />
+                  </svg>
+                  <span>{{ item.label }}</span>
+                </button>
               </section>
             </nav>
 
             <button
               type="button"
-              class="settings-nav-collapse"
+              class="set-nav-collapse"
               :title="navCollapsed ? '展开设置导航' : '收起设置导航'"
               :aria-label="navCollapsed ? '展开设置导航' : '收起设置导航'"
               :aria-expanded="String(!navCollapsed)"
               @click="toggleNavigation"
             >
-              <span aria-hidden="true">{{ navCollapsed ? '›' : '‹' }}</span>
-              <span v-if="!navCollapsed">收起设置导航</span>
+              <i aria-hidden="true">{{ navCollapsed ? '›' : '‹' }}</i>
+              <span>收起设置导航</span>
             </button>
           </aside>
 
-          <section class="settings-detail">
-            <div class="settings-panel scroll-soft">
-              <section v-if="activeSetting === 'storage'" class="settings-page">
-                <StorageDirSelector
-                  @master-dir-added="handleDirAdded"
-                  @master-dir-removed="handleDirRemoved"
-                  @master-dir-default-changed="handleDirDefaultChanged"
-                />
-              </section>
+          <div class="set-detail">
+            <!-- 当前分区就是页头：左导航和面包屑已经写过「设置」，标题再写一次是冗余。 -->
+            <header class="set-head">
+              <div>
+                <h2>{{ activeItem.label }}</h2>
+                <p>{{ activeItem.context }}</p>
+              </div>
+              <span v-if="activeItem.instantNote" class="set-head-note">
+                {{ activeItem.instantNote }}
+              </span>
+            </header>
 
-              <section v-else-if="activeSetting === 'layout'" class="settings-page">
-                <StorageLayoutConfig />
-              </section>
+            <section
+              v-if="activeSetting === 'storage'"
+              class="set-panel"
+              role="tabpanel"
+              aria-label="存储目录"
+            >
+              <StorageDirSelector
+                @master-dir-added="handleDirAdded"
+                @master-dir-removed="handleDirRemoved"
+                @master-dir-default-changed="handleDirDefaultChanged"
+              />
+            </section>
 
-              <section v-else-if="activeSetting === 'openWith'" class="settings-page">
-                <OpenWithConfig />
-              </section>
+            <section
+              v-else-if="activeSetting === 'layout'"
+              class="set-panel"
+              role="tabpanel"
+              aria-label="存储规则"
+            >
+              <StorageLayoutConfig />
+            </section>
 
-              <section v-else-if="activeSetting === 'theme'" class="settings-page">
-                <ThemeConfig @theme-changed="handleThemeChanged" @theme-reset="handleThemeReset" />
-              </section>
+            <section
+              v-else-if="activeSetting === 'openWith'"
+              class="set-panel"
+              role="tabpanel"
+              aria-label="打开方式"
+            >
+              <OpenWithConfig />
+            </section>
 
-              <section v-else-if="activeSetting === 'ai'" class="settings-page">
-                <AIConfigForm @config-saved="handleAIConfigSaved" @config-reset="handleAIConfigReset" />
-              </section>
+            <section
+              v-else-if="activeSetting === 'theme'"
+              class="set-panel"
+              role="tabpanel"
+              aria-label="主题"
+            >
+              <ThemeConfig @theme-changed="handleThemeChanged" @theme-reset="handleThemeReset" />
+            </section>
 
-              <section v-else-if="activeSetting === 'collections'" class="settings-page">
-                <CollectionsSettings :files="filesStore.files" />
-              </section>
+            <section
+              v-else-if="activeSetting === 'ai'"
+              class="set-panel"
+              role="tabpanel"
+              aria-label="AI"
+            >
+              <AIConfigForm @config-saved="handleAIConfigSaved" @config-reset="handleAIConfigReset" />
+            </section>
 
-              <section v-else-if="activeSetting === 'tasks'" class="settings-page">
-                <TaskRetentionSettings />
-              </section>
+            <section
+              v-else-if="activeSetting === 'collections'"
+              class="set-panel"
+              role="tabpanel"
+              aria-label="合集"
+            >
+              <CollectionsSettings />
+            </section>
 
-              <section v-else-if="activeSetting === 'about'" class="settings-page about-page">
-                <div class="about-content">
-                  <div class="app-info">
-                    <div class="app-logo">LS</div>
-                    <div>
-                      <h3>LocalSpace</h3>
-                      <p class="app-version">版本 0.2.0</p>
-                    </div>
-                  </div>
+            <section
+              v-else-if="activeSetting === 'tasks'"
+              class="set-panel"
+              role="tabpanel"
+              aria-label="任务"
+            >
+              <TaskRetentionSettings />
+            </section>
 
-                  <div class="app-description">
-                    <p>
-                      LocalSpace 是一个面向本地资料整理与回看的桌面工具，适合把图片、文档、音视频和项目素材统一收进一个入口。
-                    </p>
-
-                    <ul class="feature-list">
-                      <li>支持单文件导入与批量后台导入</li>
-                      <li>支持标签、描述、关键词、合集等元信息整理</li>
-                      <li>支持 AI 生成标签与描述辅助</li>
-                      <li>支持多存储目录、打开方式与存储规则管理</li>
-                      <li>内置说明文档，方便交付与演示</li>
-                    </ul>
-                  </div>
-
-                  <div class="about-action-row">
-                    <div>
-                      <h4>产品介绍与使用文档</h4>
-                      <p>查看核心功能说明、推荐使用流程和页面介绍。</p>
-                    </div>
-                    <button class="btn primary doc-button" @click="handleViewDocumentation">查看文档</button>
-                  </div>
-
-                  <div class="app-links">
-                    <button class="btn secondary" @click="handleViewLicense">查看许可</button>
-                    <button class="btn secondary" @click="handleCheckUpdates">检查更新</button>
-                  </div>
+            <section v-else class="set-panel" role="tabpanel" aria-label="关于">
+              <div class="set-about-id">
+                <span class="set-about-mark" aria-hidden="true">LS</span>
+                <div>
+                  <h3>LocalSpace</h3>
+                  <p>版本 0.3.0</p>
                 </div>
-              </section>
-            </div>
-          </section>
+              </div>
+
+              <p class="set-about-body">
+                LocalSpace 是一个面向本地资料整理与回看的桌面工具，适合把图片、文档、音视频和项目素材统一收进一个入口。
+              </p>
+
+              <ul class="set-features">
+                <li>支持单文件导入与批量后台导入</li>
+                <li>支持标签、描述、关键词、合集等元信息整理</li>
+                <li>支持 AI 生成标签与描述辅助</li>
+                <li>支持多存储目录、打开方式与存储规则管理</li>
+                <li>内置说明文档，方便交付与演示</li>
+              </ul>
+
+              <div class="set-section">
+                <div class="set-doc-row">
+                  <div>
+                    <strong>产品介绍与使用文档</strong>
+                    <p>查看核心功能说明、推荐使用流程和页面介绍。</p>
+                  </div>
+                  <button type="button" class="btn primary" @click="handleViewDocumentation">
+                    查看文档
+                  </button>
+                </div>
+                <div class="set-add-row set-about-links">
+                  <button type="button" class="btn secondary" @click="handleViewLicense">
+                    查看许可
+                  </button>
+                  <button type="button" class="btn secondary" @click="handleCheckUpdates">
+                    检查更新
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </div>
@@ -154,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AIConfigForm from '@/components/AIConfigForm.vue'
 import AppHeader from '@/components/AppHeader.vue'
@@ -164,141 +189,72 @@ import StorageDirSelector from '@/components/StorageDirSelector.vue'
 import StorageLayoutConfig from '@/components/StorageLayoutConfig.vue'
 import TaskRetentionSettings from '@/components/TaskRetentionSettings.vue'
 import ThemeConfig from '@/components/ThemeConfig.vue'
-import { useFilesStore } from '@/store/modules/files'
 
 type SettingId = 'storage' | 'openWith' | 'theme' | 'ai' | 'layout' | 'collections' | 'tasks' | 'about'
 
 interface SettingItem {
   id: SettingId
   label: string
-  description: string
+  /** 分区标题下的一句说明，作为页面副标题使用。 */
   context: string
+  /** 没有保存按钮的分区在页头写明即时生效，避免用户找一个不存在的按钮。 */
+  instantNote?: string
   iconPaths: string[]
 }
 
 interface SettingGroup {
   id: 'general' | 'theme' | 'ai' | 'special' | 'about'
   label: string
-  description: string
   items: SettingItem[]
 }
-
-const filesStore = useFilesStore()
 
 const router = useRouter()
 const activeSetting = ref<SettingId>('storage')
 const navCollapsed = ref(false)
 const hasUserToggledNav = ref(false)
-const collapsedGroups = ref<Record<SettingGroup['id'], boolean>>({
-  general: false,
-  theme: false,
-  ai: false,
-  special: false,
-  about: false,
-})
+
+const circle = 'M12 3.6a8.4 8.4 0 1 1 0 16.8 8.4 8.4 0 0 1 0-16.8z'
 
 const settingIconPaths = {
-  storage: [
-    'M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2h7A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z',
-  ],
-  layout: [
-    'M4 6h16',
-    'M4 12h16',
-    'M4 18h10',
-    'M8 4v4',
-    'M16 10v4',
-    'M12 16v4',
-  ],
-  openWith: [
-    'M8 5v14l11-7z',
-    'M4 5v14',
-  ],
-  theme: [
-    'M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 0-4H14a2 2 0 0 1 0-4h1a6 6 0 0 0-3-10z',
-    'M7.5 10h.01',
-    'M10 7.5h.01',
-    'M14 7.5h.01',
-  ],
-  ai: [
-    'M12 3v3',
-    'M12 18v3',
-    'M4.5 12h3',
-    'M16.5 12h3',
-    'M7.8 7.8l2.1 2.1',
-    'M14.1 14.1l2.1 2.1',
-    'M16.2 7.8l-2.1 2.1',
-    'M9.9 14.1l-2.1 2.1',
-    'M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z',
-  ],
-  collections: [
-    'M4 6h16',
-    'M4 12h16',
-    'M4 18h10',
-  ],
-  tasks: [
-    'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2',
-    'M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2',
-    'M12 12h.01',
-    'M9 12h.01',
-    'M15 12h.01',
-  ],
-  about: [
-    'M12 17v-6',
-    'M12 7h.01',
-    'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z',
-  ],
+  storage: ['M3 7.2A1.5 1.5 0 0 1 4.5 5.7h4l1.9 2.3h9.1v9.8a1.5 1.5 0 0 1-1.5 1.5h-14a1.5 1.5 0 0 1-1.5-1.5z'],
+  layout: ['M5.2 4.4h13.6a2 2 0 0 1 2 2v1.6a2 2 0 0 1-2 2H5.2a2 2 0 0 1-2-2V6.4a2 2 0 0 1 2-2z', 'M5.2 14h6.5a2 2 0 0 1 2 2v1.6a2 2 0 0 1-2 2H5.2a2 2 0 0 1-2-2V16a2 2 0 0 1 2-2z'],
+  openWith: ['M14 4.2h5.8V10', 'M19.8 4.2 11.8 12.2', 'M17.6 13.6v5a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.6V8.2a1.6 1.6 0 0 1 1.6-1.6h5'],
+  theme: [circle, 'M12 3.6v16.8', 'M15 8.6h3', 'M16 12h3.2', 'M15 15.4h3'],
+  ai: ['M10.4 3.4 12 7.9l4.5 1.6-4.5 1.6-1.6 4.5-1.6-4.5L4.3 9.5 8.8 7.9z', 'M17.4 14.2l.85 2.35 2.35.85-2.35.85-.85 2.35-.85-2.35-2.35-.85 2.35-.85z'],
+  collections: ['M3.6 3.6h7v7h-7z', 'M13.4 3.6h7v7h-7z', 'M3.6 13.4h7v7h-7z', 'M13.4 13.4h7v7h-7z'],
+  tasks: [circle, 'M12 7.2V12l3.2 1.9'],
+  about: [circle, 'M12 11.2v5', 'M12 7.7h.01'],
 } satisfies Record<SettingId, string[]>
 
 const settingItems: SettingItem[] = [
-  { id: 'storage', label: '存储目录', description: '主目录与默认目录', context: '配置本地资料的入口目录', iconPaths: settingIconPaths.storage },
-  { id: 'layout', label: '存储规则', description: '归档层级与命名', context: '控制导入后的目录结构', iconPaths: settingIconPaths.layout },
-  { id: 'openWith', label: '打开方式', description: '文件类型与应用', context: '指定常用文件的打开程序', iconPaths: settingIconPaths.openWith },
-  { id: 'theme', label: '主题', description: '外观、主色、背景', context: '调整界面观感与背景', iconPaths: settingIconPaths.theme },
-  { id: 'ai', label: 'AI', description: '标签与描述辅助', context: '配置模型、密钥与工具能力', iconPaths: settingIconPaths.ai },
-  { id: 'collections', label: '合集', description: '管理与删除合集', context: '维护可复用的文件分组', iconPaths: settingIconPaths.collections },
-  { id: 'tasks', label: '任务', description: '历史任务保留策略', context: '管理任务记录和清理策略', iconPaths: settingIconPaths.tasks },
-  { id: 'about', label: '关于', description: '说明、许可、版本', context: '查看产品信息与文档入口', iconPaths: settingIconPaths.about },
+  { id: 'storage', label: '存储目录', context: '配置本地资料的入口目录，导入的文件会落在这里。', instantNote: '改动立即生效', iconPaths: settingIconPaths.storage },
+  { id: 'layout', label: '存储规则', context: '控制导入后在主目录中的落盘层级结构。', iconPaths: settingIconPaths.layout },
+  { id: 'openWith', label: '打开方式', context: '指定常用文件在 LocalSpace 内优先使用的软件。', iconPaths: settingIconPaths.openWith },
+  { id: 'theme', label: '主题', context: '调整界面明暗、强调色与背景图片。', instantNote: '修改后立即生效', iconPaths: settingIconPaths.theme },
+  { id: 'ai', label: 'AI', context: '配置模型、密钥与 Agent 的工具能力。', iconPaths: settingIconPaths.ai },
+  { id: 'collections', label: '合集', context: '维护可复用的文件分组。', instantNote: '改动立即生效', iconPaths: settingIconPaths.collections },
+  { id: 'tasks', label: '任务', context: '管理任务记录的保留时长和清理策略。', iconPaths: settingIconPaths.tasks },
+  { id: 'about', label: '关于', context: '查看产品信息、许可与文档入口。', iconPaths: settingIconPaths.about },
 ]
 
+const pickItems = (...ids: SettingId[]) =>
+  ids.map((id) => settingItems.find((item) => item.id === id)!)
+
+// 分组只做标签，不再折叠：它说明「存储目录 / 存储规则 / 打开方式」属于同一族，
+// 这条信息值几个字，但不值一层交互。
 const settingGroups: SettingGroup[] = [
-  {
-    id: 'general',
-    label: '通用配置',
-    description: '目录、规则、打开方式',
-    items: settingItems.filter((item) => ['storage', 'layout', 'openWith'].includes(item.id)),
-  },
-  {
-    id: 'theme',
-    label: '主题',
-    description: '外观与背景',
-    items: settingItems.filter((item) => item.id === 'theme'),
-  },
-  {
-    id: 'ai',
-    label: 'AI 配置',
-    description: '模型与工具',
-    items: settingItems.filter((item) => item.id === 'ai'),
-  },
-  {
-    id: 'special',
-    label: '专项配置',
-    description: '合集与任务',
-    items: settingItems.filter((item) => ['collections', 'tasks'].includes(item.id)),
-  },
-  {
-    id: 'about',
-    label: '关于',
-    description: '文档与版本',
-    items: settingItems.filter((item) => item.id === 'about'),
-  },
+  { id: 'general', label: '通用配置', items: pickItems('storage', 'layout', 'openWith') },
+  { id: 'theme', label: '主题', items: pickItems('theme') },
+  { id: 'ai', label: 'AI 配置', items: pickItems('ai') },
+  { id: 'special', label: '专项配置', items: pickItems('collections', 'tasks') },
+  { id: 'about', label: '关于', items: pickItems('about') },
 ]
 
-const isGroupActive = (group: SettingGroup) => {
-  return group.items.some((item) => item.id === activeSetting.value)
-}
+const activeItem = computed(
+  () => settingItems.find((item) => item.id === activeSetting.value) ?? settingItems[0],
+)
 
 const activateSetting = (item: SettingItem) => {
-  // 点击具体配置项时只切换右侧内容，保持左侧分组状态不被意外重置。
   activeSetting.value = item.id
 }
 
@@ -312,12 +268,6 @@ const syncNavigationWidth = () => {
 const toggleNavigation = () => {
   hasUserToggledNav.value = true
   navCollapsed.value = !navCollapsed.value
-}
-
-const toggleGroup = (groupId: SettingGroup['id']) => {
-  // 全局收起时左侧只承担快速跳转，不响应分组折叠，避免图标入口被隐藏。
-  if (navCollapsed.value) return
-  collapsedGroups.value[groupId] = !collapsedGroups.value[groupId]
 }
 
 const handleDirAdded = () => {
@@ -370,741 +320,136 @@ onUnmounted(() => {
 })
 </script>
 
+<!-- set- 前缀的共用装置（设置行、控件、色片、对话框）由八个分区共享，放在单独文件里。 -->
+<style src="../assets/styles/settings.css"></style>
+
 <style scoped>
-.settings-view {
-  background: transparent;
-}
-
 .settings-view .page-content {
-  overflow: hidden;
-  background: transparent;
-  padding: 18px 44px 50px;
+  padding: 20px 44px 50px;
 }
 
-.settings-view .page-stack {
-  height: 100%;
-  min-height: 0;
-  /* 设置页贴近应用边框，并用轻透底色稳定背景图上的文字可读性。 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
   padding: 0;
-}
-
-.settings-workbench {
-  --settings-divider: color-mix(in srgb, var(--border-color) 78%, transparent);
-  --settings-muted-text: color-mix(in srgb, var(--text-soft) 88%, var(--text-color));
-  --settings-shell-bg: transparent;
-  --settings-sidebar-bg: color-mix(in srgb, var(--surface-color) 92%, transparent);
-  --settings-detail-bg: color-mix(in srgb, var(--surface-color) 92%, transparent);
-  --settings-row-divider: color-mix(in srgb, var(--border-color) 72%, transparent);
-
-  position: relative;
-  display: grid;
-  grid-template-columns: 278px minmax(0, 1fr);
-  gap: 0;
-  height: 100%;
-  min-height: 0;
-  background: var(--settings-shell-bg);
-  border: 1px solid color-mix(in srgb, var(--border-color) 54%, transparent);
-  border-radius: 10px;
-  color: var(--text-color);
   overflow: hidden;
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow-color) 58%, transparent);
-}
-
-.settings-workbench.nav-collapsed {
-  grid-template-columns: 66px minmax(0, 1fr);
-}
-
-[data-theme='dark'] .settings-workbench {
-  --settings-divider: color-mix(in srgb, var(--border-color) 76%, transparent);
-  --settings-muted-text: color-mix(in srgb, var(--text-soft) 86%, var(--text-color));
-  --settings-shell-bg: transparent;
-  --settings-sidebar-bg: color-mix(in srgb, var(--surface-color) 92%, transparent);
-  --settings-detail-bg: color-mix(in srgb, var(--surface-color) 92%, transparent);
-  --settings-row-divider: color-mix(in srgb, var(--border-color) 74%, transparent);
-
-  background: var(--settings-shell-bg);
-}
-
-.settings-sidebar,
-.settings-detail {
-  min-height: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-}
-
-.settings-sidebar {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-right: 1px solid var(--settings-divider);
-  background: var(--settings-sidebar-bg);
-}
-
-/* 设置页不再用大标题占据顶部，导航从统一内容起点开始。 */
-.settings-sidebar > .settings-nav {
-  flex: 1;
-}
-
-.settings-nav-collapse {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  margin: auto 10px 10px;
-  padding: 8px 10px;
-  border-top: 1px solid var(--settings-divider);
-  color: var(--settings-muted-text);
-  font-size: 12px;
-  text-align: left;
-}
-
-.settings-nav-collapse:hover {
-  color: var(--primary-color);
-}
-
-.sidebar-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 64px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--settings-divider);
-}
-
-.sidebar-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.sidebar-mark,
-.app-logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--primary-color);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.sidebar-copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.sidebar-copy strong {
-  font-size: 15px;
-  color: var(--text-color);
-}
-
-.sidebar-copy span {
-  overflow: hidden;
-  color: var(--settings-muted-text);
-  font-size: 11px;
-  text-overflow: ellipsis;
+  border: 0;
+  clip: rect(0 0 0 0);
   white-space: nowrap;
 }
 
-.collapse-button {
-  display: inline-flex;
+/* 关于是内容型分区，允许比设置表单松一档。 */
+.set-about-id {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-soft);
-  font-size: 20px;
-  line-height: 1;
+  gap: 15px;
 }
 
-.collapse-button:hover {
-  color: var(--primary-color);
-  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
-}
-
-.settings-nav {
+.set-about-mark {
   display: grid;
-  align-content: start;
-  gap: 10px;
-  overflow-y: auto;
-  padding: 12px 10px 18px;
-}
-
-.settings-nav-group {
-  display: grid;
-  gap: 3px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--settings-divider) 70%, transparent);
-}
-
-.settings-nav-group:last-child {
-  border-bottom: none;
-}
-
-.settings-group-button {
-  display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
-  min-height: 38px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  color: var(--settings-muted-text);
-  text-align: left;
-}
-
-.settings-group-button:hover {
-  background: color-mix(in srgb, var(--surface-muted) 58%, transparent);
-  color: var(--text-color);
-}
-
-.settings-nav-group.active .settings-group-button {
-  color: var(--text-color);
-}
-
-.group-chevron {
-  display: inline-flex;
-  justify-content: center;
-  color: var(--text-faint);
-  font-size: 16px;
-  line-height: 1;
-}
-
-.group-copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.group-copy strong,
-.group-copy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.group-copy strong {
-  font-size: 12px;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  background: linear-gradient(145deg, var(--primary-color), var(--primary-hover));
+  box-shadow: 0 9px 18px var(--shadow-color);
+  color: #fff;
+  font-size: 18px;
   font-weight: 700;
 }
 
-.group-copy small {
-  color: var(--settings-muted-text);
-  font-size: 11px;
-  font-weight: 400;
+.set-about-id h3 {
+  color: var(--text-color);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
-.settings-group-items {
-  display: grid;
-  gap: 2px;
+.set-about-id p {
+  margin-top: 5px;
+  color: var(--text-faint);
+  font-size: 12px;
 }
 
-.settings-nav-item {
-  position: relative;
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 42px;
-  padding: 7px 8px 7px 18px;
-  border-radius: 6px;
+.set-about-body {
+  max-width: 620px;
+  margin-top: 18px;
   color: var(--text-soft);
-  text-align: left;
+  font-size: 13px;
+  line-height: 1.85;
 }
 
-.settings-nav-item:hover {
-  background: color-mix(in srgb, var(--surface-muted) 58%, transparent);
-  color: var(--text-color);
+.set-features {
+  display: grid;
+  gap: 7px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.settings-nav-item.active {
-  background: color-mix(in srgb, var(--primary-color) 9%, transparent);
-  color: var(--text-color);
+.set-features li {
+  position: relative;
+  padding: 10px 13px 10px 28px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface-color) 58%, transparent);
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
-.settings-nav-item.active::before {
+.set-features li::before {
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 6px;
-  width: 2px;
-  border-radius: 8px;
+  top: 17px;
+  left: 13px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
   background: var(--primary-color);
   content: '';
 }
 
-.nav-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-soft);
-}
-
-.nav-icon svg {
-  width: 17px;
-  height: 17px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
-}
-
-.settings-workbench.nav-collapsed .nav-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.settings-nav-item.active .nav-icon {
-  background: transparent;
-  color: var(--primary-color);
-}
-
-.nav-copy {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.nav-copy span,
-.nav-copy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nav-copy span {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.nav-copy small {
-  color: var(--settings-muted-text);
-  font-size: 11px;
-}
-
-.settings-workbench.nav-collapsed .sidebar-top {
-  justify-content: center;
-  padding: 12px 8px;
-}
-
-.settings-workbench.nav-collapsed .sidebar-copy,
-.settings-workbench.nav-collapsed .nav-copy,
-.settings-workbench.nav-collapsed .sidebar-mark,
-.settings-workbench.nav-collapsed .settings-group-button {
-  display: none;
-}
-
-.settings-workbench.nav-collapsed .settings-nav {
-  gap: 8px;
-  padding: 10px 8px;
-}
-
-.settings-workbench.nav-collapsed .settings-nav-collapse {
-  justify-content: center;
-  margin-inline: 8px;
-  padding-inline: 0;
-}
-
-.settings-workbench.nav-collapsed .settings-nav-collapse span:last-child {
-  display: none;
-}
-
-.settings-workbench.nav-collapsed .settings-nav-group {
-  gap: 6px;
-  padding-bottom: 8px;
-}
-
-.settings-workbench.nav-collapsed .settings-nav-item {
-  grid-template-columns: 1fr;
-  justify-items: center;
-  min-height: 40px;
-  padding: 6px;
-}
-
-.settings-workbench.nav-collapsed .settings-nav-item.active::before {
-  left: 3px;
-}
-
-.settings-detail {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--settings-detail-bg);
-}
-
-.settings-panel {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 28px 40px 38px;
-}
-
-.settings-panel :deep(.config-header),
-.settings-panel :deep(.selector-header) {
-  margin-bottom: 18px;
-}
-
-.settings-panel :deep(.config-header h4),
-.settings-panel :deep(.selector-header h4) {
-  font-size: 18px;
-}
-
-.settings-panel :deep(.config-header .subtitle),
-.settings-panel :deep(.selector-header .subtitle) {
-  font-size: 12px;
-}
-
-.settings-page {
-  width: min(940px, 100%);
-  min-height: calc(100% - 4px);
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.settings-panel :deep(.storage-dir-selector),
-.settings-panel :deep(.ai-config-form),
-.settings-panel :deep(.open-with-config),
-.settings-panel :deep(.storage-layout-config),
-.settings-panel :deep(.theme-config),
-.settings-panel :deep(.collections-settings),
-.settings-panel :deep(.task-retention-settings) {
-  padding: 0;
-  background: transparent;
-}
-
-.settings-panel :deep(.selector-header),
-.settings-panel :deep(.config-header) {
-  display: none;
-}
-
-.settings-panel :deep(.config-content),
-.settings-panel :deep(.storage-content),
-.settings-panel :deep(.theme-content),
-.settings-panel :deep(.config-fields) {
-  display: grid;
-  gap: 0;
-}
-
-.settings-panel :deep(.form-group),
-.settings-panel :deep(.section-block),
-.settings-panel :deep(.config-section),
-.settings-panel :deep(.toggle-section),
-.settings-panel :deep(.test-section),
-.settings-panel :deep(.search-config-fields),
-.settings-panel :deep(.disabled-hint) {
-  border: none;
-  border-bottom: 1px solid var(--settings-row-divider);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.settings-panel :deep(.form-group),
-.settings-panel :deep(.toggle-section),
-.settings-panel :deep(.test-section),
-.settings-panel :deep(.disabled-hint),
-.settings-panel :deep(.no-background),
-.settings-panel :deep(.empty-state) {
-  padding: 16px 0;
-}
-
-.settings-panel :deep(.section-block),
-.settings-panel :deep(.config-section) {
-  padding: 18px 0;
-}
-
-.settings-panel :deep(.rule-card) {
-  padding: 14px 0;
-}
-
-.settings-panel :deep(.rule-card),
-.settings-panel :deep(.master-dir-card),
-.settings-panel :deep(.preview-card),
-.settings-panel :deep(.theme-preview),
-.settings-panel :deep(.no-background),
-.settings-panel :deep(.empty-state) {
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.settings-panel :deep(input),
-.settings-panel :deep(textarea),
-.settings-panel :deep(select) {
-  background: var(--surface-color);
-  border-color: color-mix(in srgb, var(--border-color) 92%, transparent);
-  text-shadow: none;
-}
-
-.settings-panel :deep(label),
-.settings-panel :deep(.label-text),
-.settings-panel :deep(.section-title h5),
-.settings-panel :deep(.toggle-info h5) {
-  color: var(--text-color);
-}
-
-.settings-panel :deep(.subtitle),
-.settings-panel :deep(.form-hint),
-.settings-panel :deep(.label-sub),
-.settings-panel :deep(.toggle-info p),
-.settings-panel :deep(.section-title p),
-.settings-panel :deep(.upload-hint) {
-  color: color-mix(in srgb, var(--text-soft) 92%, var(--text-color));
-}
-
-.settings-panel :deep(.theme-preview),
-.settings-panel :deep(.theme-preview .preview-card),
-.settings-panel :deep(.preview-card:last-child),
-.settings-panel :deep(.config-section:last-child),
-.settings-panel :deep(.section-block:last-child),
-.settings-panel :deep(.form-group:last-child),
-.settings-panel :deep(.rule-card:last-child),
-.settings-panel :deep(.master-dir-card:last-child),
-.settings-panel :deep(.empty-state:last-child) {
-  border-bottom: none;
-}
-
-.settings-panel :deep(.config-actions) {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--settings-divider);
-}
-
-.settings-panel :deep(.btn) {
-  width: auto;
-  min-height: 36px;
-  border-radius: 6px;
-  text-shadow: none;
-}
-
-.settings-panel :deep(.btn.primary),
-.settings-panel :deep(.save-button) {
-  background: color-mix(in srgb, var(--primary-color) 11%, transparent);
-  border: 1px solid color-mix(in srgb, var(--primary-color) 34%, transparent);
-  color: var(--primary-color);
-  box-shadow: none;
-}
-
-.settings-panel :deep(.btn.primary:hover:not(:disabled)),
-.settings-panel :deep(.save-button:hover:not(:disabled)) {
-  background: color-mix(in srgb, var(--primary-color) 16%, transparent);
-  border-color: color-mix(in srgb, var(--primary-color) 48%, transparent);
-  box-shadow: none;
-}
-
-.settings-panel :deep(.btn.secondary),
-.settings-panel :deep(.btn.ghost),
-.settings-panel :deep(.mini-btn),
-.settings-panel :deep(.add-rule-btn),
-.settings-panel :deep(.browse-button),
-.settings-panel :deep(.upload-button),
-.settings-panel :deep(.reset-button) {
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--surface-color) 58%, transparent);
-  color: color-mix(in srgb, var(--text-color) 86%, var(--text-soft));
-  border-color: color-mix(in srgb, var(--border-color) 82%, transparent);
-}
-
-.settings-panel :deep(.btn.secondary:hover:not(:disabled)),
-.settings-panel :deep(.btn.ghost:hover:not(:disabled)),
-.settings-panel :deep(.mini-btn:hover:not(:disabled)),
-.settings-panel :deep(.add-rule-btn:hover:not(:disabled)),
-.settings-panel :deep(.browse-button:hover),
-.settings-panel :deep(.upload-button:hover),
-.settings-panel :deep(.reset-button:hover) {
-  background: var(--surface-muted);
-  color: var(--text-color);
-  border-color: color-mix(in srgb, var(--primary-color) 34%, var(--border-color));
-}
-
-.settings-panel :deep(.btn.danger),
-.settings-panel :deep(.delete:hover) {
-  color: var(--error-color);
-  border-color: color-mix(in srgb, var(--error-color) 34%, transparent);
-  background: color-mix(in srgb, var(--error-color) 8%, transparent);
-}
-
-.settings-panel::-webkit-scrollbar {
-  width: 8px;
-}
-
-.settings-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.settings-panel::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-faint) 34%, transparent);
-  background-clip: padding-box;
-}
-
-.settings-panel::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text-faint) 52%, transparent);
-  background-clip: padding-box;
-}
-
-.settings-panel :deep(.theme-preview .preview-card),
-.settings-panel :deep(.path-editor),
-.settings-panel :deep(.usage-preview),
-.settings-panel :deep(.background-options),
-.settings-panel :deep(.color-input-wrapper),
-.settings-panel :deep(.input-wrapper) {
-  background: transparent;
-}
-
-.about-content {
-  display: grid;
-  gap: 18px;
-}
-
-.app-info {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 16px;
-}
-
-.app-logo {
-  width: 42px;
-  height: 42px;
-}
-
-.app-info h3 {
-  font-size: 20px;
-  color: var(--text-color);
-}
-
-.app-version {
-  margin-top: 4px;
-  font-size: 14px;
-  color: var(--text-faint);
-}
-
-.app-description p {
-  color: var(--text-soft);
-  line-height: 1.7;
-}
-
-.feature-list {
-  list-style: none;
-  margin-top: 14px;
-}
-
-.feature-list li {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 14px;
-  color: var(--text-color);
-}
-
-.feature-list li:last-child {
-  border-bottom: none;
-}
-
-.about-action-row {
+.set-doc-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 15px 0;
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  gap: 18px;
+  padding: 15px 16px;
+  border-left: 3px solid var(--primary-color);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: color-mix(in srgb, var(--primary-color) 9%, transparent);
 }
 
-.about-action-row h4 {
-  font-size: 16px;
+.set-doc-row strong {
+  display: block;
   color: var(--text-color);
-}
-
-.about-action-row p {
-  margin-top: 5px;
   font-size: 13px;
-  line-height: 1.6;
-  color: var(--text-faint);
 }
 
-.doc-button {
-  width: auto;
+.set-doc-row p {
+  margin-top: 5px;
+  color: var(--text-soft);
+  font-size: 12px;
 }
 
-.app-links {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+.set-about-links {
+  margin-top: 12px;
 }
 
-@media (max-width: 980px) {
-  .settings-workbench {
-    grid-template-columns: 236px minmax(0, 1fr);
-  }
-
-  .settings-workbench.nav-collapsed {
-    grid-template-columns: 60px minmax(0, 1fr);
-  }
-
+/* 关于分区的最后一块紧跟在特性列表后面，需要自己拉开间距。 */
+.set-panel > .set-section {
+  margin-top: 24px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 820px) {
   .settings-view .page-content {
-    padding: 4px;
+    padding: 16px 12px 40px;
   }
 
-  .settings-view .page-stack {
-    padding: 0;
-  }
-
-  .settings-workbench {
-    gap: 0;
-    grid-template-columns: 214px minmax(0, 1fr);
-    border-radius: 8px;
-  }
-
-  .settings-workbench.nav-collapsed {
-    grid-template-columns: 56px minmax(0, 1fr);
-  }
-
-  .settings-panel {
-    padding: 14px;
-  }
-
-  .settings-page {
-    padding: 20px 18px 24px;
-  }
-
-  .about-action-row {
+  .set-doc-row {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .app-links {
-    grid-template-columns: 1fr;
   }
 }
 </style>

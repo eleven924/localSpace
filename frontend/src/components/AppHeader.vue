@@ -26,7 +26,6 @@
             <span>{{ item.label }}</span>
             <small v-if="item.path === '/tasks' && jobsStore.totalRunningCount > 0">{{ jobsStore.totalRunningCount }} 项进行中</small>
           </span>
-          <span v-if="item.path === '/tasks' && jobsStore.totalRunningCount > 0" class="sidebar-status-dot" aria-label="有任务进行中"></span>
         </router-link>
       </nav>
 
@@ -108,7 +107,6 @@ const primaryLinks = [
 .sidebar-icon { width: 18px; height: 18px; flex: 0 0 18px; }
 .sidebar-link-copy { font-size: 13px; font-weight: 600; }
 .sidebar-link-copy small { color: var(--text-faint); font-size: 10px; font-weight: 500; }
-.sidebar-status-dot { width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: var(--primary-color); }
 .sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(146,165,192,.18); }
 .sidebar-collapse-row { color: var(--text-faint); font-size: 12px; }
 .app-sidebar.is-collapsed .sidebar-brand, .app-sidebar.is-collapsed .sidebar-link, .app-sidebar.is-collapsed .sidebar-collapse-row { justify-content: center; padding-inline: 0; }

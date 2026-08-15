@@ -94,6 +94,7 @@ declare global {
           GetResumableJobs: () => Promise<any[]>
           ListJobs: (page: number, pageSize: number, jobType: string) => Promise<any>
           GetJob: (jobID: number) => Promise<any>
+          GetBatchImportItems: (jobID: number) => Promise<any[]>
           ResumeJob: (jobID: number) => Promise<string>
           CancelJob: (jobID: number) => Promise<string>
           GetJobRetentionConfig: () => Promise<any>
@@ -520,7 +521,7 @@ export const api = {
     getConfig: () =>
       safeWailsCall(
         () => window.go!.app!.App.GetStorageLayoutConfig(),
-        { strategy: 'type_collection', unsortedFolderName: '_unsorted', sanitizeFolderName: true },
+        { strategy: 'type_collection', sanitizeFolderName: true },
         'GetStorageLayoutConfig'
       ),
     updateConfig: (config: any) =>
@@ -643,6 +644,12 @@ export const api = {
         () => window.go!.app!.App.GetJob(jobID),
         null,
         `GetJob(${jobID})`
+      ),
+    getBatchImportItems: (jobID: number) =>
+      safeWailsCall(
+        () => window.go!.app!.App.GetBatchImportItems(jobID),
+        [],
+        `GetBatchImportItems(${jobID})`
       ),
     resume: (jobID: number) =>
       new Promise((resolve, reject) => {

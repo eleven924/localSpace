@@ -1,260 +1,337 @@
 <template>
   <div class="ai-config-form">
-    <div class="config-header">
-      <h4>AI 配置</h4>
-      <p class="subtitle">配置 AI 功能用于自动生成标签和描述</p>
+    <div v-if="loading" class="set-locked">
+      <div>
+        <span class="set-spinner" aria-hidden="true"></span>
+        <p>正在读取 AI 配置...</p>
+      </div>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <p>加载中...</p>
-    </div>
-
-    <div v-else class="config-content">
-      <div class="toggle-section">
-        <div class="toggle-info">
-          <h5>启用 AI 功能</h5>
-          <p>开启后将自动为导入的文件生成标签和描述</p>
+    <template v-else>
+      <div class="set-rows">
+        <div class="set-row">
+          <div class="set-row-copy">
+            <strong>启用 AI 功能</strong>
+            <p>开启后将自动为导入的文件生成标签和描述。</p>
+          </div>
+          <div class="set-control">
+            <label class="set-switch">
+              <input v-model="config.enabled" type="checkbox" @change="handleToggleEnabled" />
+              <span class="set-switch-track"></span>
+              <span class="set-switch-label">{{ config.enabled ? '已启用' : '已停用' }}</span>
+            </label>
+          </div>
         </div>
-        <label class="toggle-switch">
-          <input
-            v-model="config.enabled"
-            type="checkbox"
-            @change="handleToggleEnabled"
-          />
-          <span class="toggle-slider"></span>
-        </label>
       </div>
 
-      <div v-if="config.enabled" class="config-fields">
-        <div class="form-group">
-          <label for="api-key">
-            <span class="label-text">API Key</span>
-            <span class="label-required">*</span>
-          </label>
-          <div class="input-wrapper">
-            <input
-              id="api-key"
-              v-model="config.apiKey"
-              :type="showApiKey ? 'text' : 'password'"
-              placeholder="输入您的 API Key"
-              @input="handleConfigChange"
-            />
-            <button class="toggle-visibility" @click="showApiKey = !showApiKey">
-              {{ showApiKey ? '隐藏' : '显示' }}
+      <div v-if="config.enabled" class="set-group">
+        <section class="set-section">
+          <div class="set-section-head">
+            <div>
+              <h3>模型接入</h3>
+              <p>这三项决定 LocalSpace 用哪个模型、以什么身份请求。</p>
+            </div>
+          </div>
+
+          <div class="set-rows">
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="api-key">API Key<em class="req">必填</em></label>
+                <p>您的 API Key 将被安全存储在本地。</p>
+              </div>
+              <div class="set-control inline">
+                <input
+                  id="api-key"
+                  v-model="config.apiKey"
+                  class="set-field"
+                  :type="showApiKey ? 'text' : 'password'"
+                  placeholder="输入您的 API Key"
+                  @input="handleConfigChange"
+                />
+                <button type="button" class="set-mini" @click="showApiKey = !showApiKey">
+                  {{ showApiKey ? '隐藏' : '显示' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="model">模型<em class="req">必填</em></label>
+                <p>输入您要使用的 AI 模型名称。</p>
+              </div>
+              <div class="set-control">
+                <input
+                  id="model"
+                  v-model="config.model"
+                  class="set-field"
+                  type="text"
+                  placeholder="例如: gpt-3.5-turbo, claude-3-sonnet"
+                  @input="handleConfigChange"
+                />
+              </div>
+            </div>
+
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="base-url">Base URL<em class="req">必填</em></label>
+                <p>API 端点地址。</p>
+              </div>
+              <div class="set-control">
+                <input
+                  id="base-url"
+                  v-model="config.baseURL"
+                  class="set-field mono"
+                  type="text"
+                  placeholder="https://api.openai.com/v1"
+                  @input="handleConfigChange"
+                />
+              </div>
+            </div>
+
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="timeout">超时时间<em>秒</em></label>
+                <p>AI 请求超时时间（5-300 秒）。</p>
+              </div>
+              <div class="set-control inline">
+                <input
+                  id="timeout"
+                  v-model.number="config.timeout"
+                  class="set-field num"
+                  type="number"
+                  min="5"
+                  max="300"
+                  @input="handleConfigChange"
+                />
+                <span class="set-unit">秒</span>
+              </div>
+            </div>
+
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="max-tokens">最大 Token 数<em>可选</em></label>
+                <p>限制生成的最大 Token 数量。</p>
+              </div>
+              <div class="set-control inline">
+                <input
+                  id="max-tokens"
+                  v-model.number="config.maxTokens"
+                  class="set-field num"
+                  type="number"
+                  min="100"
+                  max="4000"
+                  @input="handleConfigChange"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="set-section">
+          <div class="set-section-head">
+            <div>
+              <h3>Agent 能力</h3>
+              <p>Agent 会在生成标签前先理解文件，必要时调用工具补充信息。</p>
+            </div>
+          </div>
+
+          <div class="set-rows">
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="enable-agent">启用 Agent 模式</label>
+                <p>启用后允许使用 Agent 能力。</p>
+              </div>
+              <div class="set-control">
+                <label class="set-switch">
+                  <input
+                    id="enable-agent"
+                    v-model="config.enableAgent"
+                    type="checkbox"
+                    @change="handleConfigChange"
+                  />
+                  <span class="set-switch-track"></span>
+                  <span class="set-switch-label">
+                    {{ config.enableAgent ? '已启用' : '已停用' }}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div v-if="config.enableAgent" class="set-row">
+              <div class="set-row-copy">
+                <label for="enable-web-search">启用网络搜索</label>
+                <p>仅为 Agent 的 web_search tool 配置搜索服务。</p>
+              </div>
+              <div class="set-control">
+                <label class="set-switch">
+                  <input
+                    id="enable-web-search"
+                    v-model="config.enableWebSearch"
+                    type="checkbox"
+                    @change="handleConfigChange"
+                  />
+                  <span class="set-switch-track"></span>
+                  <span class="set-switch-label">
+                    {{ config.enableWebSearch ? '已启用' : '已停用' }}
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="config.enableAgent && config.enableWebSearch" class="set-section">
+          <div class="set-section-head">
+            <div>
+              <h3>网络搜索服务</h3>
+              <p>搜索服务独立于模型接入，不复用模型的 API Key。</p>
+            </div>
+          </div>
+
+          <div class="set-rows">
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="web-search-provider">搜索 Provider</label>
+                <p>标识当前网络搜索服务类型。</p>
+              </div>
+              <div class="set-control">
+                <input
+                  id="web-search-provider"
+                  v-model="config.webSearchProvider"
+                  class="set-field"
+                  type="text"
+                  placeholder="例如: mock-http"
+                  @input="handleConfigChange"
+                />
+              </div>
+            </div>
+
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="web-search-base-url">搜索 Base URL<em class="req">必填</em></label>
+                <p>网络搜索服务端点地址。</p>
+              </div>
+              <div class="set-control">
+                <input
+                  id="web-search-base-url"
+                  v-model="config.webSearchBaseURL"
+                  class="set-field mono"
+                  type="text"
+                  placeholder="https://search.example.com"
+                  @input="handleConfigChange"
+                />
+              </div>
+            </div>
+
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="web-search-api-key">搜索 API Key<em class="req">必填</em></label>
+                <p>仅用于 web_search tool，不复用模型 API Key。</p>
+              </div>
+              <div class="set-control">
+                <input
+                  id="web-search-api-key"
+                  v-model="config.webSearchAPIKey"
+                  class="set-field"
+                  type="password"
+                  placeholder="输入网络搜索服务 API Key"
+                  @input="handleConfigChange"
+                />
+              </div>
+            </div>
+
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="web-search-timeout">搜索超时时间<em>秒</em></label>
+                <p>单次搜索请求超时时间，默认 10 秒。</p>
+              </div>
+              <div class="set-control inline">
+                <input
+                  id="web-search-timeout"
+                  v-model.number="config.webSearchTimeout"
+                  class="set-field num"
+                  type="number"
+                  min="1"
+                  max="60"
+                  @input="handleConfigChange"
+                />
+                <span class="set-unit">秒</span>
+              </div>
+            </div>
+
+            <div class="set-row">
+              <div class="set-row-copy">
+                <label for="web-search-max-results">搜索结果数量上限</label>
+                <p>限制返回给 Agent 的结果数量，建议 3。</p>
+              </div>
+              <div class="set-control inline">
+                <input
+                  id="web-search-max-results"
+                  v-model.number="config.webSearchMaxResults"
+                  class="set-field num"
+                  type="number"
+                  min="1"
+                  max="5"
+                  @input="handleConfigChange"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="set-section">
+          <div class="set-section-head">
+            <div>
+              <h3>连接测试</h3>
+              <p>保存前先确认这套配置能连通。</p>
+            </div>
+          </div>
+          <div class="set-control inline">
+            <button
+              type="button"
+              class="btn secondary"
+              :disabled="testing || !isFormValid"
+              @click="handleTestConnection"
+            >
+              {{ testing ? '测试中...' : '测试连接' }}
             </button>
+            <p v-if="testResult" class="set-feedback" :class="testResult.success ? 'success' : 'error'">
+              {{ testResult.message }}
+            </p>
           </div>
-          <p class="form-hint">您的 API Key 将被安全存储在本地</p>
-        </div>
+        </section>
+      </div>
 
-        <div class="form-group">
-          <label for="model">
-            <span class="label-text">模型</span>
-            <span class="label-required">*</span>
-          </label>
-          <input
-            id="model"
-            v-model="config.model"
-            type="text"
-            placeholder="例如: gpt-3.5-turbo, claude-3-sonnet"
-            @input="handleConfigChange"
-          />
-          <p class="form-hint">输入您要使用的 AI 模型名称</p>
-        </div>
-
-        <div class="form-group">
-          <label for="base-url">
-            <span class="label-text">Base URL</span>
-            <span class="label-required">*</span>
-          </label>
-          <input
-            id="base-url"
-            v-model="config.baseURL"
-            type="text"
-            placeholder="https://api.openai.com/v1"
-            @input="handleConfigChange"
-          />
-          <p class="form-hint">API 端点地址</p>
-        </div>
-
-        <div class="form-group">
-          <label for="timeout">
-            <span class="label-text">超时时间</span>
-            <span class="label-hint">秒</span>
-          </label>
-          <input
-            id="timeout"
-            v-model.number="config.timeout"
-            type="number"
-            min="5"
-            max="300"
-            @input="handleConfigChange"
-          />
-          <p class="form-hint">AI 请求超时时间（5-300秒）</p>
-        </div>
-
-        <div class="form-group">
-          <label for="max-tokens">
-            <span class="label-text">最大 Token 数</span>
-            <span class="label-hint">可选</span>
-          </label>
-          <input
-            id="max-tokens"
-            v-model.number="config.maxTokens"
-            type="number"
-            min="100"
-            max="4000"
-            @input="handleConfigChange"
-          />
-          <p class="form-hint">限制生成的最大 Token 数量</p>
-        </div>
-
-        <div class="form-group">
-          <label class="toggle-label" for="enable-agent">
-            <span class="label-text">启用 Agent 模式</span>
-          </label>
-          <input
-            id="enable-agent"
-            v-model="config.enableAgent"
-            type="checkbox"
-            @change="handleConfigChange"
-          />
-          <p class="form-hint">启用后允许使用 Agent 能力</p>
-        </div>
-
-        <div v-if="config.enableAgent" class="form-group">
-          <label class="toggle-label" for="enable-web-search">
-            <span class="label-text">启用网络搜索</span>
-          </label>
-          <input
-            id="enable-web-search"
-            v-model="config.enableWebSearch"
-            type="checkbox"
-            @change="handleConfigChange"
-          />
-          <p class="form-hint">仅为 Agent 的 web_search tool 配置搜索服务</p>
-        </div>
-
-        <div v-if="config.enableAgent && config.enableWebSearch" class="search-config-fields">
-          <div class="form-group">
-            <label for="web-search-provider">
-              <span class="label-text">搜索 Provider</span>
-            </label>
-            <input
-              id="web-search-provider"
-              v-model="config.webSearchProvider"
-              type="text"
-              placeholder="例如: mock-http"
-              @input="handleConfigChange"
-            />
-            <p class="form-hint">标识当前网络搜索服务类型</p>
-          </div>
-
-          <div class="form-group">
-            <label for="web-search-base-url">
-              <span class="label-text">搜索 Base URL</span>
-              <span class="label-required">*</span>
-            </label>
-            <input
-              id="web-search-base-url"
-              v-model="config.webSearchBaseURL"
-              type="text"
-              placeholder="https://search.example.com"
-              @input="handleConfigChange"
-            />
-            <p class="form-hint">网络搜索服务端点地址</p>
-          </div>
-
-          <div class="form-group">
-            <label for="web-search-api-key">
-              <span class="label-text">搜索 API Key</span>
-              <span class="label-required">*</span>
-            </label>
-            <input
-              id="web-search-api-key"
-              v-model="config.webSearchAPIKey"
-              type="password"
-              placeholder="输入网络搜索服务 API Key"
-              @input="handleConfigChange"
-            />
-            <p class="form-hint">仅用于 web_search tool，不复用模型 API Key</p>
-          </div>
-
-          <div class="form-group">
-            <label for="web-search-timeout">
-              <span class="label-text">搜索超时时间</span>
-              <span class="label-hint">秒</span>
-            </label>
-            <input
-              id="web-search-timeout"
-              v-model.number="config.webSearchTimeout"
-              type="number"
-              min="1"
-              max="60"
-              @input="handleConfigChange"
-            />
-            <p class="form-hint">单次搜索请求超时时间，默认 10 秒</p>
-          </div>
-
-          <div class="form-group">
-            <label for="web-search-max-results">
-              <span class="label-text">搜索结果数量上限</span>
-            </label>
-            <input
-              id="web-search-max-results"
-              v-model.number="config.webSearchMaxResults"
-              type="number"
-              min="1"
-              max="5"
-              @input="handleConfigChange"
-            />
-            <p class="form-hint">限制返回给 Agent 的结果数量，建议 3</p>
-          </div>
-        </div>
-
-        <div class="test-section">
-          <button
-            class="btn test-button"
-            @click="handleTestConnection"
-            :disabled="testing || !isFormValid"
-          >
-            <span v-if="testing" class="spinner small"></span>
-            {{ testing ? '测试中...' : '测试连接' }}
-          </button>
-          <p v-if="testResult" class="test-result" :class="testResult.success ? 'success' : 'error'">
-            {{ testResult.message }}
-          </p>
+      <!-- 关掉总开关后下面所有字段都不再适用，直接收起，只留一句说明和保存按钮。 -->
+      <div v-else class="set-locked">
+        <div>
+          <strong>AI 功能已禁用</strong>
+          <p>启用上方开关以配置模型、Agent 与网络搜索。导入时不会再生成标签和描述。</p>
         </div>
       </div>
 
-      <div v-else class="disabled-hint">
-        <h5>AI 功能已禁用</h5>
-        <p>启用上方开关以配置 AI 功能</p>
+      <div class="set-commit">
+        <p v-if="saveResult" class="set-feedback" :class="saveResult.success ? 'success' : 'error'">
+          {{ saveResult.message }}
+        </p>
+        <button v-if="hasChanges" type="button" class="btn secondary" @click="handleResetConfig">
+          重置
+        </button>
+        <button
+          type="button"
+          class="btn primary"
+          :disabled="saving || (config.enabled && !isFormValid)"
+          @click="handleSaveConfig"
+        >
+          {{ saving ? '保存中...' : '保存配置' }}
+        </button>
       </div>
-    </div>
-
-    <div class="config-actions">
-      <button
-        class="btn primary save-button"
-        @click="handleSaveConfig"
-        :disabled="saving || (config.enabled && !isFormValid)"
-      >
-        <span v-if="saving" class="spinner small"></span>
-        {{ saving ? '保存中...' : '保存配置' }}
-      </button>
-      <button
-        v-if="hasChanges"
-        class="btn secondary"
-        @click="handleResetConfig"
-      >
-        重置
-      </button>
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '@/api/index'
 
 interface AIConfig {
@@ -300,7 +377,9 @@ const loading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
 const showApiKey = ref(false)
+// 测试结果和保存结果是两件事，各归各位：一个贴着测试按钮，一个在底部动作行。
 const testResult = ref<{ success: boolean; message: string } | null>(null)
+const saveResult = ref<{ success: boolean; message: string } | null>(null)
 
 const isFormValid = computed(() => {
   if (!config.value.enabled) return true
@@ -327,12 +406,6 @@ const hasChanges = computed(() => {
 
 onMounted(() => {
   loadConfig()
-})
-
-watch(() => config.value.enabled, (enabled) => {
-  if (enabled && !config.value.apiKey) {
-    // 启用时，如果 API Key 为空，可能需要提示用户
-  }
 })
 
 const loadConfig = async () => {
@@ -368,10 +441,12 @@ const loadConfig = async () => {
 
 const handleConfigChange = () => {
   testResult.value = null
+  saveResult.value = null
 }
 
 const handleToggleEnabled = () => {
   testResult.value = null
+  saveResult.value = null
 }
 
 const handleTestConnection = async () => {
@@ -404,7 +479,7 @@ const handleTestConnection = async () => {
 
 const handleSaveConfig = async () => {
   if (!isFormValid.value) {
-    alert('请填写所有必填字段')
+    saveResult.value = { success: false, message: '请填写所有必填字段' }
     return
   }
 
@@ -413,14 +488,14 @@ const handleSaveConfig = async () => {
   try {
     await api.ai.updateConfig(config.value)
     originalConfig.value = { ...config.value }
-    testResult.value = {
+    saveResult.value = {
       success: true,
       message: '配置保存成功！'
     }
     emit('configSaved')
   } catch (err) {
     console.error('Failed to save AI config:', err)
-    testResult.value = {
+    saveResult.value = {
       success: false,
       message: '保存配置失败：' + (err instanceof Error ? err.message : '未知错误')
     }
@@ -430,11 +505,10 @@ const handleSaveConfig = async () => {
 }
 
 const handleResetConfig = () => {
-  if (confirm('确定要重置配置吗？所有未保存的更改将丢失。')) {
-    config.value = { ...originalConfig.value }
-    testResult.value = null
-    emit('configReset')
-  }
+  config.value = { ...originalConfig.value }
+  testResult.value = null
+  saveResult.value = { success: true, message: '已恢复上次保存的配置' }
+  emit('configReset')
 }
 </script>
 
@@ -443,417 +517,7 @@ const handleResetConfig = () => {
   width: 100%;
 }
 
-.config-header {
-  margin-bottom: 14px;
-}
-
-.config-header h4 {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-color);
-  margin: 0 0 8px 0;
-}
-
-.subtitle {
-  font-size: 14px;
-  color: var(--text-color);
-  opacity: 0.7;
-  margin: 0;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  gap: 16px;
-  color: var(--text-color);
-}
-
-.spinner {
-  border: 2px solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  animation: spin 0.8s linear infinite;
-}
-
-.spinner.small {
-  width: 16px;
-  height: 16px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.config-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.toggle-section {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0;
-  background-color: transparent;
-  border-bottom: 1px solid var(--border-color);
-  border-radius: 0;
-}
-
-.toggle-info h5 {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text-color);
-  margin: 0 0 4px 0;
-}
-
-.toggle-info p {
-  font-size: 13px;
-  color: var(--text-color);
-  opacity: 0.7;
-  margin: 0;
-}
-
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 52px;
-  height: 28px;
-  flex-shrink: 0;
-}
-
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: color-mix(in srgb, var(--border-color) 78%, var(--text-faint));
-  transition: 0.3s;
-  border-radius: 28px;
-}
-
-.toggle-slider:before {
-  position: absolute;
-  content: "";
-  height: 22px;
-  width: 22px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: 0.3s;
-  border-radius: 50%;
-}
-
-.toggle-switch input:checked + .toggle-slider {
-  background-color: var(--primary-color);
-}
-
-.toggle-switch input:checked + .toggle-slider:before {
-  transform: translateX(24px);
-}
-
-.config-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 0;
-  background-color: transparent;
-  border: none;
-  border-radius: 0;
-}
-
-.form-group {
-  display: grid;
-  grid-template-columns: minmax(150px, 0.42fr) minmax(220px, 0.58fr);
-  gap: 8px 16px;
-  align-items: center;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.config-fields > .form-group:first-child,
-.search-config-fields,
-.test-section {
-  grid-column: auto;
-}
-
-.form-group label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.form-group .input-wrapper,
-.form-group > input,
-.form-group > select {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-}
-
-.label-required {
-  color: var(--error-color);
-  font-weight: bold;
-}
-
-.label-hint {
-  font-size: 12px;
-  color: var(--text-color);
-  opacity: 0.6;
-  font-weight: normal;
-}
-
-.form-group input,
-.form-group select {
-  min-height: 38px;
-  padding: 8px 11px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-size: 14px;
-  transition: border-color 0.2s ease;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-}
-
-.form-group input[type="number"] {
-  -moz-appearance: textfield;
-}
-
-.form-group input[type="checkbox"] {
-  justify-self: start;
-  width: 18px;
-  height: 18px;
-  min-height: 18px;
-  padding: 0;
-  accent-color: var(--primary-color);
-  cursor: pointer;
-}
-
-.form-group input[type="number"]::-webkit-inner-spin-button,
-.form-group input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.input-wrapper {
-  display: flex;
-  gap: 8px;
-}
-
-.input-wrapper input {
-  flex: 1;
-}
-
-.toggle-visibility {
-  width: auto;
-  min-width: 46px;
-  min-height: 38px;
-  padding: 8px 10px;
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-soft);
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.toggle-visibility:hover {
-  background-color: var(--surface-muted);
-  color: var(--text-color);
-}
-
-.form-hint {
-  grid-column: 1;
-  font-size: 12px;
-  color: var(--text-color);
-  opacity: 0.6;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.search-config-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding-top: 0;
-  border-top: 1px solid var(--border-color);
-}
-
-.test-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 14px;
-}
-
-.test-button {
-  width: fit-content;
-  min-height: 40px;
-  padding: 10px 14px;
-  background-color: var(--surface-color);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.test-button:hover:not(:disabled) {
-  background-color: var(--surface-muted);
-  border-color: color-mix(in srgb, var(--primary-color) 36%, var(--border-color));
-}
-
-.test-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.test-result {
-  font-size: 13px;
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 6px;
-}
-
-.test-result.success {
-  background-color: rgba(76, 175, 80, 0.1);
-  color: var(--success-color);
-}
-
-.test-result.error {
-  background-color: rgba(244, 67, 54, 0.1);
-  color: var(--error-color);
-}
-
-.disabled-hint {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 16px 0;
-  text-align: left;
-  color: var(--text-color);
-  background-color: transparent;
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  border-radius: 0;
-}
-
-.disabled-hint h5 {
-  font-size: 16px;
-  font-weight: 500;
-  margin: 0 0 4px 0;
-}
-
-.disabled-hint p {
-  font-size: 14px;
-  margin: 0;
-}
-
-.config-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.save-button,
-.config-actions .btn {
-  min-height: 40px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.save-button {
-  flex: 0 0 auto;
-  background-color: color-mix(in srgb, var(--primary-color) 11%, transparent);
-  color: var(--primary-color);
-  border: 1px solid color-mix(in srgb, var(--primary-color) 34%, transparent);
-}
-
-.save-button:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--primary-color) 16%, transparent);
-  box-shadow: none;
-}
-
-.save-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.config-actions .btn.secondary {
-  flex: 0 0 auto;
-  background-color: var(--surface-color);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-}
-
-.config-actions .btn.secondary:hover {
-  background-color: var(--border-color);
-}
-
-@media (max-width: 768px) {
-  .toggle-section {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .config-fields,
-  .search-config-fields,
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-
-  .config-actions {
-    flex-direction: column;
-  }
-
-  .save-button,
-  .config-actions .btn {
-    width: 100%;
-  }
+.set-locked p {
+  margin-top: 10px;
 }
 </style>

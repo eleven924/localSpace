@@ -10,8 +10,8 @@
       class="task-button"
       :class="{ running: hasRunningJobs }"
       type="button"
-      :title="hasRunningJobs ? '有任务正在运行' : '任务中心'"
-      :aria-label="hasRunningJobs ? '有任务正在运行' : '任务中心'"
+      :title="indicatorLabel"
+      :aria-label="indicatorLabel"
       @click="togglePanel"
     >
       <svg
@@ -19,13 +19,16 @@
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        stroke-width="2.5"
+        stroke-width="1.8"
         stroke-linecap="round"
-        stroke-linejoin="round"
+        aria-hidden="true"
       >
-        <circle cx="12" cy="12" r="8" stroke-dasharray="4 3" />
-        <path d="M12 8v4l2.5 1.5" />
+        <g class="task-icon-orbit">
+          <path d="M12.8 3A9 9 0 1 0 21 11.2" />
+        </g>
+        <rect x="8.6" y="8.6" width="6.8" height="6.8" rx="2.1" fill="currentColor" stroke="none" />
       </svg>
+      <span v-if="hasRunningJobs" class="running-badge">{{ runningCount > 99 ? '99+' : runningCount }}</span>
     </button>
 
     <transition name="popover-fade">
@@ -73,7 +76,11 @@ const router = useRouter()
 const open = ref(false)
 
 const summaryJobs = computed(() => jobsStore.summaryJobs)
-const hasRunningJobs = computed(() => jobsStore.totalRunningCount > 0)
+const runningCount = computed(() => jobsStore.totalRunningCount)
+const hasRunningJobs = computed(() => runningCount.value > 0)
+const indicatorLabel = computed(() =>
+  hasRunningJobs.value ? `${runningCount.value} 项任务进行中` : '任务中心'
+)
 
 const togglePanel = () => {
   open.value = !open.value
@@ -100,41 +107,66 @@ const handleFocusOut = (event: FocusEvent) => {
 }
 
 .task-button {
-  --task-gradient-dark: var(--text-soft);
-  --task-gradient-light: var(--surface-color);
-
   position: relative;
   width: 36px;
   height: 36px;
   border-radius: 50%;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--text-color);
+  color: var(--text-soft);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .task-button:hover {
   background: var(--hover-bg, rgba(148, 163, 184, 0.24));
+  color: var(--text-color);
 }
 
 .task-button.running {
-  --task-gradient-dark: var(--primary-hover);
-  --task-gradient-light: var(--surface-color);
+  color: var(--primary-color, #2196f3);
 }
 
 .task-icon {
-  width: 22px;
-  height: 22px;
-  color: var(--task-gradient-dark);
+  width: 18px;
+  height: 18px;
   pointer-events: none;
 }
 
-.task-button.running .task-icon {
-  animation: task-spin 1s linear infinite;
+/* 只让外圈弧线转动，中心方块保持静止：旋转挂在 <g> 上而不是整个 <svg>。 */
+.task-icon-orbit {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.task-button.running .task-icon-orbit {
+  opacity: 1;
+  animation: task-orbit 1.8s linear infinite;
+}
+
+.running-badge {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--primary-color, #2196f3);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px var(--bg-color, #f4f7fb);
+  pointer-events: none;
 }
 
 .task-popover {
@@ -235,13 +267,19 @@ const handleFocusOut = (event: FocusEvent) => {
   transform: translateY(-4px);
 }
 
-@keyframes task-spin {
+@keyframes task-orbit {
   from {
     transform: rotate(0deg);
   }
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-button.running .task-icon-orbit {
+    animation: none;
   }
 }
 

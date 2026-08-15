@@ -65,6 +65,20 @@ export const EXTENSION_TO_TYPE: Record<string, string> = {
   '.ico': 'image',
 }
 
+/**
+ * 文件类型色片用的短标签。资料库、导入页和设置页共用同一套类型语言，
+ * 所以这份映射只能有一处。
+ */
+export const FILE_TYPE_META: Record<string, { label: string; shortLabel: string }> = {
+  video: { label: '视频', shortLabel: '影' },
+  document: { label: '文档', shortLabel: '文' },
+  music: { label: '音频', shortLabel: '音' },
+  archive: { label: '压缩包', shortLabel: '压' },
+  installer: { label: '安装包', shortLabel: '装' },
+  image: { label: '图片', shortLabel: '图' },
+  other: { label: '其他', shortLabel: '其' },
+}
+
 export const getFileTypeLabel = (fileType: string): string => {
   const fileTypeInfo = FILE_TYPES.find((type) => type.value === fileType)
   return fileTypeInfo?.label || fileType

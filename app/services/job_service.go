@@ -49,9 +49,17 @@ type JobService struct {
 	emitter func(eventName string, data interface{})
 
 	mu           sync.Mutex
-	running      map[uint]context.CancelFunc
+	running      map[uint]*jobRun
 	runningWg    sync.WaitGroup
 	shuttingDown bool
+}
+
+// jobRun 记录一次运行的取消函数和退出信号。
+// 需要 done 是因为取消运行中的任务后，必须等 Execute 真正返回才能清理暂存文件，
+// 否则会和仍在写盘的复制过程打架。
+type jobRun struct {
+	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 func NewJobService(
@@ -97,7 +105,7 @@ func NewJobService(
 				Timeout:          5 * time.Minute,
 			},
 		},
-		running: make(map[uint]context.CancelFunc),
+		running: make(map[uint]*jobRun),
 	}
 
 	service.RegisterHandler(NewBatchImportHandler())
@@ -223,10 +231,68 @@ func (s *JobService) GetJob(jobID uint) (*models.Job, error) {
 	return s.jobRepo.FindByID(jobID)
 }
 
+// GetBatchImportItems 返回批量导入任务的逐文件状态，供任务中心展示取消后的导入结果。
+func (s *JobService) GetBatchImportItems(jobID uint) ([]*models.BatchImportItem, error) {
+	return s.jobRepo.ListBatchImportItems(jobID)
+}
+
+// populateBatchImportResult 根据逐文件状态生成取消任务的最终汇总，避免把处理中进度误当成成功数量。
+func (s *JobService) populateBatchImportResult(job *models.Job) error {
+	if job == nil || job.JobType != models.JobTypeBatchImport {
+		return nil
+	}
+
+	items, err := s.jobRepo.ListBatchImportItems(job.ID)
+	if err != nil {
+		return err
+	}
+
+	result := models.BatchImportResult{FailedItems: make([]models.BatchImportFailedItem, 0)}
+	for _, item := range items {
+		if item.Status == models.BatchImportItemStatusCompleted {
+			result.SuccessCount++
+			continue
+		}
+
+		result.FailedCount++
+		errorMessage := item.ErrorMessage
+		if errorMessage == "" {
+			errorMessage = "文件未完成导入"
+		}
+		result.FailedItems = append(result.FailedItems, models.BatchImportFailedItem{
+			SourcePath:  item.SourcePath,
+			DisplayName: item.DisplayName,
+			Error:       errorMessage,
+		})
+	}
+
+	payload, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	job.Result = payload
+	job.ProgressCompleted = result.SuccessCount + result.FailedCount
+	job.ProgressMessage = fmt.Sprintf("任务已取消：成功导入 %d 个，未导入 %d 个", result.SuccessCount, result.FailedCount)
+	return nil
+}
+
 func (s *JobService) ListJobs(page, pageSize int, jobType string) (*models.JobListResponse, error) {
 	items, total, err := s.jobRepo.List(page, pageSize, jobType)
 	if err != nil {
 		return nil, err
+	}
+
+	// 兼容旧版本已经取消的批量任务：首次打开任务中心时补算一次最终汇总。
+	for _, job := range items {
+		if job.Status != models.JobStatusCancelled || job.JobType != models.JobTypeBatchImport {
+			continue
+		}
+		if err := s.populateBatchImportResult(job); err != nil {
+			return nil, err
+		}
+		if err := s.jobRepo.Update(job); err != nil {
+			return nil, err
+		}
 	}
 
 	if page < 1 {
@@ -284,6 +350,9 @@ func (s *JobService) CancelJob(jobID uint) error {
 		job.Status = models.JobStatusCancelled
 		job.ErrorMessage = ""
 		job.FinishedAt = time.Now().Format(time.RFC3339)
+		if err := s.populateBatchImportResult(job); err != nil {
+			return err
+		}
 		if err := s.jobRepo.Update(job); err != nil {
 			return err
 		}
@@ -292,10 +361,10 @@ func (s *JobService) CancelJob(jobID uint) error {
 	}
 
 	s.mu.Lock()
-	cancel, ok := s.running[jobID]
+	run, ok := s.running[jobID]
 	s.mu.Unlock()
-	if ok && cancel != nil {
-		cancel()
+	if ok && run != nil && run.cancel != nil {
+		run.cancel()
 	}
 
 	job.Status = models.JobStatusCancelled
@@ -305,7 +374,54 @@ func (s *JobService) CancelJob(jobID uint) error {
 		return err
 	}
 	s.emitJobEvent("job:updated", job)
+
+	// Execute 收到取消后直接返回，不会自己走 Cleanup。这里补上，否则批量导入的
+	// 暂存文件会一直留在磁盘上——同一个任务在"等待继续"状态取消却会清理干净，
+	// 两条路径必须一致。复制过程不接收 ctx，所以要等 runner 真正退出再清理。
+	if ok && run != nil {
+		go s.cleanupAfterCancel(jobID, run.done)
+	}
 	return nil
+}
+
+// cleanupAfterCancel 等运行中的任务退出后清理它留下的中间产物。
+// 只处理确实停在 cancelled 的任务：关停走的是"等待恢复"，那些暂存文件要留给下次继续。
+func (s *JobService) cleanupAfterCancel(jobID uint, done <-chan struct{}) {
+	<-done
+
+	job, err := s.jobRepo.FindByID(jobID)
+	if err != nil || job.Status != models.JobStatusCancelled {
+		return
+	}
+
+	handler, _, err := s.handlerAndPolicy(job.JobType)
+	if err != nil {
+		return
+	}
+
+	runtime := &jobRuntime{service: s, job: job}
+	if cleanupErr := handler.Cleanup(context.Background(), job, runtime); cleanupErr != nil {
+		latest, findErr := s.jobRepo.FindByID(jobID)
+		if findErr != nil || latest.Status != models.JobStatusCancelled {
+			return
+		}
+		latest.Status = models.JobStatusCleanupFailed
+		latest.ErrorMessage = cleanupErr.Error()
+		latest.FinishedAt = time.Now().Format(time.RFC3339)
+		if updateErr := s.jobRepo.Update(latest); updateErr != nil {
+			return
+		}
+		s.emitJobEvent("job:failed", latest)
+		return
+	}
+
+	if err := s.populateBatchImportResult(job); err != nil {
+		return
+	}
+	if err := s.jobRepo.Update(job); err != nil {
+		return
+	}
+	s.emitJobEvent("job:updated", job)
 }
 
 func (s *JobService) NormalizeUnfinishedJobs() error {
@@ -508,9 +624,9 @@ func (s *JobService) shouldProtectJobOnClose(job *models.Job) bool {
 func (s *JobService) PrepareForShutdown() error {
 	s.mu.Lock()
 	s.shuttingDown = true
-	running := make(map[uint]context.CancelFunc, len(s.running))
-	for id, cancel := range s.running {
-		running[id] = cancel
+	running := make(map[uint]*jobRun, len(s.running))
+	for id, run := range s.running {
+		running[id] = run
 	}
 	s.mu.Unlock()
 
@@ -535,9 +651,9 @@ func (s *JobService) PrepareForShutdown() error {
 		}
 	}
 
-	for _, cancel := range running {
-		if cancel != nil {
-			cancel()
+	for _, run := range running {
+		if run != nil && run.cancel != nil {
+			run.cancel()
 		}
 	}
 
@@ -675,10 +791,11 @@ func (s *JobService) runJob(jobID uint, resume bool) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	s.trackRunning(jobID, cancel)
+	run := s.trackRunning(jobID, cancel)
 	s.runningWg.Add(1)
 	defer func() {
 		s.untrackRunning(jobID)
+		close(run.done)
 		s.runningWg.Done()
 	}()
 
@@ -801,10 +918,10 @@ func (s *JobService) watchTimeouts() {
 					s.emitNotificationEvent(job)
 				}
 				s.mu.Lock()
-				cancel := s.running[job.ID]
+				run := s.running[job.ID]
 				s.mu.Unlock()
-				if cancel != nil {
-					cancel()
+				if run != nil && run.cancel != nil {
+					run.cancel()
 				}
 			}
 		}
@@ -845,10 +962,12 @@ func (s *JobService) policyTimeout(jobType string) time.Duration {
 	return policy.Timeout
 }
 
-func (s *JobService) trackRunning(jobID uint, cancel context.CancelFunc) {
+func (s *JobService) trackRunning(jobID uint, cancel context.CancelFunc) *jobRun {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.running[jobID] = cancel
+	run := &jobRun{cancel: cancel, done: make(chan struct{})}
+	s.running[jobID] = run
+	return run
 }
 
 func (s *JobService) untrackRunning(jobID uint) {

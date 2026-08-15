@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -408,5 +410,198 @@ func TestJobService_PrepareForShutdown_WaitsForRunningJob(t *testing.T) {
 		// Expected
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout waiting for PrepareForShutdown to return")
+	}
+}
+
+// blockingCancelHandler 模拟"取消后不会立刻停"的真实情况：
+// 复制过程不接收 ctx，所以 Execute 要等当前工作做完才返回。
+type blockingCancelHandler struct {
+	started      chan struct{}
+	release      chan struct{}
+	cleanupCalls int32
+	cleanupErr   error
+}
+
+func (h *blockingCancelHandler) Type() string                           { return "blocking_test" }
+func (h *blockingCancelHandler) Validate(payload json.RawMessage) error { return nil }
+
+func (h *blockingCancelHandler) Execute(ctx context.Context, job *models.Job, runtime JobRuntime) error {
+	close(h.started)
+	<-ctx.Done()
+	// 取消信号到达后仍要"写完当前文件"，此时清理绝不能开始。
+	<-h.release
+	return ctx.Err()
+}
+
+func (h *blockingCancelHandler) Resume(ctx context.Context, job *models.Job, runtime JobRuntime) error {
+	return h.Execute(ctx, job, runtime)
+}
+
+func (h *blockingCancelHandler) Cleanup(ctx context.Context, job *models.Job, runtime JobRuntime) error {
+	atomic.AddInt32(&h.cleanupCalls, 1)
+	return h.cleanupErr
+}
+
+func newCancelTestService(t *testing.T, handler JobHandler, jobType string) (*JobService, *repositories.JobRepository) {
+	t.Helper()
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	jobRepo := repositories.NewJobRepository(repositories.NewSQLiteDBWrapper(db))
+	service := NewJobService(jobRepo, nil, nil, nil, nil)
+	service.RegisterHandler(handler)
+	service.policies[jobType] = JobPolicy{
+		JobType:          jobType,
+		MaxConcurrent:    1,
+		CanRunBackground: true,
+		Recoverable:      true,
+		Timeout:          time.Minute,
+	}
+	return service, jobRepo
+}
+
+func waitForStatus(t *testing.T, repo *repositories.JobRepository, jobID uint, want string) *models.Job {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	var last string
+	for time.Now().Before(deadline) {
+		job, err := repo.FindByID(jobID)
+		if err == nil {
+			last = job.Status
+			if job.Status == want {
+				return job
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("job %d never reached status %q (last %q)", jobID, want, last)
+	return nil
+}
+
+// 取消运行中的任务时也要清理中间产物，并且必须等 Execute 真正退出后再清理。
+func TestJobService_CancelRunningJob_RunsCleanupAfterRunnerExits(t *testing.T) {
+	handler := &blockingCancelHandler{started: make(chan struct{}), release: make(chan struct{})}
+	service, jobRepo := newCancelTestService(t, handler, "blocking_test")
+
+	job := &models.Job{
+		JobType:       "blocking_test",
+		Status:        models.JobStatusPending,
+		Title:         "cancel running",
+		Payload:       json.RawMessage("{}"),
+		ProgressTotal: 1,
+		CanResume:     true,
+	}
+	if err := jobRepo.Create(job); err != nil {
+		t.Fatalf("failed to create job: %v", err)
+	}
+
+	go service.runJob(job.ID, false)
+	<-handler.started
+
+	if err := service.CancelJob(job.ID); err != nil {
+		t.Fatalf("CancelJob returned error: %v", err)
+	}
+
+	// runner 还卡在"写完当前文件"，此时清理必须还没发生。
+	time.Sleep(80 * time.Millisecond)
+	if got := atomic.LoadInt32(&handler.cleanupCalls); got != 0 {
+		t.Fatalf("cleanup ran while the job was still executing (calls=%d)", got)
+	}
+
+	// CancelJob 不应该阻塞到 runner 退出，状态要能立刻反馈给界面。
+	cancelled, err := jobRepo.FindByID(job.ID)
+	if err != nil {
+		t.Fatalf("failed to reload job: %v", err)
+	}
+	if cancelled.Status != models.JobStatusCancelled {
+		t.Fatalf("expected status cancelled right after CancelJob, got %q", cancelled.Status)
+	}
+
+	close(handler.release)
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if atomic.LoadInt32(&handler.cleanupCalls) == 1 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("cleanup never ran after the runner exited (calls=%d)", atomic.LoadInt32(&handler.cleanupCalls))
+}
+
+// 清理失败要落到 cleanup_failed，而不是停在 cancelled 假装成功。
+func TestJobService_CancelRunningJob_CleanupFailureMarksJob(t *testing.T) {
+	handler := &blockingCancelHandler{
+		started:    make(chan struct{}),
+		release:    make(chan struct{}),
+		cleanupErr: errors.New("temp file locked"),
+	}
+	service, jobRepo := newCancelTestService(t, handler, "blocking_test")
+
+	job := &models.Job{
+		JobType:       "blocking_test",
+		Status:        models.JobStatusPending,
+		Title:         "cleanup fails",
+		Payload:       json.RawMessage("{}"),
+		ProgressTotal: 1,
+		CanResume:     true,
+	}
+	if err := jobRepo.Create(job); err != nil {
+		t.Fatalf("failed to create job: %v", err)
+	}
+
+	go service.runJob(job.ID, false)
+	<-handler.started
+	if err := service.CancelJob(job.ID); err != nil {
+		t.Fatalf("CancelJob returned error: %v", err)
+	}
+	close(handler.release)
+
+	failed := waitForStatus(t, jobRepo, job.ID, models.JobStatusCleanupFailed)
+	if failed.ErrorMessage != "temp file locked" {
+		t.Errorf("expected cleanup error to be recorded, got %q", failed.ErrorMessage)
+	}
+}
+
+// 关停走的是"等待恢复"，暂存文件要留给下次继续，绝不能被清理掉。
+func TestJobService_ShutdownDoesNotCleanupResumableJob(t *testing.T) {
+	handler := &blockingCancelHandler{started: make(chan struct{}), release: make(chan struct{})}
+	service, jobRepo := newCancelTestService(t, handler, "blocking_test")
+
+	job := &models.Job{
+		JobType:       "blocking_test",
+		Status:        models.JobStatusPending,
+		Title:         "shutdown keeps artifacts",
+		Payload:       json.RawMessage("{}"),
+		ProgressTotal: 1,
+		CanResume:     true,
+	}
+	if err := jobRepo.Create(job); err != nil {
+		t.Fatalf("failed to create job: %v", err)
+	}
+
+	go service.runJob(job.ID, false)
+	<-handler.started
+	waitForStatus(t, jobRepo, job.ID, models.JobStatusRunning)
+
+	close(handler.release)
+	if err := service.PrepareForShutdown(); err != nil {
+		t.Fatalf("PrepareForShutdown returned error: %v", err)
+	}
+
+	if got := atomic.LoadInt32(&handler.cleanupCalls); got != 0 {
+		t.Fatalf("shutdown must not clean up a resumable job's artifacts (calls=%d)", got)
+	}
+
+	final, err := jobRepo.FindByID(job.ID)
+	if err != nil {
+		t.Fatalf("failed to reload job: %v", err)
+	}
+	if final.Status != models.JobStatusAwaitingResume {
+		t.Errorf("expected awaiting_resume after shutdown, got %q", final.Status)
 	}
 }

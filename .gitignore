@@ -6,3 +6,4 @@ frontend/dist/*
 .codex/*
 .obsidian/*
 .superpowers/*
+.tmp-go-build

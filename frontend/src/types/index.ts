@@ -68,7 +68,6 @@ export interface OpenWithConfig {
 
 export interface StorageLayoutConfig {
   strategy: 'type_only' | 'type_collection'
-  unsortedFolderName: string
   sanitizeFolderName: boolean
 }
 

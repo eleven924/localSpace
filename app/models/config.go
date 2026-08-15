@@ -44,9 +44,13 @@ type OpenWithConfig struct {
 	ByExtension map[string]string `json:"byExtension"`
 }
 
+// BuiltinUnsortedFolderName is the stable physical directory for files without a collection.
+const BuiltinUnsortedFolderName = "_unsorted"
+
 // StorageLayoutConfig controls how imported files are laid out on disk.
 type StorageLayoutConfig struct {
-	Strategy           string `json:"strategy"`
+	Strategy string `json:"strategy"`
+	// UnsortedFolderName is kept for backwards-compatible config decoding; the path is now fixed.
 	UnsortedFolderName string `json:"unsortedFolderName"`
 	SanitizeFolderName bool   `json:"sanitizeFolderName"`
 }

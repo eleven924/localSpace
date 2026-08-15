@@ -1,0 +1,2562 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LocalSpace · 设计方向原型</title>
+    <style>
+      :root {
+        --ink: #152238;
+        --ink-2: #3f5068;
+        --ink-3: #8190a7;
+        --canvas: #eef2f7;
+        --paper: rgba(255, 255, 255, 0.82);
+        --paper-strong: #ffffff;
+        --line: #dbe3ed;
+        --line-strong: #c8d4e2;
+        --blue: #2678da;
+        --blue-deep: #145ab5;
+        --blue-soft: #e6f0ff;
+        --mint: #dff3ec;
+        --amber: #fff1d6;
+        --rose: #f8e4e7;
+        --violet: #ebe6fa;
+        --shadow: 0 20px 60px rgba(29, 48, 78, 0.09);
+        --shadow-soft: 0 8px 24px rgba(29, 48, 78, 0.07);
+        --radius-xl: 24px;
+        --radius-lg: 16px;
+        --radius-md: 11px;
+        --sans: "SF Pro Display", "PingFang SC", "Microsoft YaHei UI", sans-serif;
+        --display: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
+        --mono: "SF Mono", "Cascadia Code", monospace;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #dfe6ef;
+        color: var(--ink);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      button, input, select { font: inherit; }
+      button { border: 0; cursor: pointer; color: inherit; }
+      /* inline-flex / grid / flex 的显式 display 会盖掉 hidden，这里统一兜住。 */
+      [hidden] { display: none !important; }
+      button:focus-visible, input:focus-visible { outline: 3px solid rgba(38, 120, 218, .22); outline-offset: 2px; }
+
+      .app-window {
+        display: grid;
+        grid-template-columns: 224px minmax(0, 1fr);
+        width: min(1500px, 100vw);
+        height: min(960px, 100vh);
+        margin: 0 auto;
+        overflow: hidden;
+        background: var(--canvas);
+        box-shadow: 0 30px 90px rgba(25, 42, 69, .16);
+      }
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        padding: 24px 14px 16px;
+        background: rgba(246, 248, 251, .76);
+        border-right: 1px solid rgba(190, 204, 220, .64);
+        backdrop-filter: blur(28px);
+      }
+      .sidebar-collapse-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 38px; padding: 0 10px; border-radius: 10px; color: var(--ink-3); background: transparent; font-size: 11px; }
+      .sidebar-collapse-row:hover { color: var(--blue); background: rgba(255,255,255,.72); }
+      .sidebar-collapse { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-3); background: rgba(255,255,255,.62); font-size: 13px; font-style: normal; transition: .18s ease; }
+      .sidebar-collapse-row:hover .sidebar-collapse { color: var(--blue); border-color: #a7c9f1; background: var(--blue-soft); }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px 26px;
+        color: var(--ink);
+      }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 31px;
+        height: 31px;
+        border-radius: 10px;
+        color: #fff;
+        background: linear-gradient(145deg, #3d94ef, #1158b1);
+        box-shadow: 0 7px 14px rgba(35, 112, 207, .24);
+        font-size: 14px;
+        font-weight: 800;
+      }
+      .brand-name { font-size: 17px; font-weight: 760; letter-spacing: -.02em; }
+      .brand-sub { margin: 3px 0 0; color: var(--ink-3); font-size: 10px; letter-spacing: .08em; }
+      .nav-label { padding: 0 13px 8px; color: #a1adbd; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+      .nav { display: grid; gap: 4px; }
+      .nav-button {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        width: 100%;
+        min-height: 42px;
+        padding: 0 12px;
+        border-radius: 11px;
+        background: transparent;
+        color: var(--ink-2);
+        text-align: left;
+        font-size: 13px;
+        font-weight: 610;
+        transition: .18s ease;
+      }
+      .nav-button:hover { background: rgba(255,255,255,.7); color: var(--ink); }
+      .nav-button.active { background: var(--paper-strong); color: var(--blue-deep); box-shadow: var(--shadow-soft); }
+      .nav-icon { display: grid; place-items: center; width: 18px; color: #8a9bb0; font-size: 16px; }
+      .nav-button.active .nav-icon { color: var(--blue); }
+      .nav-count { margin-left: auto; color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+      .sidebar-spacer { flex: 1; }
+      .sidebar-footer { display: grid; gap: 5px; padding-top: 16px; border-top: 1px solid var(--line); }
+      .storage-note { display: flex; align-items: center; gap: 8px; padding: 11px 12px 14px; color: var(--ink-3); font-size: 11px; }
+      .storage-dot { width: 7px; height: 7px; border-radius: 99px; background: #4bc49b; box-shadow: 0 0 0 4px rgba(75,196,155,.12); }
+      .theme-switch { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; color: var(--ink-3); font-size: 11px; }
+      .switch { position: relative; width: 34px; height: 20px; padding: 2px; border-radius: 99px; background: #b5c1d0; }
+      .switch::after { content: ""; display: block; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 2px 5px rgba(0,0,0,.15); transition: .2s ease; }
+      .switch.on { background: var(--blue); }
+      .switch.on::after { transform: translateX(14px); }
+
+      .main-shell { min-width: 0; display: flex; flex-direction: column; background: radial-gradient(circle at 82% -14%, rgba(82, 151, 231, .12), transparent 31%), linear-gradient(135deg, rgba(255,255,255,.28), transparent 36%), var(--canvas); }
+      .topbar { display: flex; align-items: center; justify-content: space-between; min-height: 72px; padding: 0 34px; border-bottom: 1px solid rgba(199, 211, 226, .72); background: rgba(244,247,251,.34); backdrop-filter: blur(18px); }
+      .breadcrumbs { display: flex; align-items: center; gap: 8px; color: var(--ink-3); font-size: 11px; }
+      .breadcrumbs strong { color: var(--ink-2); font-weight: 620; }
+      .top-actions { display: flex; align-items: center; gap: 10px; }
+      .top-action { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: transparent; color: #7c8da3; font-size: 15px; }
+      .top-action:hover { background: rgba(255,255,255,.78); color: var(--blue); }
+      .close-action { margin-left: 2px; color: #a7b2c1; font-size: 19px; font-weight: 300; }
+      .close-action:hover { color: #b84c58; background: #f8e4e7; }
+      .bell-icon { width: 16px; height: 16px; pointer-events: none; }
+      .task-status-wrap { position: relative; }
+      .task-status-button { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 9px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--ink-2); font-size: 10px; font-weight: 700; }
+      .task-status-button:hover, .task-status-button.active { border-color: #c4daf6; background: var(--blue-soft); color: var(--blue-deep); }
+      .task-ring { position: relative; display: grid; place-items: center; width: 17px; height: 17px; border: 2px solid #cbd8e6; border-top-color: var(--blue); border-right-color: var(--blue); border-radius: 50%; animation: task-ring-spin 1.35s linear infinite; }
+      .task-ring i { width: 4px; height: 4px; border-radius: 50%; background: var(--blue); }
+      .task-status-label { white-space: nowrap; }
+      .task-status-popover { position: absolute; z-index: 6; top: 43px; right: 0; width: 295px; padding: 15px; border: 1px solid #cfdbe8; border-radius: 15px; background: rgba(255,255,255,.97); box-shadow: 0 18px 38px rgba(29,48,78,.14); }
+      .task-status-popover::before { content: ""; position: absolute; top: -6px; right: 77px; width: 11px; height: 11px; border-left: 1px solid #cfdbe8; border-top: 1px solid #cfdbe8; background: #fff; transform: rotate(45deg); }
+      .task-popover-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 11px; border-bottom: 1px solid var(--line); }
+      .task-popover-head strong { font-size: 12px; }
+      .task-popover-head button { color: var(--blue); background: transparent; font-size: 10px; font-weight: 700; }
+      .task-mini-row { display: flex; align-items: center; gap: 9px; padding: 11px 0; border-bottom: 1px solid #edf1f5; }
+      .task-mini-row:last-child { border-bottom: 0; padding-bottom: 0; }
+      .task-mini-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #4bc49b; box-shadow: 0 0 0 4px rgba(75,196,155,.12); }
+      .task-mini-dot.wait { background: #e2ad49; box-shadow: 0 0 0 4px rgba(226,173,73,.13); }
+      .task-mini-copy { min-width: 0; }
+      .task-mini-copy strong, .task-mini-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .task-mini-copy strong { color: var(--ink-2); font-size: 10px; }
+      .task-mini-copy small { margin-top: 4px; color: var(--ink-3); font-size: 9px; }
+      @keyframes task-ring-spin { to { transform: rotate(360deg); } }
+      .avatar { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; color: #245892; background: #cfe0f6; font-size: 11px; font-weight: 700; }
+      .content { min-height: 0; overflow: auto; padding: 36px 44px 50px; }
+      .page { display: none; max-width: 1220px; margin: 0 auto; animation: page-in .28s ease both; }
+      .page.active { display: block; }
+      @keyframes page-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+      .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 27px; }
+      .compact-page .page-heading { align-items: center; margin-bottom: 18px; }
+      .compact-page .page-heading .kicker { display: none; }
+      .compact-page .page-heading h1 { font-size: 25px; letter-spacing: -.045em; }
+      .compact-page .page-heading .heading-note { margin-top: 6px; font-size: 11px; }
+      .kicker { display: block; margin-bottom: 9px; color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .17em; text-transform: uppercase; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-family: var(--display); font-size: clamp(30px, 3vw, 43px); line-height: 1.08; letter-spacing: -.055em; font-weight: 700; }
+      .heading-note { max-width: 520px; margin-top: 11px; color: var(--ink-3); font-size: 13px; line-height: 1.7; }
+      .heading-meta { display: flex; align-items: center; gap: 8px; padding-bottom: 5px; color: var(--ink-3); font-size: 11px; white-space: nowrap; }
+      .heading-meta strong { color: var(--ink); font-family: var(--mono); font-size: 17px; }
+      .primary-action { display: inline-flex; align-items: center; gap: 8px; min-height: 39px; padding: 0 15px; border-radius: 10px; color: #fff; background: var(--blue); box-shadow: 0 8px 16px rgba(38,120,218,.2); font-size: 12px; font-weight: 700; }
+      .primary-action:hover { background: var(--blue-deep); transform: translateY(-1px); }
+      .secondary-action { display: inline-flex; align-items: center; min-height: 38px; padding: 0 13px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.65); color: var(--ink-2); font-size: 12px; font-weight: 650; }
+      .secondary-action:hover { border-color: var(--line-strong); background: white; }
+
+      /* 文件页：把筛选从“面板”收成一条持续可见的工作工具带。 */
+      .library-tools { position: relative; display: flex; align-items: center; gap: 10px; margin-bottom: 19px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+      .search-field { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; height: 43px; padding: 0 13px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.74); box-shadow: 0 5px 13px rgba(40,60,90,.03); }
+      .search-field:focus-within { border-color: #9bc4f2; box-shadow: 0 0 0 4px rgba(38,120,218,.08); }
+      .search-glyph { color: #8ea0b6; font-size: 16px; }
+      .search-field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 12px; }
+      .search-field input::placeholder { color: #9baabd; }
+      .keycap { padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; color: #9baabd; background: #f7f9fb; font-family: var(--mono); font-size: 9px; }
+      .tool-button { display: inline-flex; align-items: center; gap: 7px; height: 43px; padding: 0 13px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.65); color: var(--ink-2); font-size: 12px; font-weight: 650; }
+      .tool-button:hover, .tool-button.active { border-color: #a7c9f1; color: var(--blue-deep); background: var(--blue-soft); }
+      .filter-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+      .view-toggle { display: flex; align-items: center; gap: 3px; height: 43px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.52); }
+      .view-toggle button { width: 34px; height: 35px; border-radius: 9px; color: #9aa8ba; font-size: 15px; }
+      .view-toggle button.active { background: white; color: var(--blue); box-shadow: var(--shadow-soft); }
+      .active-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; }
+      .active-filter { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid #c4daf6; border-radius: 8px; color: var(--blue-deep); background: var(--blue-soft); font-size: 10px; font-weight: 650; }
+      .active-filter button { color: inherit; background: transparent; font-size: 13px; line-height: 1; }
+      .filter-popover { position: absolute; z-index: 5; top: 51px; right: 72px; width: min(390px, calc(100vw - 50px)); padding: 16px; border: 1px solid #cfdbe8; border-radius: 15px; background: rgba(255,255,255,.96); box-shadow: 0 18px 38px rgba(29,48,78,.14); }
+      .filter-popover::before { content: ""; position: absolute; top: -6px; right: 119px; width: 11px; height: 11px; border-left: 1px solid #cfdbe8; border-top: 1px solid #cfdbe8; background: #fff; transform: rotate(45deg); }
+      .popover-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+      .popover-head strong { font-size: 13px; }
+      .text-button { color: var(--blue); background: transparent; font-size: 11px; }
+      .filter-group { padding-top: 14px; }
+      .filter-group-label { display: block; margin-bottom: 9px; color: var(--ink-3); font-size: 10px; font-weight: 750; }
+      .filter-options { display: flex; flex-wrap: wrap; gap: 7px; }
+      .filter-option { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; color: var(--ink-2); font-size: 11px; }
+      .filter-option.selected { border-color: #a7c9f1; color: var(--blue-deep); background: var(--blue-soft); }
+      .library-caption { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; color: var(--ink-3); font-size: 11px; }
+      .library-caption strong { color: var(--ink-2); font-weight: 650; }
+      .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 14px; }
+      .file-card { min-width: 0; padding: 10px; border: 1px solid rgba(201, 213, 228, .82); border-radius: 15px; background: rgba(255,255,255,.74); box-shadow: 0 7px 19px rgba(44,64,94,.045); transition: .18s ease; }
+      .file-card:hover { transform: translateY(-3px); border-color: #a7c9f1; box-shadow: 0 15px 28px rgba(44,64,94,.1); }
+      .file-preview { position: relative; display: grid; place-items: center; height: 125px; overflow: hidden; border-radius: 10px; background: #e8eef6; }
+      .file-preview::after { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,.34), transparent 46%); pointer-events: none; }
+      .preview-video { background: linear-gradient(135deg, #1c426e, #4e8fbe 50%, #b0d7d7); }
+      .preview-document { background: linear-gradient(135deg, #dfe8f3, #f8fafc); }
+      .preview-audio { background: linear-gradient(135deg, #302f64, #ab74c3 56%, #f2b391); }
+      .preview-image { background: linear-gradient(135deg, #205f65, #b6d399 55%, #f7d38c); }
+      .preview-archive { background: linear-gradient(135deg, #d2b084, #f7e9cd); }
+      .preview-code { background: linear-gradient(135deg, #202e3c, #46627c); }
+      .preview-mark { color: rgba(255,255,255,.88); font-family: var(--mono); font-size: 27px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.16); }
+      .preview-document .preview-mark { color: #5b7ea8; }
+      .file-check { position: absolute; z-index: 2; top: 8px; left: 8px; width: 17px; height: 17px; border: 1px solid rgba(255,255,255,.92); border-radius: 5px; background: rgba(255,255,255,.82); }
+      .file-type { display: inline-flex; margin-top: 10px; padding: 4px 7px; border-radius: 6px; color: var(--blue-deep); background: var(--blue-soft); font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+      .file-name { display: block; overflow: hidden; margin-top: 7px; color: var(--ink); font-size: 12px; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+      .file-desc { overflow: hidden; height: 31px; margin-top: 6px; color: var(--ink-3); font-size: 10px; line-height: 1.55; }
+      .file-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; padding-top: 9px; border-top: 1px solid #e7edf4; color: #91a0b3; font-family: var(--mono); font-size: 9px; }
+      .file-tags { display: flex; gap: 4px; overflow: hidden; }
+      .file-tag { padding: 3px 5px; border-radius: 5px; color: #697d96; background: #f0f4f8; font-family: var(--sans); white-space: nowrap; }
+
+      .floating-pager { position: fixed; right: 25px; bottom: 21px; display: flex; align-items: center; gap: 4px; padding: 5px; border: 1px solid rgba(255,255,255,.38); border-radius: 12px; background: rgba(57, 70, 90, .76); box-shadow: 0 12px 26px rgba(31, 45, 68, .23); color: rgba(255,255,255,.76); backdrop-filter: blur(14px); font-size: 10px; }
+      .pager-arrow { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: rgba(255,255,255,.1); color: rgba(255,255,255,.68); }
+      .pager-arrow:hover { background: rgba(255,255,255,.19); }
+      .pager-number { min-width: 37px; text-align: center; font-family: var(--mono); font-size: 10px; }
+      .pager-size { display: flex; align-items: center; gap: 5px; padding: 0 7px; border-left: 1px solid rgba(255,255,255,.16); white-space: nowrap; }
+      .pager-size select { width: auto; padding: 3px 4px; border: 0; color: white; background: transparent; font-size: 10px; }
+
+      .section-card { padding: 20px; border: 1px solid rgba(201, 213, 228, .86); border-radius: var(--radius-lg); background: rgba(255,255,255,.75); box-shadow: var(--shadow-soft); }
+      .section-card + .section-card { margin-top: 16px; }
+      .subhead { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+      .subhead h2 { font-size: 16px; letter-spacing: -.02em; }
+      .subhead p { color: var(--ink-3); font-size: 11px; }
+
+      .collection-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+      .collection-toolbar .search-field { max-width: 430px; }
+      .collection-toolbar .heading-meta { margin-left: auto; }
+      .collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+      .collection-card { position: relative; min-height: 190px; padding: 18px; overflow: hidden; border: 1px solid rgba(201,213,228,.9); border-radius: 17px; background: rgba(255,255,255,.72); transition: .18s ease; }
+      .collection-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+      .collection-card::after { content: ""; position: absolute; right: -28px; bottom: -36px; width: 120px; height: 120px; border-radius: 50%; background: var(--blue-soft); opacity: .68; }
+      .collection-card.mint::after { background: var(--mint); }
+      .collection-card.amber::after { background: var(--amber); }
+      .collection-card.violet::after { background: var(--violet); }
+      .collection-card.rose::after { background: var(--rose); }
+      .collection-card-top { position: relative; z-index: 1; display: flex; justify-content: space-between; gap: 15px; }
+      .collection-glyph { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: var(--blue-deep); background: var(--blue-soft); font-size: 17px; }
+      .collection-card h3 { margin-top: 17px; font-size: 18px; letter-spacing: -.03em; }
+      .collection-count { color: var(--ink-3); font-family: var(--mono); font-size: 11px; }
+      .collection-card p { position: relative; z-index: 1; max-width: 190px; margin-top: 9px; color: var(--ink-3); font-size: 11px; line-height: 1.6; }
+      .collection-meta { position: absolute; z-index: 1; left: 18px; bottom: 17px; color: var(--ink-2); font-size: 10px; font-weight: 650; }
+
+      /* 导入页：文件只能来自系统文件窗口，所以左栏是“已选清单”，不是拖放区。 */
+      /* 侧栏和面包屑已经写明当前是导入页，标题不再重复；模式切换直接充当页头，
+         底部那条线接管原来大标题的视觉重量，切换时才不会像悬空的小部件。 */
+      .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+      .tab-header { margin-bottom: 20px; }
+      .imp-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line); }
+      .imp-tabs button { position: relative; padding: 4px 2px 12px; border-radius: 0; background: transparent; color: var(--ink-3); font-size: 17px; font-weight: 700; letter-spacing: -.025em; transition: color .18s ease; }
+      .imp-tabs button::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: transparent; }
+      .imp-tabs button:hover { color: var(--ink-2); }
+      .imp-tabs button.active { color: var(--blue-deep); }
+      .imp-tabs button.active::after { background: var(--blue); }
+      .imp-lede { margin-top: 13px; color: var(--ink-3); font-size: 11px; line-height: 1.7; }
+
+      .import-layout { display: grid; gap: 16px; align-items: start; }
+      /* 单文件只有一个主体，所以它是页头条；批量是一份清单，所以它占一整栏。 */
+      .import-layout.single { grid-template-columns: minmax(0, 1.3fr) minmax(268px, .7fr); }
+      /* 没选文件、或没配置 AI 时都只剩一栏，元信息占满整行。 */
+      .import-layout.single.solo { grid-template-columns: minmax(0, 1fr); }
+      .import-layout.batch { grid-template-columns: minmax(290px, 1fr) minmax(0, 1fr); }
+      .imp-source { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(258px, .8fr) minmax(0, 1.2fr); align-items: stretch; gap: 12px; }
+      .imp-commit { display: flex; grid-column: 1 / -1; justify-content: flex-end; gap: 8px; }
+      .imp-panel { padding: 20px; border: 1px solid rgba(201,213,228,.86); border-radius: var(--radius-lg); background: rgba(255,255,255,.75); box-shadow: var(--shadow-soft); }
+      .imp-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 15px; }
+      .imp-head h2 { font-size: 15px; letter-spacing: -.02em; }
+      .imp-head p { margin-top: 5px; color: var(--ink-3); font-size: 10px; line-height: 1.55; }
+      .imp-pill { flex: none; padding: 5px 8px; border-radius: 7px; color: var(--ink-3); background: #f1f4f8; font-size: 10px; font-weight: 700; white-space: nowrap; }
+      .imp-pill.on { color: var(--blue-deep); background: var(--blue-soft); }
+
+      /* 选择控件保持实线边框和实心底色，读起来是按钮而不是拖放目标。 */
+      .imp-pick { display: grid; grid-template-columns: 38px minmax(0, 1fr) 10px; align-items: center; gap: 12px; width: 100%; padding: 13px 14px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--paper-strong); box-shadow: 0 5px 13px rgba(40,60,90,.04); text-align: left; transition: .18s ease; }
+      .imp-pick:hover { border-color: #9bc4f2; background: #fbfdff; transform: translateY(-1px); }
+      .imp-pick-tile { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--blue-deep); background: var(--blue-soft); }
+      .imp-pick-tile svg { width: 17px; height: 17px; }
+      .imp-pick-copy { min-width: 0; }
+      .imp-pick-copy strong { display: block; font-size: 13px; font-weight: 720; }
+      .imp-pick-copy span { display: block; margin-top: 4px; color: var(--ink-3); font-size: 10px; line-height: 1.5; }
+      .imp-pick i { color: #b3c0d0; font-style: normal; font-size: 15px; }
+
+      .imp-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 16px; padding-bottom: 9px; border-bottom: 1px solid var(--line); color: var(--ink-3); font-size: 10px; font-weight: 750; }
+      .imp-tray { display: grid; gap: 8px; margin-top: 14px; }
+      .imp-list-head + .imp-tray { margin-top: 10px; }
+      .imp-tray-scroll { max-height: 268px; overflow: auto; padding-right: 2px; }
+      .imp-file { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 10px 11px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255,255,255,.72); }
+      .imp-file-lead { padding: 13px 14px; }
+      .imp-file-copy { min-width: 0; }
+      .imp-file-copy strong { display: block; overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+      .imp-file-copy p { margin-top: 4px; color: var(--ink-3); font-family: var(--mono); font-size: 9px; }
+      .imp-remove { flex: none; padding: 5px 8px; border-radius: 7px; color: var(--ink-3); background: transparent; font-size: 10px; font-weight: 650; }
+      .imp-remove:hover { color: #a74e58; background: var(--rose); }
+
+      /* 类型色片沿用资料库的类型语言，让导入和归档后是同一套识别方式。 */
+      .imp-type { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; font-size: 13px; font-weight: 800; }
+      .imp-type.video { color: #145ab5; background: #e6f0ff; }
+      .imp-type.doc { color: #46618a; background: #eaf0f7; }
+      .imp-type.audio { color: #5b4a9c; background: var(--violet); }
+      .imp-type.image { color: #1f7a5e; background: var(--mint); }
+      .imp-type.archive { color: #8f6210; background: var(--amber); }
+      .imp-type.installer { color: #a1414e; background: var(--rose); }
+
+      .imp-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; margin-top: 13px; }
+      .imp-stat { padding: 12px 13px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255,255,255,.66); }
+      .imp-stat strong { display: block; font-family: var(--mono); font-size: 20px; letter-spacing: -.045em; }
+      .imp-stat span { display: block; margin-top: 5px; color: var(--ink-3); font-size: 10px; }
+
+      .imp-form { display: grid; gap: 13px; }
+      .imp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+      .imp-field { display: grid; gap: 7px; }
+      .imp-field.wide { grid-column: 1 / -1; }
+      .imp-field label { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--ink-2); font-size: 11px; font-weight: 700; }
+      .imp-field label em { color: var(--ink-3); font-style: normal; font-weight: 500; font-size: 10px; }
+      .imp-field input, .imp-field textarea, .imp-field select { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px; outline: none; color: var(--ink); background: #fbfcfe; font-size: 11px; font-family: inherit; }
+      .imp-field textarea { min-height: 76px; resize: vertical; }
+      .imp-field input:focus, .imp-field textarea:focus, .imp-field select:focus { border-color: #9bc4f2; box-shadow: 0 0 0 4px rgba(38,120,218,.08); }
+      .imp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .imp-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid #c4daf6; border-radius: 7px; color: var(--blue-deep); background: var(--blue-soft); font-size: 10px; font-weight: 650; }
+      .imp-chip button { color: inherit; background: transparent; font-size: 12px; line-height: 1; }
+      .imp-count { color: var(--ink-3); font-family: var(--mono); font-size: 9px; text-align: right; }
+
+      .imp-ai-label { display: block; margin: 15px 0 8px; color: var(--ink-3); font-size: 10px; font-weight: 750; }
+      .imp-ai-label:first-child { margin-top: 0; }
+      .imp-ai-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+      .imp-ai-tag { padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink-2); background: #fff; font-size: 10px; }
+      .imp-ai-tag:hover { border-color: #a7c9f1; color: var(--blue-deep); background: var(--blue-soft); }
+      .imp-ai-desc { padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink-2); background: #fff; font-size: 11px; line-height: 1.7; }
+      .imp-ai-actions { display: flex; gap: 7px; margin-top: 9px; }
+
+      .imp-toggles { display: grid; gap: 9px; }
+      .imp-toggle { display: flex; align-items: flex-start; gap: 10px; padding: 12px 13px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255,255,255,.66); }
+      .imp-toggle input { width: 15px; height: 15px; margin: 2px 0 0; flex: none; accent-color: var(--blue); }
+      .imp-toggle strong { display: block; font-size: 11px; }
+      .imp-toggle p { margin-top: 4px; color: var(--ink-3); font-size: 10px; line-height: 1.6; }
+
+      .imp-feedback { display: flex; align-items: center; margin-right: auto; padding: 9px 12px; border-radius: 9px; font-size: 11px; line-height: 1.5; }
+      .imp-feedback.success { color: #278362; background: var(--mint); }
+      .imp-feedback.error { color: #a1414e; background: var(--rose); }
+      .imp-empty { padding: 22px 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #f7f9fc; text-align: center; }
+      .imp-empty strong { display: block; font-size: 12px; }
+      .imp-empty p { margin-top: 6px; color: var(--ink-3); font-size: 10px; line-height: 1.6; }
+      /* 来源条里的空位要和选择控件同高，所以改成左对齐、垂直居中。 */
+      .imp-empty-lead { display: grid; align-content: center; padding: 13px 16px; text-align: left; }
+      .imp-locked { display: grid; place-items: center; min-height: 132px; padding: 22px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #f7f9fc; text-align: center; }
+      .imp-locked strong { display: block; font-size: 12px; }
+      .imp-locked p { max-width: 340px; margin-top: 6px; color: var(--ink-3); font-size: 10px; line-height: 1.7; }
+      .primary-action[disabled], .secondary-action[disabled], .text-button[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; }
+      .primary-action[disabled]:hover { background: var(--blue); transform: none; }
+      .secondary-action[disabled]:hover { border-color: var(--line); background: rgba(255,255,255,.65); }
+
+      /* 任务页：状态是主要扫描轴，所以它移到行首成为一条色条。
+         克制用色——完成是常态，不着色；只有进行中、待处理和失败才有颜色。 */
+      /* 筛选沿用资料库的工具带 + 浮层 + active chip，只是这里没有搜索，
+         因为 ListJobs 只支持 jobType，不支持按标题检索。 */
+      .tk-tools { position: relative; display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+      .tk-tools .tool-button { height: 36px; }
+      .tk-tools-meta { display: flex; align-items: center; gap: 8px; margin-left: auto; color: var(--ink-3); font-size: 11px; }
+      .tk-tools-meta b { color: var(--ink-2); font-family: var(--mono); font-weight: 600; }
+      .tk-filter-popover { top: 46px; left: 0; right: auto; width: max-content; max-width: min(360px, calc(100vw - 50px)); padding: 14px; }
+      .tk-filter-popover::before { left: 24px; right: auto; }
+      .tk-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+      .tk-chips:empty { display: none; }
+      .tk-opt-count { margin-left: 6px; color: var(--ink-3); font-family: var(--mono); font-size: 9px; }
+      .filter-option.selected .tk-opt-count { color: #6f9fd8; }
+      /* 两个数字是两条事实，不值得做成两张卡片。 */
+      .tk-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 13px 0 16px; color: var(--ink-3); font-size: 11px; }
+      .tk-summary b { color: var(--ink-2); font-family: var(--mono); font-weight: 600; }
+      .tk-live { display: inline-flex; align-items: center; gap: 6px; color: var(--blue-deep); }
+      .tk-live-dot { position: relative; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+      .tk-live-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1px solid var(--blue); opacity: .35; animation: tk-pulse 1.8s ease-out infinite; }
+      @keyframes tk-pulse { 0% { transform: scale(.6); opacity: .5 } 100% { transform: scale(1.25); opacity: 0 } }
+      .tk-refresh { display: inline-flex; align-items: center; gap: 6px; color: var(--blue-deep); background: transparent; font-size: 11px; font-weight: 700; }
+      .tk-refresh:disabled { color: var(--ink-3); cursor: not-allowed; }
+
+      .tk-list { display: grid; gap: 8px; }
+      .tk-item { overflow: hidden; border: 1px solid rgba(201,213,228,.86); border-radius: var(--radius-md); background: rgba(255,255,255,.75); transition: .18s ease; }
+      .tk-item:hover { border-color: var(--line-strong); box-shadow: var(--shadow-soft); }
+      /* 每一行都是独立 grid，所以操作列必须定宽，否则按钮数量不同的行列位会错开，纵向就扫不成列了。 */
+      .tk-row { display: grid; grid-template-columns: 3px 34px minmax(0, 1fr) 122px 132px 74px 98px; align-items: center; gap: 13px; padding: 12px 14px 12px 0; }
+
+      /* 行首色条：只有需要注意的状态才上色。 */
+      .tk-rail { align-self: stretch; border-radius: 0 3px 3px 0; background: transparent; }
+      .tk-item.is-active .tk-rail { background: var(--blue); }
+      .tk-item.is-attention .tk-rail { background: #e2ad49; }
+      .tk-item.is-error .tk-rail { background: #c9737f; }
+
+      .tk-type { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; font-size: 13px; font-weight: 800; color: #6b7b90; background: #eef1f5; }
+      .tk-type.batch { color: #145ab5; background: var(--blue-soft); }
+      .tk-type.single { color: #46618a; background: #eaf0f7; }
+      .tk-type.cleanup { color: #8f6210; background: var(--amber); }
+
+      .tk-main { min-width: 0; }
+      .tk-main strong { display: block; overflow: hidden; color: var(--ink); font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+      .tk-main p { margin-top: 4px; overflow: hidden; color: var(--ink-3); font-size: 10px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+      .tk-main p.err { color: #a85d5d; }
+
+      .tk-time { display: grid; gap: 3px; color: var(--ink-3); font-family: var(--mono); font-size: 9px; }
+      .tk-time span { display: flex; gap: 7px; }
+      .tk-time i { font-style: normal; color: #9aa8ba; }
+
+      /* 进度条只在真正还在跑的时候出现；终态显示结果本身更有信息量。 */
+      .tk-progress { display: grid; gap: 5px; }
+      .tk-track { height: 5px; overflow: hidden; border-radius: 20px; background: #e7edf4; }
+      .tk-fill { height: 100%; border-radius: inherit; background: var(--blue); transition: width .3s ease; }
+      .tk-count { color: var(--ink-3); font-family: var(--mono); font-size: 9px; }
+      .tk-outcome { color: var(--ink-2); font-size: 10px; line-height: 1.5; }
+      .tk-outcome em { color: #a85d5d; font-style: normal; }
+
+      .tk-status { justify-self: start; padding: 4px 8px; border-radius: 6px; color: var(--ink-3); background: #f0f3f7; font-size: 9px; font-weight: 800; white-space: nowrap; }
+      .tk-status.run { color: var(--blue-deep); background: var(--blue-soft); }
+      .tk-status.wait { color: #a06c14; background: var(--amber); }
+      .tk-status.err { color: #a1414e; background: var(--rose); }
+
+      .tk-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding-right: 2px; }
+      .tk-btn { padding: 5px 9px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink-2); background: #fbfcfe; font-size: 10px; font-weight: 650; white-space: nowrap; }
+      .tk-btn:hover { border-color: var(--line-strong); background: #fff; }
+      .tk-btn.go { color: #fff; border-color: var(--blue); background: var(--blue); }
+      .tk-btn.go:hover { background: var(--blue-deep); border-color: var(--blue-deep); }
+      .tk-btn.warn:hover { color: #a74e58; border-color: #e7c2c8; background: #fdf4f5; }
+
+      /* 详情是行的延伸，不是浮层，所以贴着行的底边内嵌。 */
+      .tk-detail { padding: 14px 16px 15px 20px; border-top: 1px solid #e9eef4; background: #f8fafc; }
+      .tk-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+      .tk-detail-block strong { display: block; margin-bottom: 6px; color: var(--ink-3); font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+      .tk-detail-block p { color: var(--ink-2); font-size: 11px; line-height: 1.65; }
+      .tk-detail-block p.err { color: #a85d5d; }
+      .tk-detail-block p.meta { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+      .tk-failed { margin: 7px 0 0; padding-left: 15px; color: var(--ink-3); font-size: 10px; line-height: 1.75; }
+
+      .tk-empty { display: grid; place-items: center; min-height: 250px; padding: 30px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255,255,255,.6); text-align: center; }
+      .tk-empty strong { display: block; font-size: 14px; }
+      .tk-empty p { max-width: 330px; margin: 8px auto 15px; color: var(--ink-3); font-size: 11px; line-height: 1.7; }
+
+      .tk-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 10px; }
+      .tk-pager-controls { display: flex; align-items: center; gap: 5px; }
+      .tk-page-btn { min-width: 26px; height: 26px; padding: 0 7px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink-2); background: #fbfcfe; font-family: var(--mono); font-size: 10px; }
+      .tk-page-btn.active { color: #fff; border-color: var(--blue); background: var(--blue); }
+      .tk-page-btn:disabled { color: #c3ccd8; cursor: not-allowed; }
+      .tk-pager select { padding: 4px 5px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink-2); background: #fbfcfe; font-size: 10px; }
+
+
+      /* 设置页：8 个分区共用一条安静的左侧导航 + 一个内容列。
+         导航沿用说明页「页内目录」的写法——画布上的列表加一条左侧色条，
+         不再包一层白卡：那会让它和全局左导航变成两张并排的纸。 */
+      .set-workbench { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 36px; align-items: start; }
+      .set-nav { position: sticky; top: 0; padding-top: 3px; }
+      .set-nav-group + .set-nav-group { margin-top: 17px; }
+      .set-nav-label { display: block; padding: 0 12px 8px; color: #a1adbd; font-size: 9px; font-weight: 800; letter-spacing: .15em; }
+      .set-nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 11px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0; color: var(--ink-3); background: transparent; text-align: left; font-size: 11.5px; font-weight: 620; transition: .16s ease; }
+      .set-nav-item:hover { color: var(--ink-2); background: rgba(255,255,255,.5); }
+      .set-nav-item.active { border-left-color: var(--blue); color: var(--blue-deep); background: rgba(255,255,255,.66); font-weight: 720; }
+      .set-nav-item svg { width: 15px; height: 15px; flex: none; opacity: .75; }
+      .set-nav-item.active svg { opacity: 1; }
+      .set-nav-collapse { display: flex; align-items: center; gap: 9px; width: 100%; margin-top: 22px; padding: 9px 11px; border-top: 1px solid var(--line); border-radius: 0; color: var(--ink-3); background: transparent; font-size: 10px; }
+      .set-nav-collapse:hover { color: var(--blue-deep); }
+      .set-nav-collapse i { font-style: normal; font-size: 12px; }
+
+      /* 收起后只剩图标，导航结构还在，但内容列拿回横向空间。 */
+      .set-workbench.nav-collapsed { grid-template-columns: 46px minmax(0, 1fr); gap: 26px; }
+      .set-workbench.nav-collapsed .set-nav-label,
+      .set-workbench.nav-collapsed .set-nav-item span,
+      .set-workbench.nav-collapsed .set-nav-collapse span { display: none; }
+      .set-workbench.nav-collapsed .set-nav-item { justify-content: center; padding-inline: 0; }
+      .set-workbench.nav-collapsed .set-nav-collapse { justify-content: center; padding-inline: 0; }
+      .set-workbench.nav-collapsed .set-nav-group + .set-nav-group { margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--line); }
+
+      /* 当前分区就是这一页的页头：左导航和面包屑已经写过「设置」，再写一次是冗余。
+         头部的通栏细线接管页面顶部的视觉重量，和导入页的标签栏是同一个装置。 */
+      .set-detail { min-width: 0; max-width: 880px; }
+      .set-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding-bottom: 13px; margin-bottom: 21px; border-bottom: 1px solid var(--line); }
+      .set-head h2 { font-size: 18px; letter-spacing: -.035em; }
+      .set-head p { margin-top: 6px; color: var(--ink-3); font-size: 11px; line-height: 1.6; }
+      /* 主题、存储目录、合集没有保存按钮，因为它们本来就即时生效——把这件事写出来，
+         而不是让用户找一个不存在的按钮。 */
+      .set-head-note { flex: none; padding: 5px 8px; border-radius: 7px; color: var(--ink-3); background: #f1f4f8; font-size: 10px; font-weight: 700; white-space: nowrap; }
+
+      .set-section + .set-section,
+      .set-rows + .set-group > .set-section:first-of-type { margin-top: 27px; padding-top: 22px; border-top: 1px solid var(--line); }
+      .set-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 13px; }
+      .set-section-head h3 { font-size: 12px; font-weight: 760; }
+      .set-section-head p { margin-top: 5px; max-width: 560px; color: var(--ink-3); font-size: 10px; line-height: 1.65; }
+
+      /* 说明在左、控件在右的扁平行，用细线分隔——不把每一条设置都做成一张卡。 */
+      .set-rows > .set-row + .set-row { border-top: 1px solid var(--line); }
+      .set-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 296px); align-items: center; gap: 24px; padding: 14px 0; }
+      .set-row.stack { grid-template-columns: minmax(0, 1fr); gap: 11px; }
+      .set-row-copy label, .set-row-copy strong { display: block; color: var(--ink); font-size: 12px; font-weight: 700; }
+      .set-row-copy p { margin-top: 5px; color: var(--ink-3); font-size: 10px; line-height: 1.65; }
+      .set-row-copy em { margin-left: 6px; color: var(--ink-3); font-style: normal; font-weight: 500; font-size: 10px; }
+      .set-row-copy em.req { color: #c07b86; font-weight: 700; }
+      .set-control { display: grid; gap: 7px; }
+      .set-control.inline { display: flex; align-items: center; gap: 7px; }
+      .set-field { width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px; outline: none; color: var(--ink); background: #fbfcfe; font-size: 11px; font-family: inherit; }
+      .set-field:focus { border-color: #9bc4f2; box-shadow: 0 0 0 4px rgba(38,120,218,.08); }
+      .set-field[disabled] { color: var(--ink-3); background: #f2f4f7; cursor: not-allowed; }
+      .set-field.num { width: 96px; text-align: right; font-family: var(--mono); }
+      .set-hint { color: var(--ink-3); font-size: 10px; line-height: 1.55; }
+      .set-unit { color: var(--ink-3); font-size: 10px; }
+      .set-mini { flex: none; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-2); background: #fbfcfe; font-size: 10px; font-weight: 650; white-space: nowrap; }
+      .set-mini:hover { border-color: var(--line-strong); background: #fff; }
+      .set-mini.warn:hover { color: #a74e58; border-color: #e7c2c8; background: #fdf4f5; }
+      .set-mini[disabled] { opacity: .42; cursor: not-allowed; }
+      .set-mini[disabled]:hover { border-color: var(--line); background: #fbfcfe; }
+
+      /* 开关沿用侧栏 .switch 的几何尺寸，让全站只有一种开关。 */
+      .set-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+      .set-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+      .set-switch-track { position: relative; width: 34px; height: 20px; flex: none; padding: 2px; border-radius: 99px; background: #b5c1d0; transition: .2s ease; }
+      .set-switch-track::after { content: ""; display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,.15); transition: .2s ease; }
+      .set-switch input:checked + .set-switch-track { background: var(--blue); }
+      .set-switch input:checked + .set-switch-track::after { transform: translateX(14px); }
+      .set-switch input:focus-visible + .set-switch-track { outline: 3px solid rgba(38,120,218,.22); outline-offset: 2px; }
+      .set-switch-label { color: var(--ink-3); font-size: 10px; font-weight: 650; }
+      .set-check { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 11px; cursor: pointer; }
+      .set-check input { width: 15px; height: 15px; margin: 0; accent-color: var(--blue); }
+
+      /* 文件类型色片从资料库经导入页延续到设置：同一套类型语言，第三次出现。 */
+      .set-type { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 8px; font-size: 12px; font-weight: 800; }
+      .set-type.sm { width: 24px; height: 24px; border-radius: 7px; font-size: 10px; }
+      .set-type.video { color: #145ab5; background: #e6f0ff; }
+      .set-type.doc { color: #46618a; background: #eaf0f7; }
+      .set-type.audio { color: #5b4a9c; background: var(--violet); }
+      .set-type.image { color: #1f7a5e; background: var(--mint); }
+      .set-type.archive { color: #8f6210; background: var(--amber); }
+      .set-type.installer { color: #a1414e; background: var(--rose); }
+      .set-type.other { color: #6b7b90; background: #eef1f5; }
+      .set-type-row { display: flex; align-items: center; gap: 11px; }
+      /* 打开方式的说明列很短（视频 / 音频），把宽度让给真正需要空间的路径输入。 */
+      .set-rows.paths .set-row { grid-template-columns: 146px minmax(0, 1fr); gap: 18px; }
+      .set-type-row .set-row-copy small { display: block; margin-top: 3px; color: var(--ink-3); font-family: var(--mono); font-size: 9px; }
+
+      /* 纸面只留给真实存在的对象：一个主目录、一条覆盖规则、一个合集。 */
+      .set-list { display: grid; gap: 9px; }
+      .set-dir { overflow: hidden; border: 1px solid rgba(201,213,228,.86); border-radius: var(--radius-md); background: rgba(255,255,255,.75); }
+      .set-dir.inactive { opacity: .58; }
+      .set-dir-head { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+      .set-dir-toggle { display: grid; grid-template-columns: 12px minmax(0, 1fr); align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 0; background: transparent; text-align: left; }
+      .set-dir-chevron { color: #b3c0d0; font-size: 13px; font-style: normal; transition: transform .18s ease; }
+      .set-dir.open .set-dir-chevron { transform: rotate(90deg); }
+      .set-dir-copy { min-width: 0; }
+      .set-dir-path { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .set-dir-path strong { overflow: hidden; font-family: var(--mono); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+      .set-badge { flex: none; padding: 3px 6px; border-radius: 5px; color: var(--blue-deep); background: var(--blue-soft); font-size: 9px; font-weight: 800; }
+      .set-dir-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 5px; color: var(--ink-3); font-size: 10px; }
+      .set-dir-meta b { color: var(--ink-2); font-family: var(--mono); font-weight: 600; }
+      .set-dir-actions { display: flex; align-items: center; gap: 6px; }
+      .set-subdirs { padding: 4px 14px 13px 26px; border-top: 1px solid #e9eef4; background: #f8fafc; }
+      .set-subdir { display: flex; align-items: center; gap: 10px; max-width: 470px; padding: 9px 0; border-bottom: 1px solid #eef2f7; }
+      .set-subdir:last-child { border-bottom: 0; }
+      .set-subdir-name { flex: 1; color: var(--ink-2); font-size: 11px; }
+      .set-subdir b { color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 600; }
+      .set-subdir-empty { padding: 13px 0; color: var(--ink-3); font-size: 10px; }
+
+      .set-rule { display: grid; grid-template-columns: 128px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255,255,255,.72); }
+      .set-add-row { display: flex; gap: 8px; }
+      .set-add-row .set-field { max-width: 320px; }
+      .set-add-row .primary-action, .set-add-row .secondary-action { flex: none; }
+      .set-collections { max-width: 560px; }
+      .set-collection { display: flex; align-items: center; gap: 14px; padding: 13px 0; }
+      .set-collections > .set-collection + .set-collection { border-top: 1px solid var(--line); }
+      .set-collection strong { flex: 1; min-width: 0; overflow: hidden; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+      .set-collection .set-count { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+
+      .set-modes { display: inline-flex; gap: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.6); }
+      .set-modes button { padding: 8px 18px; border-radius: 8px; color: var(--ink-3); background: transparent; font-size: 11px; font-weight: 680; }
+      .set-modes button.active { color: var(--blue-deep); background: #fff; box-shadow: var(--shadow-soft); }
+      .set-swatches { display: flex; flex-wrap: wrap; gap: 9px; }
+      .set-swatch { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; box-shadow: inset 0 0 0 1px rgba(21,34,56,.09); color: #fff; font-size: 13px; }
+      .set-swatch span { opacity: 0; }
+      .set-swatch.active { outline: 2px solid var(--ink); outline-offset: 2px; }
+      .set-swatch.active span { opacity: 1; }
+      .set-color-input { display: flex; align-items: center; gap: 9px; margin-top: 14px; }
+      .set-color-input label { color: var(--ink-2); font-size: 11px; font-weight: 650; }
+      .set-color-input input[type="color"] { width: 34px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; }
+      .set-color-input .set-field { width: 108px; font-family: var(--mono); }
+      .set-bg { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); align-items: center; gap: 18px; }
+      .set-bg-preview { height: 124px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); background-size: cover; background-position: center; }
+      .set-bg-preview.empty { display: grid; place-items: center; color: var(--ink-3); background: #f7f9fc; font-size: 10px; }
+      .set-upload { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+      .set-upload input[type="file"] { display: none; }
+
+      /* 添加主目录不是「提交」，所以它不进底部动作行，而是紧跟在清单下面。 */
+      .set-inline-action { display: flex; align-items: center; gap: 14px; margin-top: 15px; }
+      .set-commit { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+      .set-feedback { display: flex; align-items: center; margin-right: auto; padding: 9px 12px; border-radius: 9px; font-size: 11px; line-height: 1.5; }
+      .set-feedback.success { color: #278362; background: var(--mint); }
+      .set-feedback.error { color: #a1414e; background: var(--rose); }
+      .set-empty { padding: 22px 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #f7f9fc; text-align: center; }
+      .set-empty strong { display: block; font-size: 12px; }
+      .set-empty p { margin-top: 6px; color: var(--ink-3); font-size: 10px; line-height: 1.6; }
+      .set-locked { display: grid; place-items: center; min-height: 118px; padding: 22px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #f7f9fc; text-align: center; }
+      .set-locked strong { display: block; font-size: 12px; }
+      .set-locked p { max-width: 320px; margin-top: 6px; color: var(--ink-3); font-size: 10px; line-height: 1.7; }
+      .set-preview { margin-top: 18px; display: inline-flex; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid #cfe0f5; border-radius: var(--radius-md); background: #f4f8fd; }
+      .set-preview b { flex: none; color: var(--ink-3); font-size: 9px; font-weight: 800; letter-spacing: .05em; }
+      .set-preview code { color: var(--blue-deep); font-family: var(--mono); font-size: 11px; }
+
+      #setAbout .set-section { margin-top: 22px; }
+      .set-about-id { display: flex; align-items: center; gap: 15px; }
+      .set-about-mark { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 15px; color: #fff; background: linear-gradient(145deg, #3d94ef, #1158b1); box-shadow: 0 9px 18px rgba(35,112,207,.22); font-size: 18px; font-weight: 800; }
+      .set-about-id h3 { font-family: var(--display); font-size: 21px; letter-spacing: -.035em; }
+      .set-about-id p { margin-top: 5px; color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+      .set-about-body { max-width: 620px; margin-top: 18px; color: var(--ink-2); font-size: 12px; line-height: 1.85; }
+      .set-features { display: grid; gap: 7px; margin: 15px 0 0; padding: 0; list-style: none; }
+      .set-features li { position: relative; padding: 10px 13px 10px 28px; border-radius: 9px; color: var(--ink-2); background: rgba(255,255,255,.55); font-size: 11px; line-height: 1.6; }
+      .set-features li::before { content: ""; position: absolute; left: 13px; top: 16px; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
+      .set-doc-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 15px 16px; border-left: 3px solid var(--blue); border-radius: 0 var(--radius-md) var(--radius-md) 0; background: var(--blue-soft); }
+      .set-doc-row strong { display: block; font-size: 12px; }
+      .set-doc-row p { margin-top: 5px; color: #4d6f9c; font-size: 10px; }
+
+      /* 整页只有两个对话框：添加主目录，和删除主目录——后者会清空目录内容，
+         值得一个真正设计过的确认，而不是一句 confirm()。 */
+      .set-modal { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(15,24,39,.52); backdrop-filter: blur(13px); }
+      .set-modal-panel { width: min(470px, 100%); overflow: hidden; border: 1px solid rgba(201,213,228,.9); border-radius: 18px; background: #fff; box-shadow: 0 30px 90px rgba(15,24,39,.3); }
+      .set-modal-panel.danger { border-top: 4px solid #c9737f; }
+      .set-modal-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 13px; align-items: center; padding: 20px 22px 17px; border-bottom: 1px solid #edf0f4; }
+      .set-modal-mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--blue-deep); background: var(--blue-soft); font-size: 17px; }
+      .set-modal-panel.danger .set-modal-mark { color: #a1414e; background: var(--rose); }
+      .set-modal-head h3 { font-size: 15px; letter-spacing: -.02em; }
+      .set-modal-head p { margin-top: 5px; color: var(--ink-3); font-size: 10px; line-height: 1.6; }
+      .set-modal-body { display: grid; gap: 14px; padding: 18px 22px 4px; }
+      .set-modal-field { display: grid; gap: 7px; }
+      .set-modal-field label { color: var(--ink-2); font-size: 11px; font-weight: 700; }
+      .set-modal-warning { padding: 12px 13px; border-radius: 10px; color: #a1414e; background: var(--rose); font-size: 11px; line-height: 1.7; }
+      .set-modal-warning b { display: block; margin-bottom: 4px; }
+      .set-modal-target { padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink-2); background: #f8fafc; font-family: var(--mono); font-size: 11px; word-break: break-all; }
+      .set-modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 18px 22px; }
+      .danger-action { color: #a74e58; border-color: #efc9cf; background: #fff5f6; }
+      .danger-action:hover { border-color: #dca0aa; background: #fbe9eb; }
+
+      .doc-layout { display: grid; grid-template-columns: 172px minmax(0, 680px); gap: 40px; align-items: start; max-width: 940px; margin: 0 auto; }
+      .doc-toc { position: sticky; top: 8px; display: grid; gap: 3px; padding-top: 7px; }
+      .doc-toc small { margin: 0 0 10px 10px; color: #a1adbd; font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+      .doc-toc button { padding: 9px 10px; border-left: 2px solid transparent; color: var(--ink-3); background: transparent; text-align: left; font-size: 11px; }
+      .doc-toc button.active { border-left-color: var(--blue); color: var(--blue-deep); background: rgba(255,255,255,.52); }
+      .doc-article { display: grid; gap: 28px; }
+      .doc-hero { padding-bottom: 25px; border-bottom: 1px solid var(--line); }
+      .doc-hero h2 { max-width: 600px; font-family: var(--display); font-size: 34px; line-height: 1.17; letter-spacing: -.05em; }
+      .doc-hero p { max-width: 560px; margin-top: 13px; color: var(--ink-3); font-size: 12px; line-height: 1.8; }
+      .doc-section { display: grid; gap: 12px; }
+      .doc-section h3 { font-size: 16px; }
+      .doc-section p { color: var(--ink-2); font-size: 12px; line-height: 1.85; }
+      .doc-list { display: grid; gap: 8px; margin: 3px 0 0; padding: 0; list-style: none; }
+      .doc-list li { position: relative; padding: 11px 13px 11px 29px; border-radius: 10px; color: var(--ink-2); background: rgba(255,255,255,.55); font-size: 11px; line-height: 1.6; }
+      .doc-list li::before { content: ""; position: absolute; left: 14px; top: 17px; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
+      .design-note { margin-top: 26px; padding: 15px; border-left: 3px solid var(--blue); border-radius: 0 10px 10px 0; color: var(--ink-2); background: var(--blue-soft); font-size: 11px; line-height: 1.7; }
+
+      .toast { position: fixed; right: 28px; top: 85px; z-index: 20; padding: 11px 14px; border: 1px solid #c4daf6; border-radius: 10px; color: var(--blue-deep); background: rgba(246,250,255,.96); box-shadow: var(--shadow); font-size: 11px; animation: toast-in .24s ease both; }
+      @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+      .exit-guard-overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(15, 24, 39, .52); backdrop-filter: blur(13px); }
+      .exit-guard-panel { width: min(700px, 100%); overflow: hidden; border: 1px solid rgba(230, 177, 76, .46); border-radius: 20px; background: linear-gradient(180deg, rgba(255,251,242,.99), rgba(255,255,255,.98)); box-shadow: 0 30px 90px rgba(15,24,39,.3); }
+      .exit-guard-header { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 14px; align-items: start; padding: 21px 22px 18px; border-top: 4px solid #d48a19; border-bottom: 1px solid #edf0f4; }
+      .exit-guard-mark { display: grid; place-items: center; width: 47px; height: 47px; border-radius: 14px; color: #b8670c; background: #fff0d1; font-size: 21px; }
+      .exit-guard-eyebrow { display: block; margin-bottom: 7px; color: #a56715; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+      .exit-guard-copy h2 { font-size: 20px; letter-spacing: -.03em; }
+      .exit-guard-copy p { max-width: 530px; margin-top: 7px; color: #7e8794; font-size: 11px; line-height: 1.7; }
+      .exit-guard-close { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: #9ca8b7; background: transparent; font-size: 20px; }
+      .exit-guard-close:hover { color: var(--ink); background: #f0f3f7; }
+      .exit-guard-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; padding: 16px 22px 0; }
+      .exit-guard-stat { padding: 11px 12px; border: 1px solid #e7e8e7; border-radius: 11px; background: rgba(250,249,246,.84); }
+      .exit-guard-stat strong { display: block; font-family: var(--mono); font-size: 20px; }
+      .exit-guard-stat span { display: block; margin-top: 5px; color: #8b94a0; font-size: 10px; }
+      .exit-guard-body { padding: 17px 22px 19px; }
+      .exit-guard-list-title { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+      .exit-guard-list-title strong { font-size: 12px; }
+      .exit-guard-list-title span { color: #9aa3ae; font-size: 10px; }
+      .exit-job { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-top: 1px solid #edf0f3; }
+      .exit-job-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #4bc49b; box-shadow: 0 0 0 4px rgba(75,196,155,.12); }
+      .exit-job-dot.wait { background: #e2ad49; box-shadow: 0 0 0 4px rgba(226,173,73,.13); }
+      .exit-job-copy { min-width: 0; flex: 1; }
+      .exit-job-copy strong { display: block; overflow: hidden; color: #344052; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+      .exit-job-copy span { display: block; margin-top: 4px; color: #99a2ae; font-size: 9px; }
+      .resume-pill { padding: 4px 7px; border-radius: 6px; color: #278362; background: var(--mint); font-size: 9px; font-weight: 800; white-space: nowrap; }
+      .resume-pill.no { color: #a06c14; background: var(--amber); }
+      .exit-guard-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 22px 19px; border-top: 1px solid #edf0f3; }
+
+      /* 收起后的全局侧栏只保留图标，让内容工作区获得更多横向空间。 */
+      .app-window.sidebar-collapsed { grid-template-columns: 76px minmax(0, 1fr); }
+      .app-window.sidebar-collapsed .sidebar { padding-inline: 10px; }
+      .app-window.sidebar-collapsed .brand { justify-content: center; padding-inline: 0; }
+      .app-window.sidebar-collapsed .brand-copy,
+      .app-window.sidebar-collapsed .nav-label,
+      .app-window.sidebar-collapsed .nav-button span:not(.nav-icon),
+      .app-window.sidebar-collapsed .nav-count,
+      .app-window.sidebar-collapsed .storage-note,
+      .app-window.sidebar-collapsed .theme-switch > span { display: none; }
+      .app-window.sidebar-collapsed .nav-button { justify-content: center; padding-inline: 0; }
+      .app-window.sidebar-collapsed .sidebar-collapse-row { justify-content: center; padding-inline: 0; }
+      .app-window.sidebar-collapsed .sidebar-collapse-row > span { display: none; }
+      .app-window.sidebar-collapsed .sidebar-collapse { transform: rotate(180deg); }
+
+      @media (max-width: 850px) {
+        .app-window { grid-template-columns: 72px minmax(0, 1fr); }
+        .sidebar { padding-inline: 10px; }
+        .brand { justify-content: center; padding-inline: 0; }
+        .brand-copy, .nav-label, .nav-button span:not(.nav-icon), .storage-note, .theme-switch > span { display: none; }
+        .sidebar-collapse-row { justify-content: center; padding-inline: 0; }
+        .sidebar-collapse-row > span { display: none; }
+        .nav-button { justify-content: center; padding: 0; }
+        .nav-count { display: none; }
+        .content { padding: 28px 24px 44px; }
+        .topbar { padding-inline: 24px; }
+        .import-layout, .doc-layout { grid-template-columns: 1fr; }
+        .import-layout.single, .import-layout.batch { grid-template-columns: 1fr; }
+        .imp-source { grid-template-columns: 1fr; }
+        /* 窄屏下设置导航自动收成图标条，和产品里 980px 的自动收起是同一件事。 */
+        .set-workbench { grid-template-columns: 46px minmax(0, 1fr); gap: 24px; }
+        .set-nav-label, .set-nav-item span, .set-nav-collapse span { display: none; }
+        .set-nav-item, .set-nav-collapse { justify-content: center; padding-inline: 0; }
+        .set-nav-group + .set-nav-group { margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--line); }
+        .set-row { grid-template-columns: minmax(0, 1fr) minmax(0, 240px); gap: 16px; }
+        .set-bg { grid-template-columns: 1fr; }
+        .doc-toc { position: static; display: flex; overflow: auto; padding: 0; }
+        .doc-toc small { display: none; }
+        .doc-toc button { flex-shrink: 0; border: 0; border-radius: 8px; }
+        /* 先收掉绝对时间：进度和状态比“几点开始”更值得占位。 */
+        .tk-row { grid-template-columns: 3px 34px minmax(0, 1fr) 124px 70px 98px; }
+        .tk-time { display: none; }
+      }
+      @media (max-width: 620px) {
+        .topbar { min-height: 58px; padding-inline: 15px; }
+        .breadcrumbs span { display: none; }
+        .content { padding: 23px 15px 38px; }
+        .page-heading { display: block; }
+        .heading-meta { margin-top: 15px; }
+        .library-tools, .collection-toolbar { align-items: stretch; flex-wrap: wrap; }
+        .search-field { flex-basis: 100%; }
+        .collection-toolbar .heading-meta { width: 100%; margin-left: 0; padding: 3px 0 0; }
+        .filter-popover { left: 0; right: auto; width: 100%; }
+        /* 窄屏改成三层：标题、进度、状态与操作同处一行，不让每段各占一整行。 */
+        .tk-row {
+          grid-template-columns: 3px 34px minmax(0, 1fr) auto;
+          grid-template-areas:
+            "rail type main main"
+            "rail prog prog prog"
+            "rail stat stat acts";
+          row-gap: 10px;
+          padding-bottom: 13px;
+        }
+        .tk-rail { grid-area: rail; }
+        .tk-type { grid-area: type; align-self: start; }
+        .tk-main { grid-area: main; }
+        .tk-progress { grid-area: prog; }
+        .tk-status { grid-area: stat; align-self: center; }
+        .tk-actions { grid-area: acts; flex-wrap: wrap; }
+        .imp-grid { grid-template-columns: 1fr; }
+        .imp-tabs { gap: 16px; }
+        .imp-tabs button { font-size: 15px; }
+        .imp-lede { font-size: 10px; }
+        .imp-commit { flex-direction: column-reverse; }
+        .imp-commit .imp-feedback { margin-right: 0; }
+        .imp-commit .primary-action, .imp-commit .secondary-action { justify-content: center; }
+        .task-status-label { display: none; }
+        .tk-summary { flex-wrap: wrap; }
+        .tk-tools { flex-wrap: wrap; }
+        .tk-tools-meta { width: 100%; margin-left: 0; }
+        .tk-pager { flex-direction: column; align-items: flex-start; }
+        .floating-pager { right: 12px; bottom: 12px; }
+        .set-row { grid-template-columns: minmax(0, 1fr); gap: 11px; }
+        .set-rule { grid-template-columns: minmax(0, 1fr); }
+        .set-commit { flex-direction: column-reverse; align-items: stretch; }
+        .set-commit .set-feedback { margin-right: 0; }
+        .set-commit .primary-action, .set-commit .secondary-action { justify-content: center; }
+        .set-doc-row { flex-direction: column; align-items: flex-start; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+        .task-ring { animation: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-window">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">L</div>
+          <div class="brand-copy"><div class="brand-name">LocalSpace</div><p class="brand-sub">PRIVATE ARCHIVE</p></div>
+        </div>
+        <span class="nav-label">工作台</span>
+        <nav class="nav" aria-label="主导航">
+          <button class="nav-button active" data-page="files"><span class="nav-icon">⌂</span><span>资料库</span><span class="nav-count">1,284</span></button>
+          <button class="nav-button" data-page="collections"><span class="nav-icon">▧</span><span>合集</span><span class="nav-count">12</span></button>
+          <button class="nav-button" data-page="import"><span class="nav-icon">↥</span><span>导入</span><span class="nav-count">3</span></button>
+          <button class="nav-button" data-page="tasks"><span class="nav-icon">◒</span><span>任务</span><span class="nav-count">2</span></button>
+        </nav>
+        <div class="sidebar-spacer"></div>
+        <div class="sidebar-footer">
+          <button class="nav-button" data-page="settings"><span class="nav-icon">⚙</span><span>设置</span></button>
+          <button class="nav-button" data-page="docs"><span class="nav-icon">?</span><span>使用说明</span></button>
+          <div class="storage-note"><i class="storage-dot"></i><span>本地资料库 · 正常</span></div>
+          <button class="sidebar-collapse-row" id="sidebarToggle" type="button" aria-label="收起侧栏" aria-expanded="true" title="收起侧栏"><span>收起侧栏</span><i class="sidebar-collapse">‹</i></button>
+          <button class="theme-switch" id="themeToggle"><span>浅色界面</span><i class="switch" id="themeSwitch"></i></button>
+        </div>
+      </aside>
+
+      <main class="main-shell">
+        <header class="topbar">
+          <div class="breadcrumbs"><span>LocalSpace</span><b>›</b><strong id="crumb">资料库</strong></div>
+          <div class="top-actions">
+            <div class="task-status-wrap">
+              <button class="task-status-button" id="taskStatusButton" title="2 个任务正在处理" aria-label="2 个任务正在处理"><span class="task-ring"><i></i></span><span class="task-status-label">2 个任务</span></button>
+              <div class="task-status-popover" id="taskStatusPopover" hidden>
+                <div class="task-popover-head"><strong>后台任务</strong><button id="taskOpenButton" type="button">查看任务</button></div>
+                <div class="task-mini-row"><span class="task-mini-dot"></span><div class="task-mini-copy"><strong>批量导入 · 设计素材 2026-08</strong><small>78% · 正在处理</small></div></div>
+                <div class="task-mini-row"><span class="task-mini-dot wait"></span><div class="task-mini-copy"><strong>AI 标签建议 · 旅行与生活</strong><small>41% · 排队中</small></div></div>
+              </div>
+            </div>
+            <button class="top-action" title="通知" aria-label="通知"><svg class="bell-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></button>
+            <button class="top-action close-action" id="quitButton" title="关闭应用" aria-label="关闭应用">×</button>
+          </div>
+        </header>
+
+        <section class="content">
+          <div class="page active compact-page" id="page-files">
+            <div class="page-heading">
+              <div><span class="kicker">Your private archive</span><h1>你的资料，保持可见。</h1><p class="heading-note">把本地文件变成可检索、可回看、可继续整理的个人资料库。</p></div>
+              <div class="heading-meta"><strong>1,284</strong><span>份资料<br />最近同步 2 分钟前</span></div>
+            </div>
+            <div class="library-tools">
+              <label class="search-field"><span class="search-glyph">⌕</span><input id="fileSearch" placeholder="搜索文件名、标签或描述" /><span class="keycap">⌘ K</span></label>
+              <button class="tool-button" id="filterToggle"><span class="filter-dot"></span>筛选<span id="filterCount"></span></button>
+              <div class="view-toggle"><button class="active" data-view="grid" title="平铺">▦</button><button data-view="grouped" title="按合集分组">☷</button></div>
+              <div class="filter-popover" id="filterPopover" hidden>
+                <div class="popover-head"><strong>缩小范围</strong><button class="text-button" id="clearFilters">清除全部</button></div>
+                <div class="filter-group"><span class="filter-group-label">文件类型</span><div class="filter-options" id="typeOptions"><button class="filter-option selected" data-filter-type="全部">全部</button><button class="filter-option" data-filter-type="视频">视频</button><button class="filter-option" data-filter-type="文档">文档</button><button class="filter-option" data-filter-type="音频">音频</button><button class="filter-option" data-filter-type="图片">图片</button></div></div>
+                <div class="filter-group"><span class="filter-group-label">合集</span><div class="filter-options" id="collectionOptions"><button class="filter-option selected" data-filter-collection="全部合集">全部合集</button><button class="filter-option" data-filter-collection="app-win">app-win</button><button class="filter-option" data-filter-collection="设计参考">设计参考</button><button class="filter-option" data-filter-collection="未分配">未分配</button></div></div>
+              </div>
+            </div>
+            <div class="active-filters" id="activeFilters"></div>
+            <div class="library-caption"><span><strong id="resultCount">最近添加</strong> · 按修改时间倒序</span><span>显示 1—8 / 1,284</span></div>
+            <div class="file-grid" id="fileGrid">
+              <article class="file-card" data-kind="压缩包" data-collection="app-win"><div class="file-preview preview-archive"><span class="file-check"></span><span class="preview-mark">ZIP</span></div><span class="file-type">压缩包</span><strong class="file-name">ventoy-1.1.17-windows.zip</strong><p class="file-desc">制作启动盘的 Windows 工具包，适合随身维护。</p><div class="file-footer"><span class="file-tags"><i class="file-tag">U盘制作</i><i class="file-tag">ISO</i></span><span>15.88 MB</span></div></article>
+              <article class="file-card" data-kind="视频" data-collection="设计参考"><div class="file-preview preview-video"><span class="file-check"></span><span class="preview-mark">▶ 04:12</span></div><span class="file-type">视频</span><strong class="file-name">产品动效参考_2026.mp4</strong><p class="file-desc">收集的产品动效案例，包含转场和微交互。</p><div class="file-footer"><span class="file-tags"><i class="file-tag">动效</i><i class="file-tag">灵感</i></span><span>42.7 MB</span></div></article>
+              <article class="file-card" data-kind="文档" data-collection="设计参考"><div class="file-preview preview-document"><span class="file-check"></span><span class="preview-mark">DOC</span></div><span class="file-type">文档</span><strong class="file-name">LocalSpace 产品审查与建议.md</strong><p class="file-desc">关于资料库体验、导入路径与长期规划的记录。</p><div class="file-footer"><span class="file-tags"><i class="file-tag">产品</i><i class="file-tag">笔记</i></span><span>68 KB</span></div></article>
+              <article class="file-card" data-kind="图片" data-collection="未分配"><div class="file-preview preview-image"><span class="file-check"></span><span class="preview-mark">IMG</span></div><span class="file-type">图片</span><strong class="file-name">workspace-overview.png</strong><p class="file-desc">工作台布局草图，待归入设计参考合集。</p><div class="file-footer"><span class="file-tags"><i class="file-tag">截图</i></span><span>1.2 MB</span></div></article>
+              <article class="file-card" data-kind="音频" data-collection="灵感收集"><div class="file-preview preview-audio"><span class="file-check"></span><span class="preview-mark">♫ 08:36</span></div><span class="file-type">音频</span><strong class="file-name">访谈录音_第03期.m4a</strong><p class="file-desc">产品访谈录音，记录用户如何整理个人资料。</p><div class="file-footer"><span class="file-tags"><i class="file-tag">访谈</i></span><span>8.4 MB</span></div></article>
+              <article class="file-card" data-kind="文档" data-collection="工作记录"><div class="file-preview preview-document"><span class="file-check"></span><span class="preview-mark">PDF</span></div><span class="file-type">文档</span><strong class="file-name">2026-08 周计划.pdf</strong><p class="file-desc">本周工作节奏、待办事项和项目进度整理。</p><div class="file-footer"><span class="file-tags"><i class="file-tag">计划</i></span><span>240 KB</span></div></article>
+              <article class="file-card" data-kind="代码" data-collection="app-win"><div class="file-preview preview-code"><span class="file-check"></span><span class="preview-mark">&lt;/&gt;</span></div><span class="file-type">代码</span><strong class="file-name">release-notes-v0.1.0.ts</strong><p class="file-desc">版本发布说明相关的结构化数据草稿。</p><div class="file-footer"><span class="file-tags"><i class="file-tag">开发</i></span><span>12 KB</span></div></article>
+              <article class="file-card" data-kind="图片" data-collection="灵感收集"><div class="file-preview preview-image"><span class="file-check"></span><span class="preview-mark">PNG</span></div><span class="file-type">图片</span><strong class="file-name">macos-toolbar-study.png</strong><p class="file-desc">macOS 工具栏层次与间距的视觉研究。</p><div class="file-footer"><span class="file-tags"><i class="file-tag">macOS</i><i class="file-tag">参考</i></span><span>780 KB</span></div></article>
+            </div>
+            <div class="floating-pager"><button class="pager-arrow">‹</button><span class="pager-number">1 / 161</span><button class="pager-arrow">›</button><div class="pager-size">每页<select><option>50</option><option>20</option><option>100</option></select></div></div>
+          </div>
+
+          <div class="page compact-page" id="page-collections">
+            <div class="page-heading"><div><span class="kicker">Organize by meaning</span><h1>合集</h1><p class="heading-note">把文件放进你真正会再次打开的上下文里。</p></div><button class="primary-action" data-toast="已创建一个新的合集">＋ 新建合集</button></div>
+            <div class="collection-toolbar"><label class="search-field"><span class="search-glyph">⌕</span><input placeholder="搜索合集名称" /></label><button class="tool-button">全部类型⌄</button><span class="heading-meta">12 个合集 · 1,284 份资料</span></div>
+            <div class="collection-grid">
+              <article class="collection-card"><div class="collection-card-top"><span class="collection-glyph">⌁</span><span class="collection-count">286 份</span></div><h3>设计参考</h3><p>界面、动效、排版与产品灵感的长期收集。</p><span class="collection-meta">最近更新 · 今天 09:24</span></article>
+              <article class="collection-card mint"><div class="collection-card-top"><span class="collection-glyph">⌘</span><span class="collection-count">214 份</span></div><h3>app-win</h3><p>Windows 应用、安装包与系统维护资料。</p><span class="collection-meta">最近更新 · 昨天 22:11</span></article>
+              <article class="collection-card amber"><div class="collection-card-top"><span class="collection-glyph">◌</span><span class="collection-count">168 份</span></div><h3>工作记录</h3><p>周计划、会议记录和项目推进过程。</p><span class="collection-meta">最近更新 · 08 月 12 日</span></article>
+              <article class="collection-card violet"><div class="collection-card-top"><span class="collection-glyph">♫</span><span class="collection-count">92 份</span></div><h3>灵感收集</h3><p>声音、影像和还没有归类的灵光片段。</p><span class="collection-meta">最近更新 · 08 月 09 日</span></article>
+              <article class="collection-card rose"><div class="collection-card-top"><span class="collection-glyph">▤</span><span class="collection-count">61 份</span></div><h3>旅行与生活</h3><p>路线、照片、票据以及旅途中留下的记号。</p><span class="collection-meta">最近更新 · 07 月 28 日</span></article>
+              <article class="collection-card"><div class="collection-card-top"><span class="collection-glyph">…</span><span class="collection-count">403 份</span></div><h3>未分配</h3><p>还没有找到合适位置的资料，等你顺手整理。</p><span class="collection-meta">建议下次导入时直接指定合集</span></article>
+            </div>
+          </div>
+
+          <div class="page" id="page-import">
+            <div class="tab-header">
+              <h1 class="visually-hidden">导入</h1>
+              <div class="imp-tabs" role="tablist" aria-label="导入模式">
+                <button class="active" id="modeSingle" data-mode="single" role="tab" aria-selected="true">单文件导入</button>
+                <button id="modeBatch" data-mode="batch" role="tab" aria-selected="false">批量导入任务</button>
+              </div>
+              <p class="imp-lede" id="importLede">一次导入一个文件，顺手把它的名称、标签和描述补齐。</p>
+            </div>
+
+            <div class="import-layout single" id="importSingle" role="tabpanel" aria-labelledby="modeSingle">
+              <div class="imp-source">
+                <button class="imp-pick" id="singlePick" data-toast="已打开系统文件窗口">
+                  <span class="imp-pick-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.4h7A1.5 1.5 0 0 1 19 9.9v1.1"/><path d="M3.6 12.4h17.2l-1.9 6.1a1.5 1.5 0 0 1-1.4 1H4.6a1.5 1.5 0 0 1-1.5-1.5z"/></svg></span>
+                  <span class="imp-pick-copy"><strong id="singlePickLabel">重新选择文件</strong><span>打开系统文件窗口，一次选择一个文件</span></span>
+                  <i aria-hidden="true">›</i>
+                </button>
+                <article class="imp-file imp-file-lead" id="singleFile">
+                  <span class="imp-type image" aria-hidden="true">图</span>
+                  <div class="imp-file-copy"><strong>workspace-overview.png</strong><p>图片 · 2.4 MB</p></div>
+                  <button class="imp-remove" id="singleRemove">移除</button>
+                </article>
+                <div class="imp-empty imp-empty-lead" id="singleEmpty" hidden>
+                  <strong>还没有选择文件</strong>
+                  <p>选好之后，这份资料的名称、标签和描述会在下面展开。</p>
+                </div>
+              </div>
+
+              <section class="imp-panel">
+                <div class="imp-head">
+                  <div><h2>元信息</h2><p>补全后这份资料才能被搜到。</p></div>
+                </div>
+                <div class="imp-form" id="singleForm">
+                  <div class="imp-grid">
+                    <div class="imp-field"><label for="impName">文件名</label><input id="impName" value="workspace-overview.png" /></div>
+                    <div class="imp-field"><label for="impKeywords">关键词<em>供 AI 参考</em></label><input id="impKeywords" value="工作台, 布局" /></div>
+                    <div class="imp-field wide"><label for="impCollection">合集 / 系列</label><select id="impCollection"><option>设计参考</option><option>灵感收集</option><option>未分配合集</option></select></div>
+                    <div class="imp-field wide">
+                      <label for="impTags">标签<em>用逗号分隔</em></label>
+                      <input id="impTags" value="截图, 界面, 工作台" />
+                      <div class="imp-chips">
+                        <span class="imp-chip">截图<button aria-label="移除标签 截图">×</button></span>
+                        <span class="imp-chip">界面<button aria-label="移除标签 界面">×</button></span>
+                        <span class="imp-chip">工作台<button aria-label="移除标签 工作台">×</button></span>
+                      </div>
+                    </div>
+                    <div class="imp-field wide">
+                      <label for="impDesc">描述<em>可选</em></label>
+                      <textarea id="impDesc">记录工作台布局与信息层次的一次视觉研究。</textarea>
+                      <span class="imp-count">20/500</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="imp-locked" id="singleLocked" hidden>
+                  <div>
+                    <strong>先选择一个文件</strong>
+                    <p>选中后，这里会展开文件名、关键词、合集、标签和描述。</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="imp-panel" id="singleAi">
+                <div class="imp-head">
+                  <div><h2>AI 分析</h2><p>生成标签和描述建议，应用前不会覆盖已填写的内容。</p></div>
+                  <button class="secondary-action" data-toast="正在分析这个文件">重新生成</button>
+                </div>
+                <span class="imp-ai-label">建议标签</span>
+                <div class="imp-ai-tags">
+                  <button class="imp-ai-tag" data-toast="已加入标签">工作台</button>
+                  <button class="imp-ai-tag" data-toast="已加入标签">信息层次</button>
+                  <button class="imp-ai-tag" data-toast="已加入标签">界面截图</button>
+                  <button class="imp-ai-tag" data-toast="已加入标签">设计研究</button>
+                </div>
+                <span class="imp-ai-label">建议描述</span>
+                <p class="imp-ai-desc">一张工作台界面截图，展示了左侧导航、内容区与筛选控件之间的层级关系。</p>
+                <div class="imp-ai-actions">
+                  <button class="secondary-action" data-toast="已应用建议描述">应用描述</button>
+                  <button class="secondary-action" data-toast="已应用标签与描述">应用全部</button>
+                </div>
+              </section>
+
+              <div class="imp-commit">
+                <p class="imp-feedback success" id="singleFeedback" hidden></p>
+                <button class="secondary-action" id="singleReset">重置表单</button>
+                <button class="primary-action" id="singleSubmit">立即导入文件</button>
+              </div>
+            </div>
+
+            <div class="import-layout batch" id="importBatch" role="tabpanel" aria-labelledby="modeBatch" hidden>
+              <section class="imp-panel">
+                <div class="imp-head">
+                  <div><h2>文件</h2><p>可以分多次选择，重复的文件会自动跳过。</p></div>
+                  <span class="imp-pill on" id="batchPill">3 个文件</span>
+                </div>
+                <button class="imp-pick" id="batchPick" data-toast="已打开系统文件窗口">
+                  <span class="imp-pick-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.4h7A1.5 1.5 0 0 1 19 9.9v1.1"/><path d="M3.6 12.4h17.2l-1.9 6.1a1.5 1.5 0 0 1-1.4 1H4.6a1.5 1.5 0 0 1-1.5-1.5z"/></svg></span>
+                  <span class="imp-pick-copy"><strong>添加文件</strong><span>打开系统文件窗口，按住 Ctrl / Shift 可一次选多个</span></span>
+                  <i aria-hidden="true">›</i>
+                </button>
+                <div class="imp-stats" id="batchStats">
+                  <div class="imp-stat"><strong id="batchCount">3</strong><span>文件数量</span></div>
+                  <div class="imp-stat"><strong id="batchSize">486 MB</strong><span>预计体量</span></div>
+                </div>
+                <div class="imp-list-head" id="batchListHead"><span>已选文件</span><button class="text-button" id="batchClear">清空列表</button></div>
+                <div class="imp-tray imp-tray-scroll" id="batchList">
+                  <article class="imp-file" data-size="412">
+                    <span class="imp-type video" aria-hidden="true">影</span>
+                    <div class="imp-file-copy"><strong>产品评审记录 2026-08-12.mp4</strong><p>视频 · 412 MB</p></div>
+                    <button class="imp-remove" data-remove-file>移除</button>
+                  </article>
+                  <article class="imp-file" data-size="72">
+                    <span class="imp-type archive" aria-hidden="true">压</span>
+                    <div class="imp-file-copy"><strong>design-tokens.zip</strong><p>压缩包 · 72 MB</p></div>
+                    <button class="imp-remove" data-remove-file>移除</button>
+                  </article>
+                  <article class="imp-file" data-size="1.8">
+                    <span class="imp-type doc" aria-hidden="true">文</span>
+                    <div class="imp-file-copy"><strong>存储结构说明.pdf</strong><p>文档 · 1.8 MB</p></div>
+                    <button class="imp-remove" data-remove-file>移除</button>
+                  </article>
+                </div>
+                <div class="imp-empty" id="batchEmpty" hidden>
+                  <strong>还没有加入文件</strong>
+                  <p>用上面的按钮选几个文件，再统一设置标签、合集和描述。</p>
+                </div>
+              </section>
+
+              <section class="imp-panel">
+                <div class="imp-head">
+                  <div><h2>元信息</h2><p>这里填的内容会写入这一批的每个文件。</p></div>
+                  <span class="imp-pill">公共字段</span>
+                </div>
+                <div class="imp-form">
+                  <div class="imp-grid">
+                    <div class="imp-field wide">
+                      <label for="impBatchTags">统一标签<em>用逗号分隔</em></label>
+                      <input id="impBatchTags" value="产品评审, 2026-08" />
+                      <div class="imp-chips">
+                        <span class="imp-chip">产品评审<button aria-label="移除标签 产品评审">×</button></span>
+                        <span class="imp-chip">2026-08<button aria-label="移除标签 2026-08">×</button></span>
+                      </div>
+                    </div>
+                    <div class="imp-field wide"><label for="impBatchCollection">合集 / 系列</label><select id="impBatchCollection"><option>项目归档</option><option>设计参考</option><option>未分配合集</option></select></div>
+                    <div class="imp-field wide"><label for="impBatchDesc">统一描述<em>可选</em></label><textarea id="impBatchDesc">2026 年 8 月产品评审会的记录与配套材料。</textarea></div>
+                  </div>
+
+                  <div class="imp-toggles">
+                    <label class="imp-toggle">
+                      <input type="checkbox" checked />
+                      <div><strong>AI 追加标签</strong><p>在统一标签之外，为每个文件再补几个更具体的标签。</p></div>
+                    </label>
+                    <label class="imp-toggle">
+                      <input type="checkbox" />
+                      <div><strong>AI 生成描述</strong><p>优先为每个文件单独生成描述，失败时退回统一描述。</p></div>
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              <div class="imp-commit">
+                <p class="imp-feedback success" id="batchFeedback" hidden></p>
+                <button class="secondary-action" id="batchReset">重置设置</button>
+                <button class="primary-action" id="batchSubmit">创建后台导入任务</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="page" id="page-tasks">
+            <div class="tab-header">
+              <h1 class="visually-hidden">任务</h1>
+              <div class="tk-tools">
+                <button class="tool-button" id="tkFilterToggle" aria-expanded="false">
+                  <span class="filter-dot"></span>筛选<span id="tkFilterCount"></span>
+                </button>
+                <div class="tk-tools-meta">
+                  <span id="tkSummaryText">共 <b>128</b> 条记录 · <span class="tk-live"><span class="tk-live-dot"></span><b>2</b> 个进行中</span></span>
+                  <button class="tk-refresh" id="tkRefresh">刷新状态</button>
+                </div>
+
+                <div class="filter-popover tk-filter-popover" id="tkFilterPopover" hidden>
+                  <div class="popover-head">
+                    <strong>缩小范围</strong>
+                    <button class="text-button" id="tkClearFilters">清除全部</button>
+                  </div>
+                  <div class="filter-group">
+                    <span class="filter-group-label">任务类型</span>
+                    <div class="filter-options">
+                      <button class="filter-option selected" data-tk-type="all">全部<span class="tk-opt-count">128</span></button>
+                      <button class="filter-option" data-tk-type="batch">批量导入<span class="tk-opt-count">96</span></button>
+                      <button class="filter-option" data-tk-type="single">单文件导入<span class="tk-opt-count">27</span></button>
+                      <button class="filter-option" data-tk-type="cleanup">清理<span class="tk-opt-count">5</span></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="tk-chips" id="tkChips"></div>
+            </div>
+
+            <div class="tk-list" id="tkList">
+              <article class="tk-item is-active" data-type="batch">
+                <div class="tk-row">
+                  <span class="tk-rail" aria-hidden="true"></span>
+                  <span class="tk-type batch" aria-hidden="true">批</span>
+                  <div class="tk-main">
+                    <strong>批量导入 · 设计素材 2026-08</strong>
+                    <p>正在写入文件元信息</p>
+                  </div>
+                  <div class="tk-time">
+                    <span>开始<i>08-14 10:22</i></span>
+                    <span>结束<i>—</i></span>
+                  </div>
+                  <div class="tk-progress">
+                    <div class="tk-track"><div class="tk-fill" style="width:78%"></div></div>
+                    <span class="tk-count">31 / 40</span>
+                  </div>
+                  <span class="tk-status run">执行中</span>
+                  <div class="tk-actions">
+                    <button class="tk-btn warn" data-toast="已请求取消，正在停止当前文件">取消</button>
+                  </div>
+                </div>
+              </article>
+
+              <article class="tk-item is-active" data-type="single">
+                <div class="tk-row">
+                  <span class="tk-rail" aria-hidden="true"></span>
+                  <span class="tk-type single" aria-hidden="true">单</span>
+                  <div class="tk-main">
+                    <strong>单文件导入 · workspace-overview.png</strong>
+                    <p>排队等待执行</p>
+                  </div>
+                  <div class="tk-time">
+                    <span>开始<i>—</i></span>
+                    <span>结束<i>—</i></span>
+                  </div>
+                  <div class="tk-progress">
+                    <div class="tk-track"><div class="tk-fill" style="width:0%"></div></div>
+                    <span class="tk-count">0 / 1</span>
+                  </div>
+                  <span class="tk-status run">排队中</span>
+                  <div class="tk-actions">
+                    <button class="tk-btn warn" data-toast="已从队列中移除该任务">取消</button>
+                  </div>
+                </div>
+              </article>
+
+              <article class="tk-item is-attention" data-type="batch">
+                <div class="tk-row">
+                  <span class="tk-rail" aria-hidden="true"></span>
+                  <span class="tk-type batch" aria-hidden="true">批</span>
+                  <div class="tk-main">
+                    <strong>批量导入 · 旅行与生活</strong>
+                    <p>上次退出应用时中断，可从第 12 个文件继续</p>
+                  </div>
+                  <div class="tk-time">
+                    <span>开始<i>08-13 21:40</i></span>
+                    <span>结束<i>—</i></span>
+                  </div>
+                  <div class="tk-progress">
+                    <div class="tk-track"><div class="tk-fill" style="width:39%"></div></div>
+                    <span class="tk-count">11 / 28</span>
+                  </div>
+                  <span class="tk-status wait">等待继续</span>
+                  <div class="tk-actions">
+                    <button class="tk-btn go" data-toast="任务已恢复执行">继续</button>
+                  </div>
+                </div>
+              </article>
+
+              <article class="tk-item is-error" data-type="batch">
+                <div class="tk-row">
+                  <span class="tk-rail" aria-hidden="true"></span>
+                  <span class="tk-type batch" aria-hidden="true">批</span>
+                  <div class="tk-main">
+                    <strong>批量导入 · 客户交付包</strong>
+                    <p class="err">存储目录空间不足，任务已停止</p>
+                  </div>
+                  <div class="tk-time">
+                    <span>开始<i>08-13 16:05</i></span>
+                    <span>结束<i>08-13 16:07</i></span>
+                  </div>
+                  <div class="tk-progress">
+                    <p class="tk-outcome">成功 6 个 · <em>失败 9 个</em></p>
+                  </div>
+                  <span class="tk-status err">失败</span>
+                  <div class="tk-actions">
+                    <button class="tk-btn" data-tk-detail>详情</button>
+                    <button class="tk-btn warn" data-toast="任务记录已删除">删除</button>
+                  </div>
+                </div>
+                <div class="tk-detail" hidden>
+                  <div class="tk-detail-grid">
+                    <div class="tk-detail-block">
+                      <strong>错误信息</strong>
+                      <p class="err">insufficient storage space on master directory D:\LocalSpace</p>
+                    </div>
+                    <div class="tk-detail-block">
+                      <strong>执行结果</strong>
+                      <p>成功 6 个 · 失败 9 个</p>
+                      <ul class="tk-failed">
+                        <li>交付说明.pdf：写入目标目录失败</li>
+                        <li>预览图-02.png：磁盘空间不足</li>
+                        <li>其余 7 个文件同样因空间不足失败</li>
+                      </ul>
+                    </div>
+                    <div class="tk-detail-block">
+                      <strong>任务 ID</strong>
+                      <p class="meta">1042</p>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="tk-item" data-type="batch">
+                <div class="tk-row">
+                  <span class="tk-rail" aria-hidden="true"></span>
+                  <span class="tk-type batch" aria-hidden="true">批</span>
+                  <div class="tk-main">
+                    <strong>批量导入 · 课程资料</strong>
+                    <p>全部文件已归档</p>
+                  </div>
+                  <div class="tk-time">
+                    <span>开始<i>08-12 09:14</i></span>
+                    <span>结束<i>08-12 09:21</i></span>
+                  </div>
+                  <div class="tk-progress">
+                    <p class="tk-outcome">成功 38 个 · <em>失败 2 个</em></p>
+                  </div>
+                  <span class="tk-status">已完成</span>
+                  <div class="tk-actions">
+                    <button class="tk-btn" data-tk-detail>详情</button>
+                    <button class="tk-btn warn" data-toast="任务记录已删除">删除</button>
+                  </div>
+                </div>
+                <div class="tk-detail" hidden>
+                  <div class="tk-detail-grid">
+                    <div class="tk-detail-block">
+                      <strong>执行结果</strong>
+                      <p>成功 38 个 · 失败 2 个</p>
+                      <ul class="tk-failed">
+                        <li>第03讲-录屏.mp4：源文件已被移动</li>
+                        <li>讲义合集.zip：压缩包已损坏</li>
+                      </ul>
+                    </div>
+                    <div class="tk-detail-block">
+                      <strong>任务 ID</strong>
+                      <p class="meta">1039</p>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="tk-item" data-type="cleanup">
+                <div class="tk-row">
+                  <span class="tk-rail" aria-hidden="true"></span>
+                  <span class="tk-type cleanup" aria-hidden="true">清</span>
+                  <div class="tk-main">
+                    <strong>清理任务记录</strong>
+                    <p>按保留策略清理过期记录</p>
+                  </div>
+                  <div class="tk-time">
+                    <span>开始<i>08-12 03:00</i></span>
+                    <span>结束<i>08-12 03:00</i></span>
+                  </div>
+                  <div class="tk-progress">
+                    <p class="tk-outcome">已清理 12 条记录</p>
+                  </div>
+                  <span class="tk-status">已完成</span>
+                  <div class="tk-actions">
+                    <button class="tk-btn" data-tk-detail>详情</button>
+                    <button class="tk-btn warn" data-toast="任务记录已删除">删除</button>
+                  </div>
+                </div>
+                <div class="tk-detail" hidden>
+                  <div class="tk-detail-grid">
+                    <div class="tk-detail-block">
+                      <strong>执行结果</strong>
+                      <p>已清理 12 条任务记录</p>
+                    </div>
+                    <div class="tk-detail-block">
+                      <strong>任务 ID</strong>
+                      <p class="meta">1035</p>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <div class="tk-empty" id="tkEmpty" hidden>
+              <div>
+                <strong id="tkEmptyTitle">还没有任务记录</strong>
+                <p id="tkEmptyNote">导入开始后，进行中的进度和历史结果都会集中显示在这里。</p>
+                <button class="primary-action" id="tkEmptyGo" data-page-jump="import">前往导入</button>
+                <button class="secondary-action" id="tkEmptyClear" hidden>清除筛选</button>
+              </div>
+            </div>
+
+            <div class="tk-pager" id="tkPager">
+              <span id="tkPagerRange">第 1 - 6 条，共 <b>128</b> 条</span>
+              <div class="tk-pager-controls">
+                <button class="tk-page-btn" disabled>‹</button>
+                <button class="tk-page-btn active">1</button>
+                <button class="tk-page-btn">2</button>
+                <button class="tk-page-btn">3</button>
+                <button class="tk-page-btn">›</button>
+                <select aria-label="每页条数"><option>每页 10</option><option>每页 20</option><option>每页 50</option></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="page" id="page-settings">
+            <h1 class="visually-hidden">设置</h1>
+            <div class="set-workbench" id="setWorkbench">
+              <!-- 导航沿用说明页的页内目录写法：画布上的列表 + 左侧色条，分组名做小标签。 -->
+              <aside class="set-nav" aria-label="设置导航">
+                <nav aria-label="设置分类导航">
+                  <section class="set-nav-group">
+                    <span class="set-nav-label">通用配置</span>
+                    <button class="set-nav-item active" data-setting="storage" title="存储目录"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.2A1.5 1.5 0 0 1 4.5 5.7h4l1.9 2.3h9.1v9.8a1.5 1.5 0 0 1-1.5 1.5h-14a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span>存储目录</span></button>
+                    <button class="set-nav-item" data-setting="layout" title="存储规则"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="4.2" width="17.6" height="6" rx="2"/><rect x="3.2" y="13.8" width="10.5" height="6" rx="2"/></svg><span>存储规则</span></button>
+                    <button class="set-nav-item" data-setting="openWith" title="打开方式"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4.2h5.8V10"/><path d="M19.8 4.2 11.8 12.2"/><path d="M17.6 13.6v5a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.6V8.2a1.6 1.6 0 0 1 1.6-1.6h5"/></svg><span>打开方式</span></button>
+                  </section>
+                  <section class="set-nav-group">
+                    <span class="set-nav-label">主题</span>
+                    <button class="set-nav-item" data-setting="theme" title="主题"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6a8.4 8.4 0 0 1 0 16.8z" fill="currentColor" stroke="none"/></svg><span>主题</span></button>
+                  </section>
+                  <section class="set-nav-group">
+                    <span class="set-nav-label">AI 配置</span>
+                    <button class="set-nav-item" data-setting="ai" title="AI"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M10.4 3.4 12 7.9l4.5 1.6-4.5 1.6-1.6 4.5-1.6-4.5L4.3 9.5 8.8 7.9z"/><path d="M17.4 14.2l.85 2.35 2.35.85-2.35.85-.85 2.35-.85-2.35-2.35-.85 2.35-.85z"/></svg><span>AI</span></button>
+                  </section>
+                  <section class="set-nav-group">
+                    <span class="set-nav-label">专项配置</span>
+                    <button class="set-nav-item" data-setting="collections" title="合集"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3.6" y="3.6" width="7" height="7" rx="1.7"/><rect x="13.4" y="3.6" width="7" height="7" rx="1.7"/><rect x="3.6" y="13.4" width="7" height="7" rx="1.7"/><rect x="13.4" y="13.4" width="7" height="7" rx="1.7"/></svg><span>合集</span></button>
+                    <button class="set-nav-item" data-setting="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.2V12l3.2 1.9"/></svg><span>任务</span></button>
+                  </section>
+                  <section class="set-nav-group">
+                    <span class="set-nav-label">关于</span>
+                    <button class="set-nav-item" data-setting="about" title="关于"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><path d="M12 11.2v5"/><path d="M12 7.7h.01"/></svg><span>关于</span></button>
+                  </section>
+                </nav>
+                <button class="set-nav-collapse" id="setNavCollapse" aria-expanded="true" aria-label="收起设置导航" title="收起设置导航"><i aria-hidden="true">‹</i><span>收起设置导航</span></button>
+              </aside>
+
+              <div class="set-detail">
+                <!-- 当前分区就是页头：左导航和面包屑已经写过「设置」，标题再写一次是冗余。 -->
+                <header class="set-head">
+                  <div><h2 id="setTitle">存储目录</h2><p id="setLede">配置本地资料的入口目录。</p></div>
+                  <span class="set-head-note" id="setSaveNote">改动立即生效</span>
+                </header>
+
+                <!-- 存储目录 -->
+                <section class="set-panel" id="setStorage" role="tabpanel" aria-label="存储目录">
+                  <div class="set-list" id="dirList">
+                    <article class="set-dir" data-dir="1">
+                      <div class="set-dir-head">
+                        <button class="set-dir-toggle" data-dir-toggle aria-expanded="false" type="button">
+                          <i class="set-dir-chevron" aria-hidden="true">›</i>
+                          <span class="set-dir-copy">
+                            <span class="set-dir-path"><strong>D:\LocalSpace\Library</strong><span class="set-badge">默认</span></span>
+                            <span class="set-dir-meta"><span><b>18.4 GB</b> / 未限制</span><span><b>4</b> 个子目录</span></span>
+                          </span>
+                        </button>
+                        <div class="set-dir-actions">
+                          <button class="set-mini warn" data-dir-delete="D:\LocalSpace\Library" type="button">删除</button>
+                        </div>
+                      </div>
+                      <div class="set-subdirs" hidden>
+                        <div class="set-subdir"><span class="set-type sm video" aria-hidden="true">影</span><span class="set-subdir-name">视频</span><b>11.2 GB</b></div>
+                        <div class="set-subdir"><span class="set-type sm image" aria-hidden="true">图</span><span class="set-subdir-name">图片</span><b>4.6 GB</b></div>
+                        <div class="set-subdir"><span class="set-type sm doc" aria-hidden="true">文</span><span class="set-subdir-name">文档</span><b>1.9 GB</b></div>
+                        <div class="set-subdir"><span class="set-type sm archive" aria-hidden="true">压</span><span class="set-subdir-name">压缩包</span><b>0.7 GB</b></div>
+                      </div>
+                    </article>
+                    <article class="set-dir" data-dir="2">
+                      <div class="set-dir-head">
+                        <button class="set-dir-toggle" data-dir-toggle aria-expanded="false" type="button">
+                          <i class="set-dir-chevron" aria-hidden="true">›</i>
+                          <span class="set-dir-copy">
+                            <span class="set-dir-path"><strong>E:\Archive\2026</strong></span>
+                            <span class="set-dir-meta"><span><b>62.1 GB</b> / <b>200 GB</b></span><span><b>2</b> 个子目录</span></span>
+                          </span>
+                        </button>
+                        <div class="set-dir-actions">
+                          <button class="set-mini" data-toast="已设为默认主目录" type="button">设为默认</button>
+                          <button class="set-mini warn" data-dir-delete="E:\Archive\2026" type="button">删除</button>
+                        </div>
+                      </div>
+                      <div class="set-subdirs" hidden>
+                        <div class="set-subdir"><span class="set-type sm video" aria-hidden="true">影</span><span class="set-subdir-name">视频</span><b>58.3 GB</b></div>
+                        <div class="set-subdir"><span class="set-type sm installer" aria-hidden="true">装</span><span class="set-subdir-name">安装包</span><b>3.8 GB</b></div>
+                      </div>
+                    </article>
+                  </div>
+                  <div class="set-empty" id="dirEmpty" hidden>
+                    <strong>暂无主目录</strong>
+                    <p>点击下方按钮添加主目录，导入的文件才有落脚的地方。</p>
+                  </div>
+                  <div class="set-inline-action">
+                    <button class="primary-action" id="dirAdd" type="button">添加主目录</button>
+                    <p class="set-hint">主目录是资料落盘的根位置，子目录按文件类型自动创建。</p>
+                  </div>
+                </section>
+
+                <!-- 存储规则 -->
+                <section class="set-panel" id="setLayout" role="tabpanel" aria-label="存储规则" hidden>
+                  <div class="set-rows">
+                    <div class="set-row">
+                      <div class="set-row-copy"><label for="setStrategy">存储结构</label><p>“按类型 + 合集” 会把文件放到 <code>类型/合集/文件名</code> 这一层。</p></div>
+                      <div class="set-control">
+                        <select class="set-field" id="setStrategy">
+                          <option value="type_collection">按类型 + 合集</option>
+                          <option value="type_only">按类型</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="set-row">
+                      <div class="set-row-copy"><label for="setUnsorted">未填写合集时的目录名</label><p>当开启“按类型 + 合集”且导入时未填写合集，会使用这个目录名。</p></div>
+                      <div class="set-control"><input class="set-field" id="setUnsorted" type="text" value="_unsorted" placeholder="_unsorted" /></div>
+                    </div>
+                    <div class="set-row">
+                      <div class="set-row-copy"><label for="setSanitize">自动清理非法目录字符</label><p>建议开启，避免 Windows 路径中出现非法字符。</p></div>
+                      <div class="set-control"><label class="set-switch"><input type="checkbox" id="setSanitize" checked /><span class="set-switch-track"></span><span class="set-switch-label" data-on="已开启" data-off="已关闭">已开启</span></label></div>
+                    </div>
+                  </div>
+                  <div class="set-preview"><b>路径预览</b><code id="setPathPreview">视频 / 甄嬛传 / 第01集.mkv</code></div>
+                  <div class="set-commit">
+                    <p class="set-feedback success" id="layoutFeedback" hidden></p>
+                    <button class="secondary-action" id="layoutReset" type="button" hidden>重置</button>
+                    <button class="primary-action" id="layoutSave" type="button">保存规则</button>
+                  </div>
+                </section>
+
+                <!-- 打开方式 -->
+                <section class="set-panel" id="setOpenWith" role="tabpanel" aria-label="打开方式" hidden>
+                  <section class="set-section">
+                    <div class="set-section-head"><div><h3>文件类型默认软件</h3><p>为常见文件类型指定 LocalSpace 内优先使用的软件。未配置时使用系统默认打开方式。</p></div></div>
+                    <div class="set-rows paths" id="typePaths">
+                      <div class="set-row">
+                        <div class="set-type-row"><span class="set-type video" aria-hidden="true">影</span><div class="set-row-copy"><label for="path-video">视频</label><small>video</small></div></div>
+                        <div class="set-control inline"><input class="set-field" id="path-video" type="text" value="C:\Program Files\PotPlayer\PotPlayerMini64.exe" placeholder="未配置时使用系统默认" /><button class="set-mini" data-toast="已打开系统文件窗口" type="button">浏览</button><button class="set-mini" data-clear-path type="button">清空</button></div>
+                      </div>
+                      <div class="set-row">
+                        <div class="set-type-row"><span class="set-type audio" aria-hidden="true">音</span><div class="set-row-copy"><label for="path-music">音频</label><small>music</small></div></div>
+                        <div class="set-control inline"><input class="set-field" id="path-music" type="text" value="" placeholder="未配置时使用系统默认" /><button class="set-mini" data-toast="已打开系统文件窗口" type="button">浏览</button><button class="set-mini" data-clear-path type="button" disabled>清空</button></div>
+                      </div>
+                      <div class="set-row">
+                        <div class="set-type-row"><span class="set-type image" aria-hidden="true">图</span><div class="set-row-copy"><label for="path-image">图片</label><small>image</small></div></div>
+                        <div class="set-control inline"><input class="set-field" id="path-image" type="text" value="" placeholder="未配置时使用系统默认" /><button class="set-mini" data-toast="已打开系统文件窗口" type="button">浏览</button><button class="set-mini" data-clear-path type="button" disabled>清空</button></div>
+                      </div>
+                      <div class="set-row">
+                        <div class="set-type-row"><span class="set-type doc" aria-hidden="true">文</span><div class="set-row-copy"><label for="path-document">文档</label><small>document</small></div></div>
+                        <div class="set-control inline"><input class="set-field" id="path-document" type="text" value="C:\Program Files\Adobe\Acrobat\Acrobat.exe" placeholder="未配置时使用系统默认" /><button class="set-mini" data-toast="已打开系统文件窗口" type="button">浏览</button><button class="set-mini" data-clear-path type="button">清空</button></div>
+                      </div>
+                      <div class="set-row">
+                        <div class="set-type-row"><span class="set-type archive" aria-hidden="true">压</span><div class="set-row-copy"><label for="path-archive">压缩包</label><small>archive</small></div></div>
+                        <div class="set-control inline"><input class="set-field" id="path-archive" type="text" value="" placeholder="未配置时使用系统默认" /><button class="set-mini" data-toast="已打开系统文件窗口" type="button">浏览</button><button class="set-mini" data-clear-path type="button" disabled>清空</button></div>
+                      </div>
+                      <div class="set-row">
+                        <div class="set-type-row"><span class="set-type installer" aria-hidden="true">装</span><div class="set-row-copy"><label for="path-installer">安装包</label><small>installer</small></div></div>
+                        <div class="set-control inline"><input class="set-field" id="path-installer" type="text" value="" placeholder="未配置时使用系统默认" /><button class="set-mini" data-toast="已打开系统文件窗口" type="button">浏览</button><button class="set-mini" data-clear-path type="button" disabled>清空</button></div>
+                      </div>
+                      <div class="set-row">
+                        <div class="set-type-row"><span class="set-type other" aria-hidden="true">他</span><div class="set-row-copy"><label for="path-other">其他</label><small>other</small></div></div>
+                        <div class="set-control inline"><input class="set-field" id="path-other" type="text" value="" placeholder="未配置时使用系统默认" /><button class="set-mini" data-toast="已打开系统文件窗口" type="button">浏览</button><button class="set-mini" data-clear-path type="button" disabled>清空</button></div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="set-section">
+                    <div class="set-section-head">
+                      <div><h3>扩展名覆盖规则</h3><p>优先按扩展名匹配，其次按文件类型匹配。例如让 <code>.mkv</code> 使用专门播放器，而其他视频仍按类型规则打开。</p></div>
+                      <button class="set-mini" id="ruleAdd" type="button">添加规则</button>
+                    </div>
+                    <div class="set-list" id="ruleList">
+                      <div class="set-rule">
+                        <input class="set-field" type="text" value=".mkv" placeholder=".mkv" aria-label="扩展名" />
+                        <input class="set-field" type="text" value="C:\Program Files\mpv\mpv.exe" placeholder="选择可执行文件" aria-label="软件路径" />
+                        <span class="set-control inline"><button class="set-mini" data-toast="已打开系统文件窗口" type="button">浏览</button><button class="set-mini warn" data-rule-remove type="button">删除规则</button></span>
+                      </div>
+                    </div>
+                    <div class="set-empty" id="ruleEmpty" hidden>
+                      <strong>暂无扩展名覆盖规则</strong>
+                      <p>只有某个扩展名需要区别对待时才添加，其余文件按上面的类型规则打开。</p>
+                    </div>
+                  </section>
+
+                  <div class="set-commit">
+                    <p class="set-feedback success" id="openWithFeedback" hidden></p>
+                    <button class="secondary-action" id="openWithReset" type="button" hidden>重置</button>
+                    <button class="primary-action" id="openWithSave" type="button">保存配置</button>
+                  </div>
+                </section>
+
+                <!-- 主题 -->
+                <section class="set-panel" id="setTheme" role="tabpanel" aria-label="主题" hidden>
+                  <section class="set-section">
+                    <div class="set-section-head"><div><h3>主题模式</h3><p>选择适合当前环境的界面明暗模式。</p></div></div>
+                    <div class="set-modes" role="group" aria-label="主题模式">
+                      <button class="active" data-theme-mode="light" type="button">浅色</button>
+                      <button data-theme-mode="dark" type="button">深色</button>
+                    </div>
+                  </section>
+
+                  <section class="set-section">
+                    <div class="set-section-head"><div><h3>强调色</h3><p>用于导航选中态、主要按钮和关键操作提示。</p></div></div>
+                    <div class="set-swatches" role="listbox" aria-label="预设强调色">
+                      <button class="set-swatch" style="background:#2196F3" data-color="#2196F3" aria-label="选择颜色 #2196F3" type="button"><span aria-hidden="true">✓</span></button>
+                      <button class="set-swatch" style="background:#4CAF50" data-color="#4CAF50" aria-label="选择颜色 #4CAF50" type="button"><span aria-hidden="true">✓</span></button>
+                      <button class="set-swatch" style="background:#FF9800" data-color="#FF9800" aria-label="选择颜色 #FF9800" type="button"><span aria-hidden="true">✓</span></button>
+                      <button class="set-swatch" style="background:#E91E63" data-color="#E91E63" aria-label="选择颜色 #E91E63" type="button"><span aria-hidden="true">✓</span></button>
+                      <button class="set-swatch" style="background:#9C27B0" data-color="#9C27B0" aria-label="选择颜色 #9C27B0" type="button"><span aria-hidden="true">✓</span></button>
+                      <button class="set-swatch" style="background:#00BCD4" data-color="#00BCD4" aria-label="选择颜色 #00BCD4" type="button"><span aria-hidden="true">✓</span></button>
+                      <button class="set-swatch" style="background:#F44336" data-color="#F44336" aria-label="选择颜色 #F44336" type="button"><span aria-hidden="true">✓</span></button>
+                      <button class="set-swatch" style="background:#607D8B" data-color="#607D8B" aria-label="选择颜色 #607D8B" type="button"><span aria-hidden="true">✓</span></button>
+                      <button class="set-swatch" style="background:#3F51B5" data-color="#3F51B5" aria-label="选择颜色 #3F51B5" type="button"><span aria-hidden="true">✓</span></button>
+                      <button class="set-swatch" style="background:#FF5722" data-color="#FF5722" aria-label="选择颜色 #FF5722" type="button"><span aria-hidden="true">✓</span></button>
+                    </div>
+                    <div class="set-color-input">
+                      <label for="customColor">自定义</label>
+                      <input id="customColor" type="color" value="#6F8FD8" />
+                      <input class="set-field" id="customColorText" type="text" value="#6F8FD8" placeholder="#2196F3" aria-label="强调色十六进制值" />
+                    </div>
+                  </section>
+
+                  <section class="set-section">
+                    <div class="set-section-head"><div><h3>背景图片</h3><p>背景会在应用外层透出，设置页内容区会保留稳定浅色遮罩以保证可读。</p></div></div>
+                    <div class="set-bg">
+                      <div class="set-bg-preview empty" id="bgPreview" role="img" aria-label="未设置背景图片">未设置背景图片</div>
+                      <div>
+                        <div class="set-upload">
+                          <label class="secondary-action" for="bgUpload">上传背景图片</label>
+                          <input id="bgUpload" type="file" accept="image/*" />
+                          <button class="set-mini warn" id="bgRemove" type="button" hidden>移除背景</button>
+                        </div>
+                        <p class="set-hint" style="margin-top:10px">支持 JPG、PNG、GIF、WebP，最大 5MB</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="set-section">
+                    <div class="set-section-head"><div><h3>恢复默认</h3><p>重置主题模式、强调色和背景图片。</p></div></div>
+                    <button class="secondary-action danger-action" id="themeReset" type="button">重置为默认主题</button>
+                  </section>
+                </section>
+
+                <!-- AI -->
+                <section class="set-panel" id="setAi" role="tabpanel" aria-label="AI" hidden>
+                  <div class="set-rows">
+                    <div class="set-row">
+                      <div class="set-row-copy"><strong>启用 AI 功能</strong><p>开启后将自动为导入的文件生成标签和描述。</p></div>
+                      <div class="set-control"><label class="set-switch"><input type="checkbox" id="aiEnabled" checked /><span class="set-switch-track"></span><span class="set-switch-label" data-on="已启用" data-off="已停用">已启用</span></label></div>
+                    </div>
+                  </div>
+
+                  <div class="set-group" id="aiFields">
+                    <section class="set-section">
+                      <div class="set-section-head"><div><h3>模型接入</h3><p>这三项决定 LocalSpace 用哪个模型、以什么身份请求。</p></div></div>
+                      <div class="set-rows">
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="aiKey">API Key<em class="req">必填</em></label><p>您的 API Key 将被安全存储在本地。</p></div>
+                          <div class="set-control inline"><input class="set-field" id="aiKey" type="password" value="sk-proj-8d21c4a97f" placeholder="输入您的 API Key" /><button class="set-mini" id="aiKeyToggle" type="button">显示</button></div>
+                        </div>
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="aiModel">模型<em class="req">必填</em></label><p>输入您要使用的 AI 模型名称。</p></div>
+                          <div class="set-control"><input class="set-field" id="aiModel" type="text" value="gpt-3.5-turbo" placeholder="例如: gpt-3.5-turbo, claude-3-sonnet" /></div>
+                        </div>
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="aiBaseUrl">Base URL<em class="req">必填</em></label><p>API 端点地址。</p></div>
+                          <div class="set-control"><input class="set-field" id="aiBaseUrl" type="text" value="https://api.openai.com/v1" placeholder="https://api.openai.com/v1" /></div>
+                        </div>
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="aiTimeout">超时时间<em>秒</em></label><p>AI 请求超时时间（5-300秒）。</p></div>
+                          <div class="set-control inline"><input class="set-field num" id="aiTimeout" type="number" min="5" max="300" value="30" /><span class="set-unit">秒</span></div>
+                        </div>
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="aiMaxTokens">最大 Token 数<em>可选</em></label><p>限制生成的最大 Token 数量。</p></div>
+                          <div class="set-control inline"><input class="set-field num" id="aiMaxTokens" type="number" min="100" max="4000" value="500" /></div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="set-section">
+                      <div class="set-section-head"><div><h3>Agent 能力</h3><p>Agent 会在生成标签前先理解文件，必要时调用工具补充信息。</p></div></div>
+                      <div class="set-rows">
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="aiAgent">启用 Agent 模式</label><p>启用后允许使用 Agent 能力。</p></div>
+                          <div class="set-control"><label class="set-switch"><input type="checkbox" id="aiAgent" checked /><span class="set-switch-track"></span><span class="set-switch-label" data-on="已启用" data-off="已停用">已启用</span></label></div>
+                        </div>
+                        <div class="set-row" id="aiWebSearchRow">
+                          <div class="set-row-copy"><label for="aiWebSearch">启用网络搜索</label><p>仅为 Agent 的 web_search tool 配置搜索服务。</p></div>
+                          <div class="set-control"><label class="set-switch"><input type="checkbox" id="aiWebSearch" /><span class="set-switch-track"></span><span class="set-switch-label" data-on="已启用" data-off="已停用">已停用</span></label></div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="set-section" id="aiSearchFields" hidden>
+                      <div class="set-section-head"><div><h3>网络搜索服务</h3><p>搜索服务独立于模型接入，不复用模型的 API Key。</p></div></div>
+                      <div class="set-rows">
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="wsProvider">搜索 Provider</label><p>标识当前网络搜索服务类型。</p></div>
+                          <div class="set-control"><input class="set-field" id="wsProvider" type="text" value="" placeholder="例如: mock-http" /></div>
+                        </div>
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="wsBaseUrl">搜索 Base URL<em class="req">必填</em></label><p>网络搜索服务端点地址。</p></div>
+                          <div class="set-control"><input class="set-field" id="wsBaseUrl" type="text" value="" placeholder="https://search.example.com" /></div>
+                        </div>
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="wsKey">搜索 API Key<em class="req">必填</em></label><p>仅用于 web_search tool，不复用模型 API Key。</p></div>
+                          <div class="set-control"><input class="set-field" id="wsKey" type="password" value="" placeholder="输入网络搜索服务 API Key" /></div>
+                        </div>
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="wsTimeout">搜索超时时间<em>秒</em></label><p>单次搜索请求超时时间，默认 10 秒。</p></div>
+                          <div class="set-control inline"><input class="set-field num" id="wsTimeout" type="number" min="1" max="60" value="10" /><span class="set-unit">秒</span></div>
+                        </div>
+                        <div class="set-row">
+                          <div class="set-row-copy"><label for="wsMaxResults">搜索结果数量上限</label><p>限制返回给 Agent 的结果数量，建议 3。</p></div>
+                          <div class="set-control inline"><input class="set-field num" id="wsMaxResults" type="number" min="1" max="5" value="3" /></div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="set-section">
+                      <div class="set-section-head"><div><h3>连接测试</h3><p>保存前先确认这套配置能连通。</p></div></div>
+                      <div class="set-control inline">
+                        <button class="secondary-action" id="aiTest" type="button">测试连接</button>
+                        <p class="set-feedback success" id="aiTestResult" hidden></p>
+                      </div>
+                    </section>
+                  </div>
+
+                  <div class="set-locked" id="aiDisabled" hidden>
+                    <div>
+                      <strong>AI 功能已禁用</strong>
+                      <p>启用上方开关以配置模型、Agent 与网络搜索。导入时不会再生成标签和描述。</p>
+                    </div>
+                  </div>
+
+                  <div class="set-commit">
+                    <p class="set-feedback success" id="aiFeedback" hidden></p>
+                    <button class="secondary-action" id="aiReset" type="button" hidden>重置</button>
+                    <button class="primary-action" id="aiSave" type="button">保存配置</button>
+                  </div>
+                </section>
+
+                <!-- 合集 -->
+                <section class="set-panel" id="setCollections" role="tabpanel" aria-label="合集" hidden>
+                  <section class="set-section">
+                    <div class="set-section-head"><div><h3>新增合集</h3><p>合集用来把同一件事的文件收在一起，导入时可以直接选中。</p></div></div>
+                    <div class="set-add-row">
+                      <input class="set-field" id="collectionName" type="text" placeholder="合集名称" aria-label="合集名称" />
+                      <button class="primary-action" id="collectionAdd" type="button" disabled>添加</button>
+                    </div>
+                    <p class="set-feedback error" id="collectionError" hidden></p>
+                  </section>
+
+                  <section class="set-section">
+                    <div class="set-section-head"><div><h3>已有合集</h3><p>被文件引用的合集不能删除，先把文件移出合集再来。</p></div></div>
+                    <div class="set-collections" id="collectionList">
+                      <div class="set-collection"><strong>产品评审</strong><span class="set-count">引用 24</span><button class="set-mini warn" data-collection-remove title="该合集正在被文件使用，无法删除" type="button" disabled>删除</button></div>
+                      <div class="set-collection"><strong>设计参考</strong><span class="set-count">引用 86</span><button class="set-mini warn" data-collection-remove title="该合集正在被文件使用，无法删除" type="button" disabled>删除</button></div>
+                      <div class="set-collection"><strong>灵感收集</strong><span class="set-count">引用 0</span><button class="set-mini warn" data-collection-remove title="删除合集" type="button">删除</button></div>
+                    </div>
+                    <div class="set-empty" id="collectionEmpty" hidden>
+                      <strong>暂无合集</strong>
+                      <p>用上面的输入框建一个，导入时就能直接归到这个合集里。</p>
+                    </div>
+                  </section>
+                </section>
+
+                <!-- 任务 -->
+                <section class="set-panel" id="setTasks" role="tabpanel" aria-label="任务" hidden>
+                  <div class="set-rows" aria-label="任务历史保留策略">
+                    <div class="set-row">
+                      <div class="set-row-copy"><label for="retentionEnabled">自动清理</label><p>应用启动后自动提交一次清理，只处理已完成、失败或取消的历史记录。</p></div>
+                      <div class="set-control"><label class="set-switch"><input type="checkbox" id="retentionEnabled" /><span class="set-switch-track"></span><span class="set-switch-label" data-on="已启用" data-off="未启用">未启用</span></label></div>
+                    </div>
+                    <div class="set-row">
+                      <div class="set-row-copy"><label for="retentionCount">最多保留条数</label><p>超过数量后优先清理更早的终态任务记录。</p></div>
+                      <div class="set-control inline"><label class="set-check"><input type="checkbox" id="retentionCountOn" checked /><span>启用</span></label><input class="set-field num" id="retentionCount" type="number" min="1" value="100" aria-label="最多保留条数" /><span class="set-unit">条</span></div>
+                    </div>
+                    <div class="set-row">
+                      <div class="set-row-copy"><label for="retentionDays">最多保留天数</label><p>超过天数后可清理旧的终态任务记录，保留近期操作痕迹。</p></div>
+                      <div class="set-control inline"><label class="set-check"><input type="checkbox" id="retentionDaysOn" /><span>启用</span></label><input class="set-field num" id="retentionDays" type="number" min="1" value="0" aria-label="最多保留天数" disabled /><span class="set-unit">天</span></div>
+                    </div>
+                  </div>
+                  <p class="set-hint" style="margin-top:14px">至少启用“条数”或“天数”之一，保存后清理策略才会生效。</p>
+                  <div class="set-commit">
+                    <p class="set-feedback success" id="retentionFeedback" hidden></p>
+                    <button class="secondary-action" id="retentionCleanup" type="button">立即手动清理</button>
+                    <button class="primary-action" id="retentionSave" type="button">保存设置</button>
+                  </div>
+                </section>
+
+                <!-- 关于 -->
+                <section class="set-panel" id="setAbout" role="tabpanel" aria-label="关于" hidden>
+                  <div class="set-about-id">
+                    <span class="set-about-mark" aria-hidden="true">LS</span>
+                    <div><h3>LocalSpace</h3><p>版本 0.2.0</p></div>
+                  </div>
+                  <p class="set-about-body">LocalSpace 是一个面向本地资料整理与回看的桌面工具，适合把图片、文档、音视频和项目素材统一收进一个入口。</p>
+                  <ul class="set-features">
+                    <li>支持单文件导入与批量后台导入</li>
+                    <li>支持标签、描述、关键词、合集等元信息整理</li>
+                    <li>支持 AI 生成标签与描述辅助</li>
+                    <li>支持多存储目录、打开方式与存储规则管理</li>
+                    <li>内置说明文档，方便交付与演示</li>
+                  </ul>
+                  <div class="set-section">
+                    <div class="set-doc-row">
+                      <div><strong>产品介绍与使用文档</strong><p>查看核心功能说明、推荐使用流程和页面介绍。</p></div>
+                      <button class="primary-action" data-page-jump="docs" type="button">查看文档</button>
+                    </div>
+                    <div class="set-add-row" style="margin-top:12px">
+                      <button class="secondary-action" data-toast="LocalSpace 当前以 MIT 风格开源协议分发，具体文本可在发布包中补充" type="button">查看许可</button>
+                      <button class="secondary-action" data-toast="当前版本尚未接入在线更新服务，请关注后续发布说明" type="button">检查更新</button>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+
+          <!-- 添加主目录 -->
+          <div class="set-modal" id="dirModal" hidden>
+            <div class="set-modal-panel" role="dialog" aria-modal="true" aria-labelledby="dirModalTitle">
+              <header class="set-modal-head">
+                <span class="set-modal-mark" aria-hidden="true">+</span>
+                <div><h3 id="dirModalTitle">添加主目录</h3><p>主目录是资料的落盘根位置，下面会按文件类型自动分子目录。</p></div>
+              </header>
+              <div class="set-modal-body">
+                <div class="set-modal-field">
+                  <label for="newDirPath">主目录路径</label>
+                  <div class="set-control inline"><input class="set-field" id="newDirPath" type="text" placeholder="选择或输入主目录路径" /><button class="set-mini" id="newDirBrowse" type="button">浏览</button></div>
+                  <p class="set-feedback error" id="newDirConflict" hidden>路径冲突：该路径已存在或包含在其他目录中</p>
+                </div>
+                <div class="set-modal-field">
+                  <label for="newDirSize">最大容量 (GB)</label>
+                  <input class="set-field" id="newDirSize" type="number" min="0" step="1" value="0" placeholder="0 表示无限制" />
+                  <p class="set-hint">填 0 表示不限制容量。</p>
+                </div>
+                <div class="set-modal-target" id="newDirUsage">当前有 2 个主目录，1 个为默认</div>
+              </div>
+              <footer class="set-modal-foot">
+                <button class="secondary-action" id="newDirCancel" type="button">取消</button>
+                <button class="primary-action" id="newDirConfirm" type="button" disabled>确定</button>
+              </footer>
+            </div>
+          </div>
+
+          <!-- 删除主目录：这是整页风险最高的动作，值得一个真正设计过的确认 -->
+          <div class="set-modal" id="dirDeleteModal" hidden>
+            <div class="set-modal-panel danger" role="alertdialog" aria-modal="true" aria-labelledby="dirDeleteTitle">
+              <header class="set-modal-head">
+                <span class="set-modal-mark" aria-hidden="true">!</span>
+                <div><h3 id="dirDeleteTitle">删除主目录及其所有子目录</h3><p>此操作不可恢复，请先确认重要数据已备份。</p></div>
+              </header>
+              <div class="set-modal-body">
+                <div class="set-modal-target" id="dirDeleteTarget">D:\LocalSpace\Library</div>
+                <p class="set-modal-warning"><b>警告：此操作将清空该目录下的所有文件内容。</b>目录中已导入的资料会一并被删除，资料库里对应的记录也会失效。</p>
+              </div>
+              <footer class="set-modal-foot">
+                <button class="secondary-action" id="dirDeleteCancel" type="button">取消</button>
+                <button class="secondary-action danger-action" id="dirDeleteConfirm" type="button">删除目录</button>
+              </footer>
+            </div>
+          </div>
+
+          <div class="page" id="page-docs">
+            <div class="page-heading"><div><span class="kicker">A small field guide</span><h1>使用说明</h1><p class="heading-note">LocalSpace 不是文件搬运工具，它更像一个陪你长期整理资料的工作台。</p></div></div>
+            <div class="doc-layout"><nav class="doc-toc"><small>On this page</small><button class="active">它适合什么</button><button>从导入开始</button><button>让搜索变聪明</button><button>保持资料可回看</button></nav><article class="doc-article"><div class="doc-hero"><h2>让每一份资料，都能在未来被重新找到。</h2><p>文件被保存下来只是开始。合集、标签、描述和缩略图一起构成了资料的上下文，也让 LocalSpace 越用越顺手。</p></div><section class="doc-section"><h3>它适合什么</h3><p>课程资料、项目素材、截图归档、日常文档，或者任何你不想再丢进“下载”文件夹之后就忘记的东西。</p><ul class="doc-list"><li>把不同类型的文件放进同一套可检索的资料库。</li><li>用合集表达上下文，而不是被迫维护一棵复杂的目录树。</li><li>让 AI 帮你补充描述，但始终把决定权留在你手里。</li></ul></section><section class="doc-section"><h3>从导入开始</h3><p>先选择一份或一批文件，再补充它们会影响未来查找的关键信息。好的整理不需要一次完成，先带回来，之后随时可以继续。</p><div class="design-note">建议：合集名称尽量使用你会自然说出口的词，例如“设计参考”或“工作记录”，而不是只在当下看得懂的项目编号。</div></section><section class="doc-section"><h3>让搜索变聪明</h3><p>文件名、标签、描述和合集都会参与搜索。信息越贴近你自己的语言，未来回看时越容易命中。</p></section></article></div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div class="exit-guard-overlay" id="exitGuard" role="dialog" aria-modal="true" aria-labelledby="exitGuardTitle" hidden>
+      <section class="exit-guard-panel">
+        <header class="exit-guard-header">
+          <div class="exit-guard-mark">⌁</div>
+          <div class="exit-guard-copy"><span class="exit-guard-eyebrow">Exit check</span><h2 id="exitGuardTitle">还有 2 个任务正在处理</h2><p>关闭 LocalSpace 会中断这些任务。你可以返回应用继续等待，也可以确认退出；可恢复的任务会在下次启动时等待继续。</p></div>
+          <button class="exit-guard-close" id="exitGuardClose" type="button" aria-label="返回应用">×</button>
+        </header>
+        <div class="exit-guard-stats"><div class="exit-guard-stat"><strong>02</strong><span>受保护任务</span></div><div class="exit-guard-stat"><strong>01</strong><span>正在处理</span></div><div class="exit-guard-stat"><strong>01</strong><span>可恢复</span></div></div>
+        <div class="exit-guard-body"><div class="exit-guard-list-title"><strong>退出会影响</strong><span>任务状态会被保留</span></div><div class="exit-job"><span class="exit-job-dot"></span><div class="exit-job-copy"><strong>批量导入 · 设计素材 2026-08</strong><span>78% · 正在处理</span></div><span class="resume-pill">可恢复</span></div><div class="exit-job"><span class="exit-job-dot wait"></span><div class="exit-job-copy"><strong>AI 标签建议 · 旅行与生活</strong><span>41% · 排队中</span></div><span class="resume-pill no">退出会暂停</span></div></div>
+        <footer class="exit-guard-footer"><button class="secondary-action" id="exitReturn" type="button">返回应用</button><button class="secondary-action" id="exitTasks" type="button">查看任务</button><button class="secondary-action danger-action" id="exitConfirm" type="button">仍然退出</button></footer>
+      </section>
+    </div>
+    <div class="toast" id="toast" hidden></div>
+
+    <script>
+      const pageLabels = { files: "资料库", collections: "合集", import: "导入", tasks: "任务", settings: "设置", docs: "使用说明" };
+      const pages = [...document.querySelectorAll('.page')];
+      const navButtons = [...document.querySelectorAll('.nav-button[data-page]')];
+      const crumb = document.querySelector('#crumb');
+      let toastTimer;
+
+      // 全局侧栏可以折叠，但不改变当前页面和工作状态。
+      const appWindow = document.querySelector('.app-window');
+      const sidebarToggle = document.querySelector('#sidebarToggle');
+      sidebarToggle.addEventListener('click', () => {
+        const collapsed = appWindow.classList.toggle('sidebar-collapsed');
+        sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+        sidebarToggle.setAttribute('aria-label', collapsed ? '展开侧栏' : '收起侧栏');
+        sidebarToggle.title = collapsed ? '展开侧栏' : '收起侧栏';
+      });
+
+      const exitGuard = document.querySelector('#exitGuard');
+      const quitButton = document.querySelector('#quitButton');
+      const closeExitGuard = () => { exitGuard.hidden = true; };
+      const openExitGuard = () => { exitGuard.hidden = false; };
+      quitButton.addEventListener('click', openExitGuard);
+      document.querySelector('#exitGuardClose').addEventListener('click', closeExitGuard);
+      document.querySelector('#exitReturn').addEventListener('click', closeExitGuard);
+      document.querySelector('#exitTasks').addEventListener('click', () => { closeExitGuard(); showPage('tasks'); });
+      document.querySelector('#exitConfirm').addEventListener('click', () => { closeExitGuard(); showToast('原型中保留退出确认，正式实现将调用 ConfirmQuit'); });
+      exitGuard.addEventListener('click', (event) => { if (event.target === exitGuard) closeExitGuard(); });
+      document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !exitGuard.hidden) closeExitGuard(); });
+
+      // 页面切换只操作原型自己的状态，方便在不同设计稿之间快速比较。
+      function showPage(pageName) {
+        pages.forEach((page) => page.classList.toggle('active', page.id === `page-${pageName}`));
+        navButtons.forEach((button) => button.classList.toggle('active', button.dataset.page === pageName));
+        crumb.textContent = pageLabels[pageName];
+        document.querySelector('#filterPopover').hidden = true;
+        closeTkFilter();
+      }
+      navButtons.forEach((button) => button.addEventListener('click', () => showPage(button.dataset.page)));
+
+      const filterToggle = document.querySelector('#filterToggle');
+      const filterPopover = document.querySelector('#filterPopover');
+      filterToggle.addEventListener('click', () => { filterPopover.hidden = !filterPopover.hidden; filterToggle.classList.toggle('active', !filterPopover.hidden); });
+      document.addEventListener('click', (event) => {
+        if (!filterPopover.contains(event.target) && !filterToggle.contains(event.target)) {
+          filterPopover.hidden = true; filterToggle.classList.remove('active');
+        }
+      });
+
+      const selected = { type: '全部', collection: '全部合集' };
+      const activeFilters = document.querySelector('#activeFilters');
+      const filterCount = document.querySelector('#filterCount');
+      const resultCount = document.querySelector('#resultCount');
+      function renderFilters() {
+        const active = Object.entries(selected).filter(([, value]) => !['全部', '全部合集'].includes(value));
+        activeFilters.innerHTML = active.map(([key, value]) => `<span class="active-filter">${value}<button data-remove-filter="${key}" aria-label="移除 ${value}">×</button></span>`).join('');
+        filterCount.textContent = active.length ? ` · ${active.length}` : '';
+        resultCount.textContent = active.length ? `已按 ${active.map(([, value]) => value).join('、')} 筛选` : '最近添加';
+        activeFilters.querySelectorAll('[data-remove-filter]').forEach((button) => button.addEventListener('click', () => { selected[button.dataset.removeFilter] = button.dataset.removeFilter === 'type' ? '全部' : '全部合集'; renderFilters(); applyFilter(); }));
+      }
+      function applyFilter() {
+        const query = document.querySelector('#fileSearch').value.trim().toLowerCase();
+        document.querySelectorAll('.file-card').forEach((card) => {
+          const matchType = selected.type === '全部' || card.dataset.kind === selected.type;
+          const matchCollection = selected.collection === '全部合集' || card.dataset.collection === selected.collection;
+          const matchQuery = !query || card.textContent.toLowerCase().includes(query);
+          card.style.display = matchType && matchCollection && matchQuery ? '' : 'none';
+        });
+      }
+      document.querySelectorAll('[data-filter-type]').forEach((button) => button.addEventListener('click', () => {
+        selected.type = button.dataset.filterType;
+        document.querySelectorAll('[data-filter-type]').forEach((item) => item.classList.toggle('selected', item === button));
+        renderFilters(); applyFilter();
+      }));
+      document.querySelectorAll('[data-filter-collection]').forEach((button) => button.addEventListener('click', () => {
+        selected.collection = button.dataset.filterCollection;
+        document.querySelectorAll('[data-filter-collection]').forEach((item) => item.classList.toggle('selected', item === button));
+        renderFilters(); applyFilter();
+      }));
+      document.querySelector('#clearFilters').addEventListener('click', () => {
+        selected.type = '全部'; selected.collection = '全部合集';
+        document.querySelectorAll('.filter-option').forEach((item) => item.classList.remove('selected'));
+        document.querySelector('[data-filter-type="全部"]').classList.add('selected');
+        document.querySelector('[data-filter-collection="全部合集"]').classList.add('selected');
+        renderFilters(); applyFilter();
+      });
+      document.querySelector('#fileSearch').addEventListener('input', applyFilter);
+
+      const taskStatusButton = document.querySelector('#taskStatusButton');
+      const taskStatusPopover = document.querySelector('#taskStatusPopover');
+      taskStatusButton.addEventListener('click', () => {
+        taskStatusPopover.hidden = !taskStatusPopover.hidden;
+        taskStatusButton.classList.toggle('active', !taskStatusPopover.hidden);
+      });
+      document.querySelector('#taskOpenButton').addEventListener('click', () => {
+        taskStatusPopover.hidden = true;
+        taskStatusButton.classList.remove('active');
+        showPage('tasks');
+      });
+      document.addEventListener('click', (event) => {
+        if (!taskStatusPopover.contains(event.target) && !taskStatusButton.contains(event.target)) {
+          taskStatusPopover.hidden = true;
+          taskStatusButton.classList.remove('active');
+        }
+      });
+
+      document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => {
+        document.querySelectorAll('[data-view]').forEach((item) => item.classList.toggle('active', item === button));
+        document.querySelector('#fileGrid').style.gridTemplateColumns = button.dataset.view === 'grouped' ? 'repeat(2, minmax(0, 1fr))' : '';
+        showToast(button.dataset.view === 'grouped' ? '已切换为按合集浏览' : '已切换为平铺浏览');
+      }));
+
+      // 导入页两种模式共用页头，只切换下方的工作区，避免切换时整页跳动。
+      const importPanels = {
+        single: document.querySelector('#importSingle'),
+        batch: document.querySelector('#importBatch'),
+      };
+      const importLedes = {
+        single: '一次导入一个文件，顺手把它的名称、标签和描述补齐。',
+        batch: '一次选好多个文件，设一组公共字段，交给后台任务处理。',
+      };
+      document.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => {
+        const mode = button.dataset.mode;
+        document.querySelectorAll('[data-mode]').forEach((item) => {
+          const isActive = item === button;
+          item.classList.toggle('active', isActive);
+          item.setAttribute('aria-selected', String(isActive));
+        });
+        importPanels.single.hidden = mode !== 'single';
+        importPanels.batch.hidden = mode !== 'batch';
+        document.querySelector('#importLede').textContent = importLedes[mode];
+        showToast(mode === 'batch' ? '批量导入模式已就绪' : '单文件导入模式已就绪');
+      }));
+
+      // 空状态、提交中和结果反馈都由真实动作驱动，方便评审顺着完整路径看一遍。
+      const singleUI = {
+        layout: document.querySelector('#importSingle'),
+        file: document.querySelector('#singleFile'),
+        empty: document.querySelector('#singleEmpty'),
+        form: document.querySelector('#singleForm'),
+        locked: document.querySelector('#singleLocked'),
+        ai: document.querySelector('#singleAi'),
+        pickLabel: document.querySelector('#singlePickLabel'),
+        submit: document.querySelector('#singleSubmit'),
+        feedback: document.querySelector('#singleFeedback'),
+      };
+
+      function renderSingle(hasFile) {
+        singleUI.file.hidden = !hasFile;
+        singleUI.empty.hidden = hasFile;
+        singleUI.form.hidden = !hasFile;
+        singleUI.locked.hidden = hasFile;
+        singleUI.ai.hidden = !hasFile;
+        singleUI.layout.classList.toggle('solo', !hasFile);
+        singleUI.pickLabel.textContent = hasFile ? '重新选择文件' : '选择文件';
+        singleUI.submit.disabled = !hasFile;
+      }
+
+      // 体量按剩余文件重算，避免清单和统计对不上。
+      function formatSize(mb) {
+        if (mb <= 0) return '0 B';
+        if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+        return mb < 10 ? `${mb.toFixed(1)} MB` : `${Math.round(mb)} MB`;
+      }
+
+      const batchUI = {
+        list: document.querySelector('#batchList'),
+        empty: document.querySelector('#batchEmpty'),
+        listHead: document.querySelector('#batchListHead'),
+        stats: document.querySelector('#batchStats'),
+        pill: document.querySelector('#batchPill'),
+        count: document.querySelector('#batchCount'),
+        size: document.querySelector('#batchSize'),
+        submit: document.querySelector('#batchSubmit'),
+        feedback: document.querySelector('#batchFeedback'),
+      };
+      const batchRows = [...batchUI.list.children];
+
+      function renderBatch() {
+        const rows = batchRows.filter((row) => !row.hidden);
+        const total = rows.reduce((sum, row) => sum + Number(row.dataset.size), 0);
+        batchUI.count.textContent = String(rows.length);
+        batchUI.size.textContent = formatSize(total);
+        batchUI.pill.textContent = rows.length ? `${rows.length} 个文件` : '还没有文件';
+        batchUI.pill.classList.toggle('on', rows.length > 0);
+        batchUI.list.hidden = rows.length === 0;
+        batchUI.listHead.hidden = rows.length === 0;
+        batchUI.stats.hidden = rows.length === 0;
+        batchUI.empty.hidden = rows.length > 0;
+        batchUI.submit.disabled = rows.length === 0;
+      }
+
+      function runSubmit(button, busyLabel, idleLabel, feedback, message, done) {
+        button.disabled = true;
+        button.textContent = busyLabel;
+        feedback.hidden = true;
+        setTimeout(() => {
+          button.textContent = idleLabel;
+          feedback.textContent = message;
+          feedback.hidden = false;
+          done();
+        }, 900);
+      }
+
+      document.querySelector('#singlePick').addEventListener('click', () => {
+        singleUI.feedback.hidden = true;
+        renderSingle(true);
+      });
+      document.querySelector('#singleRemove').addEventListener('click', () => {
+        singleUI.feedback.hidden = true;
+        renderSingle(false);
+      });
+      document.querySelector('#singleReset').addEventListener('click', () => {
+        singleUI.feedback.hidden = true;
+        showToast('表单已重置');
+      });
+      singleUI.submit.addEventListener('click', () => runSubmit(
+        singleUI.submit, '正在导入...', '立即导入文件', singleUI.feedback,
+        '已创建导入任务，可在任务页查看进度。', () => renderSingle(false)
+      ));
+
+      document.querySelector('#batchPick').addEventListener('click', () => {
+        batchUI.feedback.hidden = true;
+        batchRows.forEach((row) => { row.hidden = false; });
+        renderBatch();
+      });
+      document.querySelector('#batchClear').addEventListener('click', () => {
+        batchUI.feedback.hidden = true;
+        batchRows.forEach((row) => { row.hidden = true; });
+        renderBatch();
+      });
+      document.querySelector('#batchReset').addEventListener('click', () => {
+        batchUI.feedback.hidden = true;
+        showToast('设置已重置');
+      });
+      batchUI.list.querySelectorAll('[data-remove-file]').forEach((button) => button.addEventListener('click', () => {
+        button.closest('.imp-file').hidden = true;
+        renderBatch();
+      }));
+      batchUI.submit.addEventListener('click', () => runSubmit(
+        batchUI.submit, '正在创建任务...', '创建后台导入任务', batchUI.feedback,
+        '后台导入任务已创建，可在任务页查看进度。', () => {
+          batchRows.forEach((row) => { row.hidden = true; });
+          renderBatch();
+        }
+      ));
+
+      // 任务页：类型筛选对应 ListJobs 的 jobType 参数，详情展开对应 errorMessage / result。
+      const tkItems = [...document.querySelectorAll('.tk-item')];
+      const tkEmpty = document.querySelector('#tkEmpty');
+      const tkPager = document.querySelector('#tkPager');
+      const tkSummary = document.querySelector('#tkSummaryText');
+      const tkPagerRange = document.querySelector('#tkPagerRange');
+      const tkChips = document.querySelector('#tkChips');
+      const tkFilterCount = document.querySelector('#tkFilterCount');
+      const tkFilterToggle = document.querySelector('#tkFilterToggle');
+      const tkFilterPopover = document.querySelector('#tkFilterPopover');
+      const tkEmptyTitle = document.querySelector('#tkEmptyTitle');
+      const tkEmptyNote = document.querySelector('#tkEmptyNote');
+      const tkEmptyGo = document.querySelector('#tkEmptyGo');
+      const tkEmptyClear = document.querySelector('#tkEmptyClear');
+      const TK_TYPES = {
+        all: { label: '全部类型', total: 128 },
+        batch: { label: '批量导入', total: 96 },
+        single: { label: '单文件导入', total: 27 },
+        cleanup: { label: '清理', total: 5 },
+      };
+      let tkType = 'all';
+
+      function renderTasks() {
+        let shown = 0;
+        let live = 0;
+        tkItems.forEach((item) => {
+          const match = tkType === 'all' || item.dataset.type === tkType;
+          item.hidden = !match;
+          if (!match) return;
+          shown += 1;
+          if (item.classList.contains('is-active')) live += 1;
+        });
+
+        tkEmpty.hidden = shown > 0;
+        tkPager.hidden = shown === 0;
+
+        const { label, total } = TK_TYPES[tkType];
+        // 只有收窄了范围才留下 chip，「全部」是默认值，不算一个筛选条件。
+        const narrowed = tkType !== 'all';
+
+        // 空列表的原因不同，出路也不同：被筛没的应该清筛选，真没有记录的才去导入。
+        tkEmptyTitle.textContent = narrowed ? `没有${label}任务` : '还没有任务记录';
+        tkEmptyNote.textContent = narrowed
+          ? '这个类型下还没有记录，换一个类型或清除筛选看看全部。'
+          : '导入开始后，进行中的进度和历史结果都会集中显示在这里。';
+        tkEmptyGo.hidden = narrowed;
+        tkEmptyClear.hidden = !narrowed;
+
+        const livePart = live > 0
+          ? ` · <span class="tk-live"><span class="tk-live-dot"></span><b>${live}</b> 个进行中</span>`
+          : '';
+        tkSummary.innerHTML = `共 <b>${total}</b> 条记录${livePart}`;
+        tkPagerRange.innerHTML = `第 1 - ${shown} 条，共 <b>${total}</b> 条`;
+
+        tkFilterCount.textContent = narrowed ? ' · 1' : '';
+        tkChips.innerHTML = narrowed
+          ? `<span class="active-filter">${label}<button id="tkChipClear" aria-label="移除筛选 ${label}">×</button></span>`
+          : '';
+        const chipClear = document.querySelector('#tkChipClear');
+        if (chipClear) chipClear.addEventListener('click', () => setTkType('all'));
+
+        document.querySelectorAll('[data-tk-type]').forEach((option) =>
+          option.classList.toggle('selected', option.dataset.tkType === tkType)
+        );
+      }
+
+      function setTkType(type) {
+        tkType = type;
+        renderTasks();
+      }
+
+      function closeTkFilter() {
+        tkFilterPopover.hidden = true;
+        tkFilterToggle.classList.remove('active');
+        tkFilterToggle.setAttribute('aria-expanded', 'false');
+      }
+
+      tkFilterToggle.addEventListener('click', () => {
+        const open = tkFilterPopover.hidden;
+        tkFilterPopover.hidden = !open;
+        tkFilterToggle.classList.toggle('active', open);
+        tkFilterToggle.setAttribute('aria-expanded', String(open));
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!tkFilterPopover.contains(event.target) && !tkFilterToggle.contains(event.target)) {
+          closeTkFilter();
+        }
+      });
+
+      document.querySelectorAll('[data-tk-type]').forEach((option) =>
+        option.addEventListener('click', () => {
+          setTkType(option.dataset.tkType);
+          closeTkFilter();
+        })
+      );
+
+      document.querySelector('#tkClearFilters').addEventListener('click', () => {
+        setTkType('all');
+        closeTkFilter();
+      });
+
+      tkEmptyClear.addEventListener('click', () => setTkType('all'));
+
+      // 详情是行的延伸；展开后按钮文案跟着变，不只靠一个箭头表达状态。
+      document.querySelectorAll('[data-tk-detail]').forEach((button) => button.addEventListener('click', () => {
+        const panel = button.closest('.tk-item').querySelector('.tk-detail');
+        panel.hidden = !panel.hidden;
+        button.textContent = panel.hidden ? '详情' : '收起';
+      }));
+
+      const tkRefresh = document.querySelector('#tkRefresh');
+      tkRefresh.addEventListener('click', () => {
+        tkRefresh.disabled = true;
+        tkRefresh.textContent = '正在刷新...';
+        setTimeout(() => {
+          tkRefresh.disabled = false;
+          tkRefresh.textContent = '刷新状态';
+          showToast('任务状态已同步');
+        }, 700);
+      });
+
+      /* ---------- 设置页 ----------
+         每个分区的标题和一句说明就是这一页的页头；
+         没有保存按钮的分区（主题 / 存储目录 / 合集）在页头右侧写明「即时生效」，
+         让「找不到保存按钮」变成一句说明，而不是一个疑问。 */
+      const settingMeta = {
+        storage: { label: '存储目录', lede: '配置本地资料的入口目录，导入的文件会落在这里。', panel: 'setStorage', note: '改动立即生效' },
+        layout: { label: '存储规则', lede: '控制导入后在主目录中的落盘层级结构。', panel: 'setLayout', note: '' },
+        openWith: { label: '打开方式', lede: '指定常用文件在 LocalSpace 内优先使用的软件。', panel: 'setOpenWith', note: '' },
+        theme: { label: '主题', lede: '调整界面明暗、强调色与背景图片。', panel: 'setTheme', note: '修改后立即生效' },
+        ai: { label: 'AI', lede: '配置模型、密钥与 Agent 的工具能力。', panel: 'setAi', note: '' },
+        collections: { label: '合集', lede: '维护可复用的文件分组。', panel: 'setCollections', note: '改动立即生效' },
+        tasks: { label: '任务', lede: '管理任务记录的保留时长和清理策略。', panel: 'setTasks', note: '' },
+        about: { label: '关于', lede: '查看产品信息、许可与文档入口。', panel: 'setAbout', note: '' },
+      };
+      const setNavItems = [...document.querySelectorAll('.set-nav-item')];
+      const setTitle = document.querySelector('#setTitle');
+      const setLede = document.querySelector('#setLede');
+      const setSaveNote = document.querySelector('#setSaveNote');
+
+      function showSetting(key) {
+        const meta = settingMeta[key];
+        if (!meta) return;
+        setNavItems.forEach((item) => item.classList.toggle('active', item.dataset.setting === key));
+        Object.values(settingMeta).forEach((entry) => {
+          document.querySelector(`#${entry.panel}`).hidden = entry.panel !== meta.panel;
+        });
+        setTitle.textContent = meta.label;
+        setLede.textContent = meta.lede;
+        setSaveNote.textContent = meta.note;
+        setSaveNote.hidden = !meta.note;
+      }
+      setNavItems.forEach((item) => item.addEventListener('click', () => showSetting(item.dataset.setting)));
+
+      const setWorkbench = document.querySelector('#setWorkbench');
+      const setNavCollapse = document.querySelector('#setNavCollapse');
+      setNavCollapse.addEventListener('click', () => {
+        const collapsed = setWorkbench.classList.toggle('nav-collapsed');
+        setNavCollapse.setAttribute('aria-expanded', String(!collapsed));
+        setNavCollapse.setAttribute('aria-label', collapsed ? '展开设置导航' : '收起设置导航');
+        setNavCollapse.title = collapsed ? '展开设置导航' : '收起设置导航';
+        setNavCollapse.querySelector('i').textContent = collapsed ? '›' : '‹';
+      });
+
+      // 开关的文字状态跟着勾选走，避免只有一个色块在动。
+      document.querySelectorAll('.set-switch input').forEach((input) => {
+        const label = input.parentElement.querySelector('.set-switch-label');
+        if (!label) return;
+        input.addEventListener('change', () => {
+          label.textContent = input.checked ? label.dataset.on : label.dataset.off;
+        });
+      });
+
+      function setFeedback(node, text, ok, hold) {
+        node.textContent = text;
+        node.classList.toggle('success', ok !== false);
+        node.classList.toggle('error', ok === false);
+        node.hidden = false;
+        clearTimeout(node.dataset.timer);
+        node.dataset.timer = setTimeout(() => { node.hidden = true; }, hold || 2600);
+      }
+      // 保存按钮走「保存中 → 结果」，和导入页的提交是同一条路径。
+      function runSave(button, busyText, done) {
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = busyText;
+        setTimeout(() => {
+          button.disabled = false;
+          button.textContent = original;
+          done();
+        }, 700);
+      }
+
+      /* 存储目录 */
+      document.querySelectorAll('[data-dir-toggle]').forEach((button) => button.addEventListener('click', () => {
+        const card = button.closest('.set-dir');
+        const open = card.classList.toggle('open');
+        card.querySelector('.set-subdirs').hidden = !open;
+        button.setAttribute('aria-expanded', String(open));
+      }));
+
+      const dirList = document.querySelector('#dirList');
+      const dirEmpty = document.querySelector('#dirEmpty');
+      const dirModal = document.querySelector('#dirModal');
+      const dirDeleteModal = document.querySelector('#dirDeleteModal');
+      const newDirPath = document.querySelector('#newDirPath');
+      const newDirConflict = document.querySelector('#newDirConflict');
+      const newDirConfirm = document.querySelector('#newDirConfirm');
+      const newDirUsage = document.querySelector('#newDirUsage');
+      let dirPendingDelete = null;
+
+      function renderDirs() {
+        const count = dirList.querySelectorAll('.set-dir').length;
+        dirList.hidden = count === 0;
+        dirEmpty.hidden = count > 0;
+        newDirUsage.textContent = count === 0
+          ? '这将是您的第一个主目录，将自动设为默认'
+          : `当前有 ${count} 个主目录，1 个为默认`;
+      }
+      function closeSetModals() { dirModal.hidden = true; dirDeleteModal.hidden = true; }
+
+      function validateNewDir() {
+        const value = newDirPath.value.trim();
+        // 原型里用一个固定路径演示 CheckPathConflict 的冲突反馈。
+        const conflict = value.toLowerCase().startsWith('d:\\localspace');
+        newDirConflict.hidden = !conflict;
+        newDirConfirm.disabled = !value || conflict;
+      }
+      newDirPath.addEventListener('input', validateNewDir);
+      document.querySelector('#dirAdd').addEventListener('click', () => {
+        dirModal.hidden = false;
+        newDirPath.focus();
+      });
+      document.querySelector('#newDirBrowse').addEventListener('click', () => {
+        newDirPath.value = 'F:\\LocalSpace\\Media';
+        validateNewDir();
+        showToast('已打开系统目录窗口');
+      });
+      document.querySelector('#newDirCancel').addEventListener('click', () => { dirModal.hidden = true; });
+      // 新加的主目录还没有任何子目录，展开后就是「暂无子目录」——
+      // 这个状态由真实的添加动作走出来，不是一段没人能看到的死 CSS。
+      newDirConfirm.addEventListener('click', () => {
+        const path = newDirPath.value.trim();
+        const size = Number(document.querySelector('#newDirSize').value) || 0;
+        const card = document.createElement('article');
+        card.className = 'set-dir';
+        card.innerHTML = '<div class="set-dir-head">'
+          + '<button class="set-dir-toggle" data-dir-toggle aria-expanded="false" type="button">'
+          + '<i class="set-dir-chevron" aria-hidden="true">›</i>'
+          + '<span class="set-dir-copy"><span class="set-dir-path"><strong></strong></span>'
+          + `<span class="set-dir-meta"><span><b>0 B</b> / ${size > 0 ? `<b>${size} GB</b>` : '未限制'}</span><span><b>0</b> 个子目录</span></span></span>`
+          + '</button><div class="set-dir-actions">'
+          + '<button class="set-mini" data-toast="已设为默认主目录" type="button">设为默认</button>'
+          + '<button class="set-mini warn" type="button">删除</button>'
+          + '</div></div>'
+          + '<div class="set-subdirs" hidden><p class="set-subdir-empty">暂无子目录，导入第一个文件时会按类型自动创建。</p></div>';
+        card.querySelector('.set-dir-path strong').textContent = path;
+        card.querySelector('[data-dir-delete], .set-mini.warn').dataset.dirDelete = path;
+        card.querySelector('[data-dir-toggle]').addEventListener('click', (event) => {
+          const open = card.classList.toggle('open');
+          card.querySelector('.set-subdirs').hidden = !open;
+          event.currentTarget.setAttribute('aria-expanded', String(open));
+        });
+        card.querySelector('[data-toast]').addEventListener('click', () => showToast('已设为默认主目录'));
+        dirList.appendChild(card);
+        dirModal.hidden = true;
+        newDirPath.value = '';
+        document.querySelector('#newDirSize').value = '0';
+        validateNewDir();
+        renderDirs();
+        showToast(`已添加主目录 ${path}`);
+      });
+
+      dirList.addEventListener('click', (event) => {
+        const trigger = event.target.closest('[data-dir-delete]');
+        if (!trigger) return;
+        dirPendingDelete = trigger.closest('.set-dir');
+        document.querySelector('#dirDeleteTarget').textContent = trigger.dataset.dirDelete;
+        dirDeleteModal.hidden = false;
+      });
+      document.querySelector('#dirDeleteCancel').addEventListener('click', () => { dirDeleteModal.hidden = true; });
+      document.querySelector('#dirDeleteConfirm').addEventListener('click', () => {
+        if (dirPendingDelete) dirPendingDelete.remove();
+        dirPendingDelete = null;
+        dirDeleteModal.hidden = true;
+        renderDirs();
+        showToast('主目录已删除');
+      });
+      [dirModal, dirDeleteModal].forEach((modal) => modal.addEventListener('click', (event) => {
+        if (event.target === modal) modal.hidden = true;
+      }));
+      document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeSetModals(); });
+      renderDirs();
+
+      /* 存储规则 */
+      const layoutPanel = document.querySelector('#setLayout');
+      const layoutReset = document.querySelector('#layoutReset');
+      const strategy = document.querySelector('#setStrategy');
+      const pathPreview = document.querySelector('#setPathPreview');
+      function renderPathPreview() {
+        pathPreview.textContent = strategy.value === 'type_collection'
+          ? '视频 / 甄嬛传 / 第01集.mkv'
+          : '视频 / 第01集.mkv';
+      }
+      layoutPanel.addEventListener('input', () => { layoutReset.hidden = false; });
+      layoutPanel.addEventListener('change', () => { layoutReset.hidden = false; renderPathPreview(); });
+      layoutReset.addEventListener('click', () => {
+        strategy.value = 'type_collection';
+        document.querySelector('#setUnsorted').value = '_unsorted';
+        document.querySelector('#setSanitize').checked = true;
+        document.querySelector('#setSanitize').dispatchEvent(new Event('change', { bubbles: true }));
+        layoutReset.hidden = true;
+        renderPathPreview();
+      });
+      document.querySelector('#layoutSave').addEventListener('click', (event) => {
+        runSave(event.currentTarget, '保存中...', () => {
+          layoutReset.hidden = true;
+          setFeedback(document.querySelector('#layoutFeedback'), '存储规则已保存', true);
+        });
+      });
+
+      /* 打开方式 */
+      const openWithPanel = document.querySelector('#setOpenWith');
+      const openWithReset = document.querySelector('#openWithReset');
+      const ruleList = document.querySelector('#ruleList');
+      const ruleEmpty = document.querySelector('#ruleEmpty');
+      function renderRules() {
+        const count = ruleList.querySelectorAll('.set-rule').length;
+        ruleList.hidden = count === 0;
+        ruleEmpty.hidden = count > 0;
+      }
+      function syncClearButton(input) {
+        const clear = input.parentElement.querySelector('[data-clear-path]');
+        if (clear) clear.disabled = !input.value.trim();
+      }
+      openWithPanel.addEventListener('input', (event) => {
+        openWithReset.hidden = false;
+        if (event.target.matches('.set-rows.paths input')) syncClearButton(event.target);
+      });
+      openWithPanel.addEventListener('click', (event) => {
+        const clear = event.target.closest('[data-clear-path]');
+        if (clear) {
+          const input = clear.parentElement.querySelector('input');
+          input.value = '';
+          syncClearButton(input);
+          openWithReset.hidden = false;
+        }
+        const remove = event.target.closest('[data-rule-remove]');
+        if (remove) {
+          remove.closest('.set-rule').remove();
+          renderRules();
+          openWithReset.hidden = false;
+        }
+      });
+      document.querySelector('#ruleAdd').addEventListener('click', () => {
+        const rule = document.createElement('div');
+        rule.className = 'set-rule';
+        rule.innerHTML = '<input class="set-field" type="text" value="" placeholder=".mkv" aria-label="扩展名" />'
+          + '<input class="set-field" type="text" value="" placeholder="选择可执行文件" aria-label="软件路径" />'
+          + '<span class="set-control inline"><button class="set-mini" data-toast="已打开系统文件窗口" type="button">浏览</button><button class="set-mini warn" data-rule-remove type="button">删除规则</button></span>';
+        ruleList.appendChild(rule);
+        rule.querySelector('[data-toast]').addEventListener('click', () => showToast('已打开系统文件窗口'));
+        rule.querySelector('input').focus();
+        renderRules();
+        openWithReset.hidden = false;
+      });
+      openWithReset.addEventListener('click', () => { openWithReset.hidden = true; showToast('已恢复上次保存的打开方式'); });
+      document.querySelector('#openWithSave').addEventListener('click', (event) => {
+        runSave(event.currentTarget, '保存中...', () => {
+          openWithReset.hidden = true;
+          setFeedback(document.querySelector('#openWithFeedback'), '打开方式配置已保存', true);
+        });
+      });
+      renderRules();
+
+      /* 主题：没有保存按钮，每一次改动都立刻落库 */
+      document.querySelectorAll('[data-theme-mode]').forEach((button) => button.addEventListener('click', () => {
+        document.querySelectorAll('[data-theme-mode]').forEach((item) => item.classList.toggle('active', item === button));
+        showToast(button.dataset.themeMode === 'dark' ? '已切换到深色模式' : '已切换到浅色模式');
+      }));
+      const customColor = document.querySelector('#customColor');
+      const customColorText = document.querySelector('#customColorText');
+      function selectAccent(value) {
+        customColor.value = value;
+        customColorText.value = value;
+        document.querySelectorAll('.set-swatch').forEach((swatch) =>
+          swatch.classList.toggle('active', swatch.dataset.color.toLowerCase() === value.toLowerCase()));
+      }
+      document.querySelectorAll('.set-swatch').forEach((swatch) => swatch.addEventListener('click', () => {
+        selectAccent(swatch.dataset.color);
+        showToast(`强调色已更新为 ${swatch.dataset.color}`);
+      }));
+      customColor.addEventListener('input', () => selectAccent(customColor.value));
+      // 只有合法的六位十六进制才提交，输入过程中的半截值不会闪烁。
+      customColorText.addEventListener('input', () => {
+        const value = customColorText.value.trim();
+        if (/^#[0-9A-Fa-f]{6}$/.test(value)) selectAccent(value);
+      });
+
+      const bgPreview = document.querySelector('#bgPreview');
+      const bgRemove = document.querySelector('#bgRemove');
+      document.querySelector('#bgUpload').addEventListener('change', (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        if (!/^image\/(jpeg|png|gif|webp)$/.test(file.type)) {
+          showToast('请选择有效的图片文件（JPG、PNG、GIF、WebP）');
+        } else if (file.size > 5 * 1024 * 1024) {
+          showToast('图片文件不能超过 5MB');
+        } else {
+          const reader = new FileReader();
+          reader.onload = () => {
+            bgPreview.style.backgroundImage = `url(${reader.result})`;
+            bgPreview.classList.remove('empty');
+            bgPreview.textContent = '';
+            bgPreview.setAttribute('aria-label', '当前背景图片预览');
+            bgRemove.hidden = false;
+            showToast('背景图片已应用');
+          };
+          reader.onerror = () => showToast('读取图片文件失败');
+          reader.readAsDataURL(file);
+        }
+        event.target.value = '';
+      });
+      bgRemove.addEventListener('click', () => {
+        bgPreview.style.backgroundImage = '';
+        bgPreview.classList.add('empty');
+        bgPreview.textContent = '未设置背景图片';
+        bgPreview.setAttribute('aria-label', '未设置背景图片');
+        bgRemove.hidden = true;
+        showToast('已移除背景图片');
+      });
+      document.querySelector('#themeReset').addEventListener('click', () => {
+        document.querySelector('[data-theme-mode="light"]').click();
+        selectAccent('#6F8FD8');
+        if (!bgRemove.hidden) bgRemove.click();
+        showToast('已重置为默认主题');
+      });
+      selectAccent('#6F8FD8');
+
+      /* AI */
+      const aiPanel = document.querySelector('#setAi');
+      const aiEnabled = document.querySelector('#aiEnabled');
+      const aiAgent = document.querySelector('#aiAgent');
+      const aiWebSearch = document.querySelector('#aiWebSearch');
+      const aiReset = document.querySelector('#aiReset');
+      const aiSave = document.querySelector('#aiSave');
+      const aiKey = document.querySelector('#aiKey');
+
+      // 关掉 AI 之后，下面所有字段都不再适用——直接收起，只留一句说明和保存按钮。
+      function renderAi() {
+        document.querySelector('#aiFields').hidden = !aiEnabled.checked;
+        document.querySelector('#aiDisabled').hidden = aiEnabled.checked;
+        document.querySelector('#aiWebSearchRow').hidden = !aiAgent.checked;
+        document.querySelector('#aiSearchFields').hidden = !(aiAgent.checked && aiWebSearch.checked);
+        const needsSearch = aiEnabled.checked && aiAgent.checked && aiWebSearch.checked;
+        const valid = !aiEnabled.checked || (
+          aiKey.value.trim() && document.querySelector('#aiModel').value.trim() && document.querySelector('#aiBaseUrl').value.trim()
+          && (!needsSearch || (document.querySelector('#wsBaseUrl').value.trim() && document.querySelector('#wsKey').value.trim()))
+        );
+        aiSave.disabled = !valid;
+        document.querySelector('#aiTest').disabled = !valid || !aiEnabled.checked;
+      }
+      [aiEnabled, aiAgent, aiWebSearch].forEach((input) => input.addEventListener('change', renderAi));
+      aiPanel.addEventListener('input', () => { aiReset.hidden = false; renderAi(); });
+      aiPanel.addEventListener('change', () => { aiReset.hidden = false; });
+      document.querySelector('#aiKeyToggle').addEventListener('click', (event) => {
+        const shown = aiKey.type === 'text';
+        aiKey.type = shown ? 'password' : 'text';
+        event.currentTarget.textContent = shown ? '显示' : '隐藏';
+      });
+      document.querySelector('#aiTest').addEventListener('click', (event) => {
+        runSave(event.currentTarget, '测试中...', () => {
+          setFeedback(document.querySelector('#aiTestResult'), '连接测试成功！配置有效。', true, 4000);
+        });
+      });
+      aiReset.addEventListener('click', () => { aiReset.hidden = true; showToast('已恢复上次保存的 AI 配置'); });
+      aiSave.addEventListener('click', (event) => {
+        runSave(event.currentTarget, '保存中...', () => {
+          aiReset.hidden = true;
+          setFeedback(document.querySelector('#aiFeedback'), '配置保存成功！', true);
+        });
+      });
+      renderAi();
+
+      /* 合集 */
+      const collectionName = document.querySelector('#collectionName');
+      const collectionAdd = document.querySelector('#collectionAdd');
+      const collectionList = document.querySelector('#collectionList');
+      const collectionEmpty = document.querySelector('#collectionEmpty');
+      function renderCollections() {
+        const count = collectionList.querySelectorAll('.set-collection').length;
+        collectionList.hidden = count === 0;
+        collectionEmpty.hidden = count > 0;
+      }
+      collectionName.addEventListener('input', () => { collectionAdd.disabled = !collectionName.value.trim(); });
+      collectionAdd.addEventListener('click', () => {
+        const name = collectionName.value.trim();
+        if (!name) return;
+        const row = document.createElement('div');
+        row.className = 'set-collection';
+        row.innerHTML = `<strong></strong><span class="set-count">引用 0</span><button class="set-mini warn" data-collection-remove title="删除合集" type="button">删除</button>`;
+        row.querySelector('strong').textContent = name;
+        collectionList.appendChild(row);
+        collectionName.value = '';
+        collectionAdd.disabled = true;
+        renderCollections();
+        showToast(`已创建合集「${name}」`);
+      });
+      collectionList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-collection-remove]');
+        if (!button || button.disabled) return;
+        button.closest('.set-collection').remove();
+        renderCollections();
+        showToast('合集已删除');
+      });
+      renderCollections();
+
+      /* 任务保留 */
+      // 勾选框和数字是同一件事的两半：勾上就补一个默认值，取消就写 0（= 不限制）。
+      function bindRetention(checkId, numberId, seed) {
+        const check = document.querySelector(`#${checkId}`);
+        const number = document.querySelector(`#${numberId}`);
+        check.addEventListener('change', () => {
+          number.disabled = !check.checked;
+          number.value = check.checked ? seed : 0;
+        });
+      }
+      bindRetention('retentionCountOn', 'retentionCount', 100);
+      bindRetention('retentionDaysOn', 'retentionDays', 30);
+      document.querySelector('#retentionSave').addEventListener('click', (event) => {
+        runSave(event.currentTarget, '保存中...', () => {
+          setFeedback(document.querySelector('#retentionFeedback'), '已保存', true);
+        });
+      });
+      document.querySelector('#retentionCleanup').addEventListener('click', (event) => {
+        runSave(event.currentTarget, '正在提交...', () => {
+          setFeedback(document.querySelector('#retentionFeedback'), '已提交清理任务', true);
+        });
+      });
+
+      // 设置里的对话框是 fixed 的，离开设置页时必须一起收掉，否则会跟到别的页面上。
+      navButtons.forEach((button) => button.addEventListener('click', closeSetModals));
+      document.querySelectorAll('[data-page-jump]').forEach((button) =>
+        button.addEventListener('click', () => showPage(button.dataset.pageJump))
+      );
+
+      function showToast(message) {
+        const toast = document.querySelector('#toast');
+        toast.textContent = message; toast.hidden = false;
+        clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; }, 2200);
+      }
+      document.querySelectorAll('[data-toast]').forEach((button) => button.addEventListener('click', () => showToast(button.dataset.toast)));
+      document.querySelector('#themeToggle').addEventListener('click', () => { document.querySelector('#themeSwitch').classList.toggle('on'); showToast('原型中保留浅色方向，深色版本可作为下一轮探索'); });
+      renderFilters();
+      renderTasks();
+    </script>
+  </body>
+</html>

@@ -200,7 +200,8 @@ func (s *FileService) prepareStagedImport(sourcePath, fileName string, collectio
 	trimmedCollectionName := strings.TrimSpace(collectionName)
 	effectiveCollectionName := trimmedCollectionName
 	if layoutConfig.Strategy == "type_collection" && effectiveCollectionName == "" {
-		effectiveCollectionName = layoutConfig.UnsortedFolderName
+		// 未分配是内置状态，不跟随可变配置名称，避免旧文件和多主目录产生歧义。
+		effectiveCollectionName = models.BuiltinUnsortedFolderName
 	}
 
 	targetFileName := strings.TrimSpace(fileName)

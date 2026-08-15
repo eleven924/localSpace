@@ -1,133 +1,115 @@
 <template>
   <div class="open-with-config">
-    <div class="config-header">
-      <h4>打开方式</h4>
-      <p class="subtitle">优先按扩展名匹配，其次按文件类型匹配；未配置时使用系统默认打开方式。</p>
+    <div v-if="loading" class="set-locked">
+      <div>
+        <span class="set-spinner" aria-hidden="true"></span>
+        <p>正在读取打开方式配置...</p>
+      </div>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <p>加载中...</p>
-    </div>
-
-    <div v-else class="config-content">
-      <section class="section-block">
-        <div class="section-title">
-          <h5>文件类型默认软件</h5>
-          <p>为常见文件类型指定 LocalSpace 内优先使用的软件。</p>
-        </div>
-
-        <div
-          v-for="option in fileTypeOptions"
-          :key="option.value"
-          class="form-group"
-        >
-          <label :for="`file-type-${option.value}`">
-            <span class="label-main">{{ option.label }}</span>
-            <span class="label-sub">{{ option.value }}</span>
-          </label>
-
-          <div class="path-editor">
-            <input
-              :id="`file-type-${option.value}`"
-              v-model="config.byFileType[option.value]"
-              type="text"
-              placeholder="未配置时使用系统默认"
-              @input="handleChange"
-            />
-            <button class="mini-btn" @click="browseForFileType(option.value)">
-              浏览
-            </button>
-            <button
-              class="mini-btn ghost"
-              @click="clearFileType(option.value)"
-              :disabled="!config.byFileType[option.value]"
-            >
-              清空
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-block">
-        <div class="section-title section-title-row">
+    <template v-else>
+      <section class="set-section">
+        <div class="set-section-head">
           <div>
-            <h5>扩展名覆盖规则</h5>
-            <p>例如让 `.mkv` 使用专门播放器，而其他视频仍按类型规则打开。</p>
+            <h3>文件类型默认软件</h3>
+            <p>为常见文件类型指定 LocalSpace 内优先使用的软件。未配置时使用系统默认打开方式。</p>
           </div>
-          <button class="add-rule-btn" @click="addExtensionRule">
-            添加规则
-          </button>
         </div>
 
-        <div v-if="extensionRules.length === 0" class="empty-state">
-          <p>暂无扩展名覆盖规则</p>
-        </div>
-
-        <div
-          v-for="(rule, index) in extensionRules"
-          :key="rule.id"
-          class="rule-card"
-        >
-          <div class="rule-grid">
-            <div class="rule-field extension-field">
-              <label :for="`extension-${rule.id}`">扩展名</label>
-              <input
-                :id="`extension-${rule.id}`"
-                v-model="rule.extension"
-                type="text"
-                placeholder=".mkv"
-                @input="handleExtensionChange(index)"
-              />
-            </div>
-
-            <div class="rule-field path-field">
-              <label :for="`app-path-${rule.id}`">软件路径</label>
-              <div class="path-editor">
-                <input
-                  :id="`app-path-${rule.id}`"
-                  v-model="rule.appPath"
-                  type="text"
-                  placeholder="选择可执行文件"
-                  @input="handleChange"
-                />
-                <button class="mini-btn" @click="browseForExtension(index)">
-                  浏览
-                </button>
+        <div class="set-rows paths">
+          <div v-for="option in fileTypeOptions" :key="option.value" class="set-row">
+            <div class="set-type-row">
+              <span class="set-type" :class="option.value" aria-hidden="true">
+                {{ shortLabel(option.value) }}
+              </span>
+              <div class="set-row-copy">
+                <label :for="`file-type-${option.value}`">{{ option.label }}</label>
+                <small>{{ option.value }}</small>
               </div>
             </div>
-          </div>
 
-          <div class="rule-actions">
-            <button class="mini-btn ghost" @click="removeExtensionRule(index)">
-              删除规则
-            </button>
+            <div class="set-control inline">
+              <input
+                :id="`file-type-${option.value}`"
+                v-model="config.byFileType[option.value]"
+                class="set-field mono"
+                type="text"
+                placeholder="未配置时使用系统默认"
+                @input="handleChange"
+              />
+              <button type="button" class="set-mini" @click="browseForFileType(option.value)">
+                浏览
+              </button>
+              <button
+                type="button"
+                class="set-mini"
+                :disabled="!config.byFileType[option.value]"
+                @click="clearFileType(option.value)"
+              >
+                清空
+              </button>
+            </div>
           </div>
         </div>
       </section>
-    </div>
 
-    <div class="config-actions">
-      <button
-        class="btn primary"
-        @click="handleSave"
-        :disabled="saving"
-      >
-        <span v-if="saving" class="spinner small"></span>
-        {{ saving ? '保存中...' : '保存配置' }}
-      </button>
-      <button
-        v-if="hasChanges"
-        class="btn secondary"
-        @click="handleReset"
-      >
-        重置
-      </button>
-    </div>
+      <section class="set-section">
+        <div class="set-section-head">
+          <div>
+            <h3>扩展名覆盖规则</h3>
+            <p>
+              优先按扩展名匹配，其次按文件类型匹配。例如让 <code>.mkv</code>
+              使用专门播放器，而其他视频仍按类型规则打开。
+            </p>
+          </div>
+          <button type="button" class="set-mini" @click="addExtensionRule">添加规则</button>
+        </div>
 
-    <p v-if="message" class="message" :class="message.success ? 'success' : 'error'">
-      {{ message.text }}
-    </p>
+        <div v-if="extensionRules.length > 0" class="set-list">
+          <div v-for="(rule, index) in extensionRules" :key="rule.id" class="set-rule">
+            <input
+              v-model="rule.extension"
+              class="set-field mono"
+              type="text"
+              placeholder=".mkv"
+              aria-label="扩展名"
+              @input="handleExtensionChange(index)"
+            />
+            <input
+              v-model="rule.appPath"
+              class="set-field mono"
+              type="text"
+              placeholder="选择可执行文件"
+              aria-label="软件路径"
+              @input="handleChange"
+            />
+            <span class="set-control inline">
+              <button type="button" class="set-mini" @click="browseForExtension(index)">浏览</button>
+              <button type="button" class="set-mini warn" @click="removeExtensionRule(index)">
+                删除规则
+              </button>
+            </span>
+          </div>
+        </div>
+
+        <div v-else class="set-empty">
+          <strong>暂无扩展名覆盖规则</strong>
+          <p>只有某个扩展名需要区别对待时才添加，其余文件按上面的类型规则打开。</p>
+        </div>
+      </section>
+
+      <div class="set-commit">
+        <p v-if="message" class="set-feedback" :class="message.success ? 'success' : 'error'">
+          {{ message.text }}
+        </p>
+        <button v-if="hasChanges" type="button" class="btn secondary" @click="handleReset">
+          重置
+        </button>
+        <button type="button" class="btn primary" :disabled="saving" @click="handleSave">
+          {{ saving ? '保存中...' : '保存配置' }}
+        </button>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -135,6 +117,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@/api'
 import type { OpenWithConfig as OpenWithConfigModel } from '@/types'
+import { FILE_TYPE_META } from '@/utils/constants'
 
 type ExtensionRule = {
   id: number
@@ -151,6 +134,8 @@ const fileTypeOptions = [
   { value: 'installer', label: '安装包' },
   { value: 'other', label: '其他' },
 ]
+
+const shortLabel = (fileType: string): string => FILE_TYPE_META[fileType]?.shortLabel || '其'
 
 const createEmptyConfig = (): OpenWithConfigModel => ({
   byFileType: {},
@@ -350,287 +335,7 @@ const handleReset = () => {
   width: 100%;
 }
 
-.config-header {
-  margin-bottom: 14px;
-}
-
-.config-header h4 {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-color);
-  margin: 0 0 8px 0;
-}
-
-.subtitle {
-  font-size: 14px;
-  color: var(--text-color);
-  opacity: 0.7;
-  margin: 0;
-  line-height: 1.6;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  gap: 16px;
-  color: var(--text-color);
-}
-
-.spinner {
-  border: 2px solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  animation: spin 0.8s linear infinite;
-}
-
-.spinner.small {
-  width: 16px;
-  height: 16px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.config-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.section-block {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.section-title h5 {
-  margin: 0 0 6px 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-color);
-}
-
-.section-title p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-soft);
-  opacity: 1;
-  line-height: 1.6;
-}
-
-.section-title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.form-group {
-  display: grid;
-  grid-template-columns: minmax(130px, 0.35fr) minmax(260px, 1fr);
-  gap: 12px;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-}
-
-.form-group label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.label-main {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-color);
-}
-
-.label-sub {
-  font-size: 12px;
-  color: var(--text-soft);
-  opacity: 1;
-}
-
-.path-editor {
-  display: flex;
-  gap: 8px;
-}
-
-.path-editor input,
-.rule-field input {
-  flex: 1;
-  min-height: 38px;
-  padding: 8px 11px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background-color: color-mix(in srgb, var(--surface-color) 90%, transparent);
-  color: var(--text-color);
-  font-size: 14px;
-}
-
-.path-editor input:focus,
-.rule-field input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-}
-
-.mini-btn,
-.add-rule-btn,
-.btn {
-  min-height: 38px;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.mini-btn,
-.add-rule-btn,
-.btn.secondary {
-  background-color: color-mix(in srgb, var(--surface-color) 76%, transparent);
-  color: var(--text-color);
-  border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-}
-
-.mini-btn:hover:not(:disabled),
-.add-rule-btn:hover,
-.btn.secondary:hover {
-  background-color: var(--surface-muted);
-  border-color: color-mix(in srgb, var(--primary-color) 34%, var(--border-color));
-}
-
-.mini-btn.ghost {
-  background-color: transparent;
-}
-
-.mini-btn:disabled {
-  opacity: 0.78;
-  color: color-mix(in srgb, var(--text-soft) 72%, var(--text-color));
-  cursor: not-allowed;
-}
-
-.add-rule-btn {
-  white-space: nowrap;
-}
-
-.empty-state {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 0;
-  border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-  border-radius: 0;
-  color: var(--text-soft);
-  opacity: 1;
-}
-
-.rule-card {
-  padding: 14px 0;
-  border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-  border-radius: 0;
-  background-color: transparent;
-}
-
-.rule-grid {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.32fr) minmax(240px, 0.68fr);
-  gap: 12px;
-}
-
-.rule-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.rule-field label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.rule-actions {
-  display: flex;
-  justify-content: flex-end;
+.set-locked p {
   margin-top: 10px;
-}
-
-.config-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.btn {
-  min-width: 120px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.btn.primary {
-  background-color: color-mix(in srgb, var(--primary-color) 11%, transparent);
-  color: var(--primary-color);
-  border: 1px solid color-mix(in srgb, var(--primary-color) 34%, transparent);
-}
-
-.btn.primary:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--primary-color) 16%, transparent);
-  box-shadow: none;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.message {
-  margin: 14px 0 0 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-.message.success {
-  background-color: rgba(76, 175, 80, 0.1);
-  color: var(--success-color);
-}
-
-.message.error {
-  background-color: rgba(244, 67, 54, 0.1);
-  color: var(--error-color);
-}
-
-@media (max-width: 768px) {
-  .form-group,
-  .rule-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .section-title-row,
-  .config-actions,
-  .path-editor {
-    flex-direction: column;
-  }
-
-  .add-rule-btn,
-  .btn,
-  .mini-btn {
-    width: 100%;
-  }
 }
 </style>

@@ -214,7 +214,11 @@ const resolveRouteCollectionId = () => {
   if (!normalized || normalized === 'all') {
     return 'all' as const
   }
-  if (normalized === 'unsorted' || normalized === UNSORTED_COLLECTION_KEY || isUnsortedCollectionName(normalized)) {
+  if (
+    normalized === 'unsorted' ||
+    normalized === UNSORTED_COLLECTION_KEY ||
+    isUnsortedCollectionName(normalized)
+  ) {
     return 'unsorted' as const
   }
 

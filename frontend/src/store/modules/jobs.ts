@@ -15,6 +15,8 @@ export const useJobsStore = defineStore('jobs', () => {
   const page = ref(1)
   const pageSize = ref(DEFAULT_PAGE_SIZE)
   const total = ref(0)
+  // 对应 ListJobs 的 jobType 参数，空串表示不限类型。
+  const jobType = ref('')
   const activeJobs = ref<Job[]>([])
   const loading = ref(false)
   const initialized = ref(false)
@@ -92,12 +94,13 @@ export const useJobsStore = defineStore('jobs', () => {
     await Promise.all([loadActiveJobs(), loadJobs(1, pageSize.value)])
   }
 
-  const loadJobs = async (p = page.value, ps = pageSize.value) => {
+  const loadJobs = async (p = page.value, ps = pageSize.value, type = jobType.value) => {
     loading.value = true
     try {
       page.value = p
       pageSize.value = ps
-      const resp: JobListResponse = await api.jobs.listJobs(p, ps, '')
+      jobType.value = type
+      const resp: JobListResponse = await api.jobs.listJobs(p, ps, type)
       jobs.value = resp.items
       total.value = resp.total
     } finally {
@@ -146,6 +149,7 @@ export const useJobsStore = defineStore('jobs', () => {
     page,
     pageSize,
     total,
+    jobType,
     activeJobs,
     totalRunningCount,
     summaryJobs,

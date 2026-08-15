@@ -59,6 +59,10 @@ func (r *CollectionRepository) Add(name string) (uint, error) {
 	if trimmed == "" {
 		return 0, fmt.Errorf("collection name cannot be empty")
 	}
+	// _unsorted 是系统内置目录名，不能创建同名合集，否则路由和物理目录会产生歧义。
+	if strings.EqualFold(trimmed, models.BuiltinUnsortedFolderName) {
+		return 0, fmt.Errorf("collection name %q is reserved", models.BuiltinUnsortedFolderName)
+	}
 	now := time.Now().Format(time.RFC3339)
 	result, err := r.db.Exec(`
 		INSERT INTO collections (name, created_at, updated_at) VALUES (?, ?, ?)

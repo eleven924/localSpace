@@ -242,6 +242,13 @@ const handleToggleSelect = (id: number) => emit('toggleSelect', id)
   overflow-y: auto;
   overflow-x: clip;
   padding-right: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.grouped-file-list::-webkit-scrollbar,
+.file-list::-webkit-scrollbar {
+  display: none;
 }
 
 .file-group {
@@ -277,6 +284,8 @@ const handleToggleSelect = (id: number) => emit('toggleSelect', id)
   overflow-y: auto;
   overflow-x: clip;
   padding-right: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .grouped-file-list .file-list {

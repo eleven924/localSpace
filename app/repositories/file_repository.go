@@ -15,6 +15,14 @@ type FileRepository struct {
 	db *sql.DB
 }
 
+// displayCollectionNameSQL 将内置未分配目录名转换为空合集名；其他无 ID 的旧记录继续保留名称，
+// 这样历史合集数据仍能兼容，而旧未分配数据会在读取旧配置时被归一化为内置目录名。
+const displayCollectionNameSQL = `CASE
+					WHEN c.id IS NOT NULL THEN c.name
+					WHEN TRIM(COALESCE(f.collection_name, '')) IN ('', '_unsorted') THEN ''
+					ELSE TRIM(f.collection_name)
+				END`
+
 // NewFileRepository creates a new FileRepository
 func NewFileRepository(dbWrapper *SQLiteDBWrapper) *FileRepository {
 	return &FileRepository{db: dbWrapper.GetDB()}
@@ -108,12 +116,12 @@ func (r *FileRepository) Create(file *models.File) error {
 
 // FindByID finds a file by ID
 func (r *FileRepository) FindByID(id uint) (*models.File, error) {
-	query := `
-			SELECT f.id, f.file_name, f.original_name, COALESCE(c.name, f.collection_name), f.collection_id, f.file_path, f.file_type, f.file_sub_type, f.file_size,
+	query := fmt.Sprintf(`
+			SELECT f.id, f.file_name, f.original_name, %s, f.collection_id, f.file_path, f.file_type, f.file_sub_type, f.file_size,
 			       f.tags, f.description, f.metadata, f.thumbnail, f.checksum, f.is_deleted, f.deleted_at, f.created_at, f.modified_at
 			FROM files f
 			LEFT JOIN collections c ON c.id = f.collection_id
-			WHERE f.id = ?`
+			WHERE f.id = ?`, displayCollectionNameSQL)
 
 	row := r.db.QueryRow(query, id)
 
@@ -168,12 +176,12 @@ func (r *FileRepository) FindByID(id uint) (*models.File, error) {
 
 // List returns a list of files with filters
 func (r *FileRepository) List(filter FileFilter) ([]*models.File, error) {
-	query := `
-			SELECT f.id, f.file_name, f.original_name, COALESCE(c.name, f.collection_name), f.collection_id, f.file_path, f.file_type, f.file_sub_type, f.file_size,
+	query := fmt.Sprintf(`
+			SELECT f.id, f.file_name, f.original_name, %s, f.collection_id, f.file_path, f.file_type, f.file_sub_type, f.file_size,
 			       f.tags, f.description, f.metadata, f.thumbnail, f.checksum, f.is_deleted, f.deleted_at, f.created_at, f.modified_at
 			FROM files f
 			LEFT JOIN collections c ON c.id = f.collection_id
-			WHERE 1=1`
+			WHERE 1=1`, displayCollectionNameSQL)
 
 	args := []interface{}{}
 	argIndex := 1
@@ -379,17 +387,17 @@ func (r *FileRepository) CountCollectionFilters(fileType string) (*models.Collec
 func (r *FileRepository) Search(query string) ([]*models.File, error) {
 	searchQuery := "%" + strings.ToLower(query) + "%"
 
-	sqlQuery := `
-			SELECT f.id, f.file_name, f.original_name, COALESCE(c.name, f.collection_name), f.collection_id, f.file_path, f.file_type, f.file_sub_type, f.file_size,
+	sqlQuery := fmt.Sprintf(`
+			SELECT f.id, f.file_name, f.original_name, %s, f.collection_id, f.file_path, f.file_type, f.file_sub_type, f.file_size,
 			       f.tags, f.description, f.metadata, f.thumbnail, f.checksum, f.is_deleted, f.deleted_at, f.created_at, f.modified_at
 			FROM files f
 			LEFT JOIN collections c ON c.id = f.collection_id
 			WHERE LOWER(f.file_name) LIKE ?
-			   OR LOWER(COALESCE(c.name, f.collection_name)) LIKE ?
+			   OR LOWER(%s) LIKE ?
 			   OR LOWER(f.tags) LIKE ?
 			   OR LOWER(f.description) LIKE ?
 			ORDER BY f.created_at DESC
-			LIMIT 100`
+			LIMIT 100`, displayCollectionNameSQL, displayCollectionNameSQL)
 
 	rows, err := r.db.Query(sqlQuery, searchQuery, searchQuery, searchQuery, searchQuery)
 	if err != nil {
@@ -637,12 +645,12 @@ func (r *FileRepository) ExistsByPath(path string) (bool, error) {
 
 // FindByChecksum finds a file by its checksum
 func (r *FileRepository) FindByChecksum(checksum string) (*models.File, error) {
-	query := `
-		SELECT f.id, f.file_name, f.original_name, COALESCE(c.name, f.collection_name), f.collection_id, f.file_path, f.file_type, f.file_sub_type, f.file_size,
+	query := fmt.Sprintf(`
+		SELECT f.id, f.file_name, f.original_name, %s, f.collection_id, f.file_path, f.file_type, f.file_sub_type, f.file_size,
 		       f.tags, f.description, f.metadata, f.thumbnail, f.checksum, f.is_deleted, f.deleted_at, f.created_at, f.modified_at
 		FROM files f
 		LEFT JOIN collections c ON c.id = f.collection_id
-		WHERE f.checksum = ? AND f.is_deleted = FALSE`
+		WHERE f.checksum = ? AND f.is_deleted = FALSE`, displayCollectionNameSQL)
 
 	row := r.db.QueryRow(query, checksum)
 

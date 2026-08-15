@@ -63,9 +63,28 @@ func defaultOpenWithConfig() *models.OpenWithConfig {
 func defaultStorageLayoutConfig() *models.StorageLayoutConfig {
 	return &models.StorageLayoutConfig{
 		Strategy:           "type_collection",
-		UnsortedFolderName: "_unsorted",
+		UnsortedFolderName: models.BuiltinUnsortedFolderName,
 		SanitizeFolderName: true,
 	}
+}
+
+// normalizeLegacyUnsortedFiles 将旧配置中的未分配目录名只归一化数据库语义，不搬动物理文件。
+// 这样旧文件仍留在原目录，但不会因为设置改名而继续伪装成一个可编辑合集。
+func (r *ConfigRepository) normalizeLegacyUnsortedFiles(legacyName string) error {
+	legacyName = strings.TrimSpace(legacyName)
+	if legacyName == "" || legacyName == models.BuiltinUnsortedFolderName {
+		return nil
+	}
+
+	_, err := r.db.Exec(`
+		UPDATE files
+		SET collection_name = ?, modified_at = CURRENT_TIMESTAMP
+		WHERE collection_id IS NULL AND TRIM(collection_name) = ?`,
+		models.BuiltinUnsortedFolderName, legacyName)
+	if err != nil {
+		return fmt.Errorf("failed to normalize legacy unsorted files: %w", err)
+	}
+	return nil
 }
 
 // GetAll returns all configurations
@@ -154,12 +173,14 @@ func (r *ConfigRepository) GetStorageLayoutConfig() (*models.StorageLayoutConfig
 	if err := json.Unmarshal([]byte(value), config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal storage layout config: %w", err)
 	}
+	if err := r.normalizeLegacyUnsortedFiles(config.UnsortedFolderName); err != nil {
+		return nil, err
+	}
 	if config.Strategy == "" {
 		config.Strategy = "type_collection"
 	}
-	if strings.TrimSpace(config.UnsortedFolderName) == "" {
-		config.UnsortedFolderName = "_unsorted"
-	}
+	// 兼容旧配置字段，但不再允许它改变内置未分配目录。
+	config.UnsortedFolderName = models.BuiltinUnsortedFolderName
 
 	return config, nil
 }
@@ -169,12 +190,13 @@ func (r *ConfigRepository) SetStorageLayoutConfig(config *models.StorageLayoutCo
 	if config == nil {
 		config = defaultStorageLayoutConfig()
 	}
+	if err := r.normalizeLegacyUnsortedFiles(config.UnsortedFolderName); err != nil {
+		return err
+	}
 	if strings.TrimSpace(config.Strategy) == "" {
 		config.Strategy = "type_collection"
 	}
-	if strings.TrimSpace(config.UnsortedFolderName) == "" {
-		config.UnsortedFolderName = "_unsorted"
-	}
+	config.UnsortedFolderName = models.BuiltinUnsortedFolderName
 
 	data, err := json.Marshal(config)
 	if err != nil {

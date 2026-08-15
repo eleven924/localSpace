@@ -90,7 +90,7 @@ import FileTypeFilter from '@/components/FileTypeFilter.vue'
 import { useFilesStore } from '@/store/modules/files'
 import { api, isWailsAvailable } from '@/api'
 import type { Collection } from '@/types'
-import { UNSORTED_COLLECTION_KEY } from '@/utils/constants'
+import { isUnsortedCollectionName, UNSORTED_COLLECTION_KEY } from '@/utils/constants'
 
 const filesStore = useFilesStore()
 const router = useRouter()
@@ -165,7 +165,7 @@ const clearTypeFilter = async () => {
   await handleTypeFilter('all')
 }
 
-const openCollection = (collectionName: string) => {
+const openCollection = async (collectionName: string) => {
   const normalizedName = collectionName.trim()
   const query: Record<string, string> = {
     collection: normalizedName,
@@ -173,10 +173,12 @@ const openCollection = (collectionName: string) => {
   }
 
   // 文件页筛选以 collectionId 为准；合集页入口优先传 id，旧链接仍由文件页按名称兜底。
-  if (normalizedName === UNSORTED_COLLECTION_KEY) {
+  const matchedCollection = collections.value.find((collection) => collection.name === normalizedName)
+
+  // 未分类是内置状态，路由始终使用稳定的 unsorted 标识，不依赖物理目录名称。
+  if (normalizedName === UNSORTED_COLLECTION_KEY || isUnsortedCollectionName(normalizedName)) {
     query.collection = 'unsorted'
   } else {
-    const matchedCollection = collections.value.find((collection) => collection.name === normalizedName)
     if (matchedCollection) {
       query.collection = String(matchedCollection.id)
     }

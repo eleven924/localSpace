@@ -4,271 +4,282 @@
 
     <div class="page-content">
       <div class="page-stack">
-        <section class="page-topbar import-topbar">
-          <div class="page-topbar-copy">
-            <span class="eyebrow import-eyebrow">导入工作台</span>
-            <h1 class="page-topbar-title">导入</h1>
-            <p class="page-topbar-note">
-              {{ mode === 'single' ? '单文件适合细化整理一份资料。' : '批量导入会创建后台任务，适合一次处理多份文件。' }}
-            </p>
-          </div>
-
-          <div class="mode-switch" role="tablist" aria-label="导入模式">
+        <!-- 侧栏和面包屑已经写明当前是导入页，标题不再重复；模式切换直接充当页头。 -->
+        <header class="imp-header">
+          <h1 class="visually-hidden">导入</h1>
+          <div class="imp-tabs" role="tablist" aria-label="导入模式">
             <button
+              id="import-tab-single"
               type="button"
-              class="mode-pill"
+              role="tab"
+              class="imp-tab"
               :class="{ active: mode === 'single' }"
+              :aria-selected="mode === 'single'"
               @click="mode = 'single'"
             >
               单文件导入
             </button>
             <button
+              id="import-tab-batch"
               type="button"
-              class="mode-pill"
+              role="tab"
+              class="imp-tab"
               :class="{ active: mode === 'batch' }"
+              :aria-selected="mode === 'batch'"
               @click="mode = 'batch'"
             >
               批量导入任务
             </button>
           </div>
+          <p class="imp-lede">
+            {{
+              mode === 'single'
+                ? '一次导入一个文件，顺手把它的名称、标签和描述补齐。'
+                : '一次选好多个文件，设一组公共字段，交给后台任务处理。'
+            }}
+          </p>
+        </header>
+
+        <!-- 单文件只有一个主体，所以它是横跨整宽的来源条 -->
+        <section
+          v-if="mode === 'single'"
+          class="import-layout single"
+          :class="{ solo: !singleFile || !aiAvailable }"
+          role="tabpanel"
+          aria-labelledby="import-tab-single"
+        >
+          <div class="imp-source">
+            <button class="imp-pick" type="button" @click="handleSelectSingleFile">
+              <span class="imp-pick-tile" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.4h7A1.5 1.5 0 0 1 19 9.9v1.1" />
+                  <path d="M3.6 12.4h17.2l-1.9 6.1a1.5 1.5 0 0 1-1.4 1H4.6a1.5 1.5 0 0 1-1.5-1.5z" />
+                </svg>
+              </span>
+              <span class="imp-pick-copy">
+                <strong>{{ singleFile ? '重新选择文件' : '选择文件' }}</strong>
+                <span>打开系统文件窗口，一次选择一个文件</span>
+              </span>
+              <i class="imp-pick-chevron" aria-hidden="true">›</i>
+            </button>
+
+            <article v-if="singleFile" class="imp-file imp-file-lead">
+              <span class="imp-type" :class="singleFile.type" aria-hidden="true">{{ singleFile.shortLabel }}</span>
+              <div class="imp-file-copy">
+                <strong>{{ singleFile.name }}</strong>
+                <p>{{ singleFile.typeLabel }} · {{ formatFileSize(singleFile.size) }}</p>
+              </div>
+              <button class="imp-remove" type="button" @click="clearSingleFile">移除</button>
+            </article>
+
+            <div v-else class="imp-empty imp-empty-lead">
+              <strong>还没有选择文件</strong>
+              <p>选好之后，这份资料的名称、标签和描述会在下面展开。</p>
+            </div>
+          </div>
+
+          <section class="imp-panel">
+            <div class="imp-head">
+              <div>
+                <h2>元信息</h2>
+                <p>补全后这份资料才能被搜到。</p>
+              </div>
+            </div>
+
+            <div v-if="singleFile" class="imp-form">
+              <div class="imp-grid">
+                <label class="imp-field">
+                  <span>文件名</span>
+                  <input v-model="singleForm.fileName" type="text" placeholder="输入文件名" />
+                </label>
+
+                <label class="imp-field">
+                  <span>关键词<em>供 AI 参考</em></span>
+                  <input v-model="singleForm.keywords" type="text" placeholder="例如：课程、会议、剪辑" />
+                </label>
+
+                <label class="imp-field wide">
+                  <span>合集 / 系列</span>
+                  <CollectionSelector v-model="singleForm.collectionId" :collections="collections" />
+                </label>
+              </div>
+
+              <FileMetadataFields
+                :file-name="singleForm.fileName"
+                :file-type="singleFile.type"
+                :user-keywords="singleForm.keywords"
+                :embed-ai="false"
+                v-model:modelValueTags="singleForm.tags"
+                v-model:modelValueDescription="singleForm.description"
+              />
+            </div>
+
+            <div v-else class="imp-locked">
+              <div>
+                <strong>先选择一个文件</strong>
+                <p>选中后，这里会展开文件名、关键词、合集、标签和描述。</p>
+              </div>
+            </div>
+          </section>
+
+          <section v-if="singleFile" v-show="aiAvailable" class="imp-panel">
+            <FileAISuggestions
+              :file-name="singleForm.fileName"
+              :file-type="singleFile.type"
+              :user-keywords="singleForm.keywords"
+              :tags="singleForm.tags"
+              :description="singleForm.description"
+              @update:tags="singleForm.tags = $event"
+              @update:description="singleForm.description = $event"
+              @availability="aiAvailable = $event"
+            />
+          </section>
+
+          <div class="imp-commit">
+            <p v-if="singleError" class="imp-feedback error">{{ singleError }}</p>
+            <p v-else-if="singleSuccess" class="imp-feedback success">{{ singleSuccess }}</p>
+            <button class="btn secondary" type="button" @click="resetSingleForm">重置表单</button>
+            <button
+              class="btn primary"
+              type="button"
+              :disabled="singleSubmitting || !singleCanSubmit"
+              @click="submitSingleImport"
+            >
+              {{ singleSubmitting ? '正在导入...' : '立即导入文件' }}
+            </button>
+          </div>
         </section>
 
-        <section v-if="mode === 'single'" class="workspace-single">
-          <article class="stage-panel single-panel">
-            <div class="panel-head panel-head-compact">
+        <!-- 批量是一份清单，所以它占满左栏 -->
+        <section v-else class="import-layout batch" role="tabpanel" aria-labelledby="import-tab-batch">
+          <section class="imp-panel">
+            <div class="imp-head">
               <div>
-                <h2 class="section-title">单文件导入</h2>
-                <p class="panel-copy">把一个文件从选择、补全到提交，放在同一条流程里完成。</p>
+                <h2>文件</h2>
+                <p>可以分多次选择，重复的文件会自动跳过。</p>
               </div>
-              <span class="status-pill">{{ singleFile ? '已选中 1 个文件' : '等待选择文件' }}</span>
+              <span class="imp-pill" :class="{ on: selectedFiles.length > 0 }">
+                {{ selectedFiles.length ? `${selectedFiles.length} 个文件` : '还没有文件' }}
+              </span>
             </div>
 
-            <div class="single-flow">
-              <div class="single-selection">
-                <div class="single-selection-head">
-                  <div>
-                    <h3>文件</h3>
-                    <p>先把要导入的内容放进来，再补完整的资料。</p>
-                  </div>
-                  <button class="btn secondary" type="button" @click="handleSelectSingleFile">
-                    {{ singleFile ? '重新选择文件' : '选择文件' }}
-                  </button>
+            <button class="imp-pick" type="button" @click="handleSelectFiles">
+              <span class="imp-pick-tile" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.4h7A1.5 1.5 0 0 1 19 9.9v1.1" />
+                  <path d="M3.6 12.4h17.2l-1.9 6.1a1.5 1.5 0 0 1-1.4 1H4.6a1.5 1.5 0 0 1-1.5-1.5z" />
+                </svg>
+              </span>
+              <span class="imp-pick-copy">
+                <strong>添加文件</strong>
+                <span>打开系统文件窗口，按住 Ctrl / Shift 可一次选多个</span>
+              </span>
+              <i class="imp-pick-chevron" aria-hidden="true">›</i>
+            </button>
+
+            <template v-if="selectedFiles.length > 0">
+              <div class="imp-stats">
+                <div class="imp-stat">
+                  <strong>{{ selectedFiles.length }}</strong>
+                  <span>文件数量</span>
                 </div>
-
-                <div class="picker-shell">
-                  <button class="pick-button single-picker" type="button" @click="handleSelectSingleFile">
-                    <span class="pick-button-mark">＋</span>
-                    <span class="pick-button-copy">
-                      <span class="pick-button-text">{{ singleFile ? '重新选择文件' : '选择文件' }}</span>
-                      <span class="pick-button-note">支持视频、文档、音频、压缩包、安装包、图片等格式</span>
-                    </span>
-                  </button>
-
-                  <div v-if="singleFile" class="file-sheet single-file-card">
-                    <div class="file-sheet-icon">{{ singleFile.shortLabel }}</div>
-                    <div class="file-sheet-copy">
-                      <strong class="file-sheet-name">{{ singleFile.name }}</strong>
-                      <div class="file-sheet-meta">
-                        <span>{{ singleFile.typeLabel }}</span>
-                        <span>·</span>
-                        <span>{{ formatFileSize(singleFile.size) }}</span>
-                      </div>
-                    </div>
-                    <button class="btn ghost sheet-action" type="button" @click="clearSingleFile">移除</button>
-                  </div>
-
-                  <div v-else class="empty-surface import-empty">
-                    <strong>还没有选择文件</strong>
-                    <p>选择后会展开名称、标签、关键词、描述和合集设置。</p>
-                  </div>
+                <div class="imp-stat">
+                  <strong>{{ totalSizeLabel }}</strong>
+                  <span>预计体量</span>
                 </div>
               </div>
 
-              <div class="single-divider"></div>
-
-              <div v-if="singleFile" class="single-form">
-                <div class="single-form-head">
-                  <div>
-                    <h3>元信息</h3>
-                    <p>补全一份资料的可检索信息。</p>
-                  </div>
-                </div>
-
-                <div class="field-grid single-field-grid">
-                  <label class="field">
-                    <span>文件名</span>
-                    <input v-model="singleForm.fileName" type="text" placeholder="输入文件名" />
-                  </label>
-
-                  <label class="field">
-                    <span>关键词</span>
-                    <input v-model="singleForm.keywords" type="text" placeholder="例如：课程、会议、剪辑" />
-                  </label>
-
-                  <label class="field field-full">
-                    <span>合集 / 系列</span>
-                    <CollectionSelector v-model="singleForm.collectionId" :collections="collections" />
-                  </label>
-                </div>
-
-                <div class="metadata-shell">
-                  <FileMetadataFields
-                    :file-name="singleForm.fileName"
-                    :file-type="singleFile.type"
-                    :user-keywords="singleForm.keywords"
-                    v-model:modelValueTags="singleForm.tags"
-                    v-model:modelValueDescription="singleForm.description"
-                  />
-                </div>
-
-                <div v-if="singleError" class="feedback error">{{ singleError }}</div>
-                <div v-if="singleSuccess" class="feedback success">{{ singleSuccess }}</div>
-
-                <div class="actions single-actions">
-                  <button class="btn secondary" type="button" @click="resetSingleForm">重置表单</button>
-                  <button
-                    class="btn primary"
-                    type="button"
-                    :disabled="singleSubmitting || !singleCanSubmit"
-                    @click="submitSingleImport"
-                  >
-                    {{ singleSubmitting ? '正在导入...' : '立即导入文件' }}
-                  </button>
-                </div>
-              </div>
-
-              <div v-else class="single-form single-form-empty">
-                <div class="single-form-head">
-                  <div>
-                    <h3>元信息</h3>
-                    <p>选择文件后这里会展开。</p>
-                  </div>
-                </div>
-                <div class="empty-surface stage-empty">
-                  <strong>先选择一个文件</strong>
-                  <p>文件选中后，这一栏会展开名称、标签、关键词、描述和合集设置。</p>
-                </div>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <section v-else class="workspace-grid mode-batch">
-          <article class="stage-panel stage-rail stage-rail-left">
-            <div class="panel-head panel-head-compact">
-              <div>
-                <h2 class="section-title">文件</h2>
-                <p class="panel-copy">先把要导入的内容放进来，再补完整的资料。</p>
-              </div>
-              <div class="panel-meta-row">
-                <span class="status-pill">{{ selectedFiles.length }} 个文件</span>
-              </div>
-            </div>
-
-            <div class="picker-shell">
-              <div class="batch-toolbar">
-                <button class="btn secondary" type="button" @click="handleSelectFiles">添加文件</button>
-                <button class="btn ghost" type="button" :disabled="batchSubmitting || selectedFiles.length === 0" @click="clearFiles">
-                  清空
+              <div class="imp-list-head">
+                <span>已选文件</span>
+                <button class="imp-text-button" type="button" :disabled="batchSubmitting" @click="clearFiles">
+                  清空列表
                 </button>
               </div>
 
-              <div class="summary-grid">
-                <div class="summary-card">
-                  <span class="summary-value">{{ selectedFiles.length }}</span>
-                  <span class="summary-label">文件数量</span>
-                </div>
-                <div class="summary-card">
-                  <span class="summary-value">{{ totalSizeLabel }}</span>
-                  <span class="summary-label">预计体量</span>
-                </div>
-              </div>
-
-              <div v-if="selectedFiles.length === 0" class="empty-surface import-empty">
-                <strong>还没有加入批量文件</strong>
-                <p>先选择多个文件，再统一设置标签、描述和合集，最后创建后台任务。</p>
-              </div>
-
-              <div v-else class="batch-list scroll-soft">
-                <article v-for="file in selectedFiles" :key="file.path" class="file-row">
-                  <div class="file-avatar">{{ file.shortLabel }}</div>
-                  <div class="file-copy">
+              <div class="imp-tray scroll-soft">
+                <article v-for="file in selectedFiles" :key="file.path" class="imp-file">
+                  <span class="imp-type" :class="file.type" aria-hidden="true">{{ file.shortLabel }}</span>
+                  <div class="imp-file-copy">
                     <strong>{{ file.name }}</strong>
                     <p>{{ file.typeLabel }} · {{ formatFileSize(file.size) }}</p>
                   </div>
-                  <button class="btn ghost sheet-action" type="button" @click="removeFile(file.path)">移除</button>
+                  <button class="imp-remove" type="button" @click="removeFile(file.path)">移除</button>
                 </article>
               </div>
-            </div>
-          </article>
+            </template>
 
-          <article class="stage-panel stage-rail stage-rail-right">
-            <div class="panel-head panel-head-compact">
+            <div v-else class="imp-empty">
+              <strong>还没有加入文件</strong>
+              <p>用上面的按钮选几个文件，再统一设置标签、合集和描述。</p>
+            </div>
+          </section>
+
+          <section class="imp-panel">
+            <div class="imp-head">
               <div>
-                <h2 class="section-title">元信息</h2>
-                <p class="panel-copy">给这一批文件统一设置公共字段。</p>
+                <h2>元信息</h2>
+                <p>这里填的内容会写入这一批的每个文件。</p>
               </div>
-              <span class="status-pill">批量公共字段</span>
+              <span class="imp-pill">公共字段</span>
             </div>
 
-            <div class="form-stack">
-              <div class="field-grid single-field-grid">
-                <label class="field field-full">
-                  <span>统一标签</span>
+            <div class="imp-form">
+              <div class="imp-grid">
+                <label class="imp-field wide">
+                  <span>统一标签<em>用逗号分隔</em></span>
                   <input v-model="batchForm.sharedTagsText" type="text" placeholder="例如：课程、待整理、项目A" />
                 </label>
 
-                <label class="field">
+                <label class="imp-field wide">
                   <span>合集 / 系列</span>
                   <CollectionSelector v-model="batchForm.collectionId" :collections="collections" />
                 </label>
 
-                <label class="field field-full">
-                  <span>统一描述</span>
+                <label class="imp-field wide">
+                  <span>统一描述<em>可选</em></span>
                   <textarea
                     v-model="batchForm.sharedDescription"
-                    rows="5"
+                    rows="4"
                     placeholder="为这一批文件补充统一说明"
                   />
                 </label>
               </div>
 
-              <div class="toggle-grid">
-                <label class="toggle-card">
+              <div v-if="aiAvailable" class="imp-toggles">
+                <label class="imp-toggle">
                   <input v-model="batchForm.enableAIGeneratedTags" type="checkbox" />
                   <div>
                     <strong>AI 追加标签</strong>
-                    <p>在统一标签的基础上，为每个文件补充更细的标签。</p>
+                    <p>在统一标签之外，为每个文件再补几个更具体的标签。</p>
                   </div>
                 </label>
 
-                <label class="toggle-card">
+                <label class="imp-toggle">
                   <input v-model="batchForm.enableAIGeneratedDescription" type="checkbox" />
                   <div>
                     <strong>AI 生成描述</strong>
-                    <p>优先为每个文件生成单独描述，失败时退回到统一描述。</p>
+                    <p>优先为每个文件单独生成描述，失败时退回统一描述。</p>
                   </div>
                 </label>
               </div>
-
-              <div v-if="batchError" class="feedback error">{{ batchError }}</div>
-              <div v-if="batchSuccess" class="feedback success">{{ batchSuccess }}</div>
-
-              <div class="actions">
-                <button class="btn secondary" type="button" :disabled="batchSubmitting" @click="resetBatchForm">
-                  重置设置
-                </button>
-                <button
-                  class="btn primary"
-                  type="button"
-                  :disabled="!batchCanSubmit || batchSubmitting"
-                  @click="submitBatchJob"
-                >
-                  {{ batchSubmitting ? '正在创建任务...' : '创建后台导入任务' }}
-                </button>
-              </div>
             </div>
-          </article>
+          </section>
+
+          <div class="imp-commit">
+            <p v-if="batchError" class="imp-feedback error">{{ batchError }}</p>
+            <p v-else-if="batchSuccess" class="imp-feedback success">{{ batchSuccess }}</p>
+            <button class="btn secondary" type="button" :disabled="batchSubmitting" @click="resetBatchForm">
+              重置设置
+            </button>
+            <button
+              class="btn primary"
+              type="button"
+              :disabled="!batchCanSubmit || batchSubmitting"
+              @click="submitBatchJob"
+            >
+              {{ batchSubmitting ? '正在创建任务...' : '创建后台导入任务' }}
+            </button>
+          </div>
         </section>
       </div>
     </div>
@@ -279,10 +290,11 @@
 import { api } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
 import CollectionSelector from '@/components/CollectionSelector.vue'
+import FileAISuggestions from '@/components/FileAISuggestions.vue'
 import FileMetadataFields from '@/components/FileMetadataFields.vue'
 import type { BatchImportJobRequest, SelectedFile, SingleImportJobRequest } from '@/types/jobs'
 import type { Collection } from '@/types'
-import { formatFileSize } from '@/utils/constants'
+import { FILE_TYPE_META, formatFileSize } from '@/utils/constants'
 import { useJobsStore } from '@/store/modules/jobs'
 import { computed, onMounted, reactive, ref } from 'vue'
 
@@ -292,16 +304,6 @@ interface RichSelectedFile extends SelectedFile {
   type: string
   typeLabel: string
   shortLabel: string
-}
-
-const FILE_TYPE_META: Record<string, { label: string; shortLabel: string }> = {
-  video: { label: '视频', shortLabel: '影' },
-  document: { label: '文档', shortLabel: '文' },
-  music: { label: '音频', shortLabel: '音' },
-  archive: { label: '压缩包', shortLabel: '压' },
-  installer: { label: '安装包', shortLabel: '装' },
-  image: { label: '图片', shortLabel: '图' },
-  other: { label: '其他', shortLabel: '其' },
 }
 
 const EXTENSION_TO_TYPE: Record<string, string> = {
@@ -339,11 +341,14 @@ const jobsStore = useJobsStore()
 const collections = ref<Collection[]>([])
 onMounted(async () => {
   collections.value = await api.collection.getAll()
+  await loadAIAvailability()
 })
 
 const mode = ref<ImportMode>('single')
 const singleFile = ref<RichSelectedFile | null>(null)
 const selectedFiles = ref<RichSelectedFile[]>([])
+// AI 未配置时 FileAISuggestions 不渲染内容，单文件模式收成一栏。
+const aiAvailable = ref(false)
 const singleSubmitting = ref(false)
 const batchSubmitting = ref(false)
 const singleError = ref('')
@@ -363,7 +368,7 @@ const batchForm = reactive({
   sharedTagsText: '',
   sharedDescription: '',
   collectionId: undefined as number | undefined,
-  enableAIGeneratedTags: true,
+  enableAIGeneratedTags: false,
   enableAIGeneratedDescription: false,
 })
 
@@ -371,6 +376,26 @@ const totalSize = computed(() => selectedFiles.value.reduce((sum, file) => sum +
 const totalSizeLabel = computed(() => formatFileSize(totalSize.value))
 const singleCanSubmit = computed(() => !!singleFile.value && singleForm.fileName.trim().length > 0)
 const batchCanSubmit = computed(() => selectedFiles.value.length > 0)
+
+const loadAIAvailability = async () => {
+  try {
+    const config = await api.ai.getConfig()
+    aiAvailable.value = Boolean(config?.enabled)
+
+    // 未配置 AI 时不仅隐藏能力入口，提交参数也必须保持关闭，避免后台任务误启用 AI。
+    if (!aiAvailable.value) {
+      batchForm.enableAIGeneratedTags = false
+      batchForm.enableAIGeneratedDescription = false
+    } else {
+      batchForm.enableAIGeneratedTags = true
+    }
+  } catch (error) {
+    console.error('Failed to load AI config for import:', error)
+    aiAvailable.value = false
+    batchForm.enableAIGeneratedTags = false
+    batchForm.enableAIGeneratedDescription = false
+  }
+}
 
 const toRichFile = async (file: SelectedFile): Promise<RichSelectedFile> => {
   const extension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`
@@ -454,7 +479,7 @@ const resetBatchForm = () => {
   batchForm.sharedTagsText = ''
   batchForm.sharedDescription = ''
   batchForm.collectionId = undefined
-  batchForm.enableAIGeneratedTags = true
+  batchForm.enableAIGeneratedTags = aiAvailable.value
   batchForm.enableAIGeneratedDescription = false
   batchError.value = ''
   batchSuccess.value = ''
@@ -478,9 +503,10 @@ const submitSingleImport = async () => {
     }
 
     await api.jobs.submitSingleImportJob(payload)
-    singleSuccess.value = '已创建后台导入任务，可在右上角消息中心或任务中心查看进度。'
     singleFile.value = null
+    // 重置会清空提示，所以成功信息要在重置之后再写。
     resetSingleForm()
+    singleSuccess.value = '已创建后台导入任务，可在右上角消息中心或任务中心查看进度。'
   } catch (error) {
     singleError.value = error instanceof Error ? error.message : '提交导入任务失败'
   } finally {
@@ -512,9 +538,10 @@ const submitBatchJob = async () => {
 
   try {
     await jobsStore.submitBatchImportJob(payload)
-    batchSuccess.value = '后台导入任务已创建，可从右上角任务入口或任务中心继续查看。'
     clearFiles()
+    // 同上：clearFiles 和 resetBatchForm 都会清空提示。
     resetBatchForm()
+    batchSuccess.value = '后台导入任务已创建，可从右上角任务入口或任务中心继续查看。'
   } catch (error) {
     batchError.value = error instanceof Error ? error.message : '提交任务失败'
   } finally {
@@ -527,615 +554,647 @@ const submitBatchJob = async () => {
 .import-view {
   position: relative;
   --import-surface: rgba(255, 255, 255, 0.92);
-  --import-surface-strong: rgba(248, 250, 253, 0.98);
   --import-surface-muted: rgba(243, 246, 250, 0.88);
   --import-control: rgba(248, 250, 253, 0.92);
-  --import-control-hover: rgba(235, 242, 251, 0.98);
-  --import-topbar-start: rgba(255, 255, 255, 0.96);
-  --import-topbar-end: rgba(244, 248, 253, 0.94);
-  --import-highlight: rgba(45, 140, 240, 0.05);
   --import-border: rgba(148, 163, 184, 0.28);
-  --import-border-strong: rgba(45, 140, 240, 0.38);
+  --import-border-strong: rgba(148, 163, 184, 0.5);
   --import-accent: #2d8cf0;
-  --import-accent-strong: #1976d2;
+  --import-accent-strong: #1565c0;
+  --import-accent-soft: rgba(45, 140, 240, 0.1);
   --import-text: #223042;
   --import-text-soft: #5f6f82;
   --import-text-faint: #7f8ea3;
-  --import-on-accent: #ffffff;
   --import-error-bg: rgba(244, 67, 54, 0.08);
-  --import-error-border: rgba(244, 67, 54, 0.22);
   --import-error-text: #c62828;
-  --import-success-bg: rgba(76, 175, 80, 0.08);
-  --import-success-border: rgba(76, 175, 80, 0.22);
+  --import-success-bg: rgba(76, 175, 80, 0.1);
   --import-success-text: #2e7d32;
 }
 
-:global([data-theme='dark']) .import-view {
-  --import-surface: rgba(18, 26, 38, 0.82);
-  --import-surface-strong: rgba(23, 32, 45, 0.94);
-  --import-surface-muted: rgba(42, 50, 61, 0.82);
-  --import-control: rgba(10, 15, 24, 0.45);
-  --import-control-hover: rgba(18, 28, 42, 0.44);
-  --import-topbar-start: rgba(21, 29, 41, 0.88);
-  --import-topbar-end: rgba(16, 23, 34, 0.78);
-  --import-highlight: rgba(126, 176, 255, 0.06);
+[data-theme='dark'] .import-view {
+  --import-surface: rgba(35, 42, 52, 0.92);
+  --import-surface-muted: rgba(42, 50, 61, 0.7);
+  --import-control: rgba(30, 37, 47, 0.7);
   --import-border: rgba(173, 191, 214, 0.16);
-  --import-border-strong: rgba(125, 168, 224, 0.28);
-  --import-accent: #7eb0ff;
-  --import-accent-strong: #aac9ff;
-  --import-text: #f6fbff;
-  --import-text-soft: #c4d1df;
-  --import-text-faint: #8ea0b6;
-  --import-on-accent: #ffffff;
-  --import-error-bg: rgba(244, 96, 96, 0.1);
-  --import-error-border: rgba(244, 96, 96, 0.22);
+  --import-border-strong: rgba(173, 191, 214, 0.3);
+  --import-accent: #4da3ff;
+  --import-accent-strong: #8cc2ff;
+  --import-accent-soft: rgba(77, 163, 255, 0.14);
+  --import-text: #f2f6fb;
+  --import-text-soft: #c2cfdd;
+  --import-text-faint: #92a0b1;
+  --import-error-bg: rgba(244, 96, 96, 0.14);
   --import-error-text: #ffb7b7;
-  --import-success-bg: rgba(82, 184, 149, 0.1);
-  --import-success-border: rgba(82, 184, 149, 0.22);
-  --import-success-text: #b9f2d9;
-}
-
-.import-view::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(45, 140, 240, 0.035), transparent),
-    linear-gradient(90deg, rgba(45, 140, 240, 0.035) 1px, transparent 1px),
-    linear-gradient(rgba(45, 140, 240, 0.035) 1px, transparent 1px);
-  background-size: auto, 64px 64px, 64px 64px;
-  mix-blend-mode: normal;
-  opacity: 0.7;
+  --import-success-bg: rgba(82, 184, 149, 0.14);
+  --import-success-text: #9fe6c8;
 }
 
 .import-view .page-content {
   position: relative;
-  padding: 18px 44px 50px;
+  padding: 20px 44px 50px;
 }
 
 .import-view .page-stack {
-  gap: 14px;
+  gap: 16px;
 }
 
-.import-topbar {
-  align-items: center;
-  padding: 16px 18px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--import-topbar-start), var(--import-topbar-end));
-  border: 1px solid var(--import-border);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.26);
-  backdrop-filter: blur(18px);
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-.import-eyebrow {
-  background-color: rgba(126, 176, 255, 0.12);
-  color: var(--import-accent-strong);
+/* 模式切换充当页头：底部这条通栏细线接管了原来大标题的视觉重量。 */
+.imp-tabs {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--import-border);
 }
 
-.import-view .page-topbar-title {
-  font-size: 22px;
+.imp-tab {
+  position: relative;
+  padding: 4px 2px 12px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--import-text-faint);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  transition: color 0.2s ease;
 }
 
-.import-view .page-topbar-note {
+.imp-tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.imp-tab:hover {
   color: var(--import-text-soft);
 }
 
-.mode-switch {
-  display: inline-flex;
-  gap: 6px;
-  padding: 4px;
-  border-radius: 12px;
-  background: var(--import-control);
-  border: 1px solid var(--import-border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+.imp-tab.active {
+  color: var(--import-accent-strong);
 }
 
-.mode-pill {
-  min-width: 126px;
-  min-height: 38px;
-  padding: 8px 14px;
-  border-radius: 8px;
+.imp-tab.active::after {
+  background: var(--import-accent);
+}
+
+.imp-lede {
+  margin-top: 13px;
   color: var(--import-text-faint);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-size: 12px;
+  line-height: 1.7;
 }
 
-.mode-pill.active {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--import-accent) 18%, transparent), color-mix(in srgb, var(--import-accent) 8%, transparent));
-  color: var(--import-on-accent);
-  border: 1px solid var(--import-border-strong);
-  box-shadow: 0 10px 24px rgba(28, 67, 123, 0.22);
-}
-
-.workspace-grid {
+.import-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.96fr);
-  gap: 14px;
+  gap: 16px;
   align-items: start;
 }
 
-.workspace-single {
-  width: 100%;
+/* 单文件只有一个主体，所以它是页头条；批量是一份清单，所以它占一整栏。 */
+.import-layout.single {
+  grid-template-columns: minmax(0, 1.3fr) minmax(268px, 0.7fr);
 }
 
-.mode-batch {
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr);
+/* 没选文件、或没配置 AI 时都只剩一栏，元信息占满整行。 */
+.import-layout.single.solo {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.stage-panel {
-  position: relative;
-  padding: 18px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, var(--import-surface), var(--import-surface-strong));
-  border: 1px solid var(--import-border);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(18px);
-  overflow: hidden;
+.import-layout.batch {
+  grid-template-columns: minmax(290px, 1fr) minmax(0, 1fr);
 }
 
-.stage-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--import-highlight), transparent 30%, color-mix(in srgb, var(--import-text) 2%, transparent));
-  pointer-events: none;
-}
-
-.stage-panel > * {
-  position: relative;
-}
-
-.panel-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.panel-head-compact {
-  margin-bottom: 14px;
-}
-
-.section-title {
-  font-size: 18px;
-}
-
-.panel-copy {
-  margin-top: 6px;
-  color: var(--import-text-soft);
-  line-height: 1.65;
-  font-size: 13px;
-}
-
-.single-panel {
+.imp-source {
   display: grid;
-  gap: 16px;
-}
-
-.single-flow {
-  display: grid;
-  gap: 16px;
-}
-
-.single-selection,
-.single-form {
-  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(258px, 0.8fr) minmax(0, 1.2fr);
+  align-items: stretch;
   gap: 12px;
 }
 
-.single-selection-head,
-.single-form-head {
+.imp-commit {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
 }
 
-.single-selection-head h3,
-.single-form-head h3 {
+.imp-panel {
+  padding: 20px;
+  border: 1px solid var(--import-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--import-surface) 82%, transparent);
+  box-shadow: 0 10px 28px var(--shadow-color);
+}
+
+.imp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.imp-head h2 {
   font-size: 15px;
   font-weight: 700;
   color: var(--import-text);
+  letter-spacing: -0.02em;
 }
 
-.single-selection-head p,
-.single-form-head p {
-  margin-top: 4px;
-  color: var(--import-text-soft);
+.imp-head p {
+  margin-top: 5px;
+  color: var(--import-text-faint);
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
-.single-selection-head .btn {
-  width: auto;
+.imp-pill {
+  flex: none;
+  padding: 5px 9px;
+  border-radius: 8px;
+  color: var(--import-text-faint);
+  background: var(--import-surface-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.panel-meta-row {
-  display: flex;
-  justify-content: flex-end;
+.imp-pill.on {
+  color: var(--import-accent-strong);
+  background: var(--import-accent-soft);
 }
 
-.picker-shell,
-.form-stack {
+/* 选择控件保持实线边框和实心底色，读起来是按钮而不是拖放目标。 */
+.imp-pick {
   display: grid;
-  gap: 14px;
-}
-
-.pick-button {
-  display: grid;
-  justify-items: start;
-  gap: 10px;
-  width: 100%;
-  padding: 22px 20px;
-  border-radius: 14px;
-  border: 1px dashed var(--import-border);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--import-text) 3%, transparent), transparent),
-    var(--import-control);
-  color: var(--import-text);
-  text-align: left;
-}
-
-.pick-button.single-picker {
-  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-columns: 38px minmax(0, 1fr) 10px;
   align-items: center;
-  justify-items: start;
-  min-height: 76px;
-  padding: 14px 16px;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--import-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--import-control);
+  text-align: left;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
 }
 
-.pick-button:hover {
-  border-color: var(--import-border-strong);
-  background-color: var(--import-control-hover);
+.imp-pick:hover {
+  border-color: color-mix(in srgb, var(--import-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--import-accent) 5%, var(--import-control));
   transform: translateY(-1px);
 }
 
-.pick-button-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
+.imp-pick-tile {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--import-accent) 14%, transparent);
   color: var(--import-accent-strong);
-  font-size: 22px;
-  font-weight: 700;
+  background: var(--import-accent-soft);
 }
 
-.pick-button-copy {
-  display: grid;
-  gap: 4px;
+.imp-pick-tile svg {
+  width: 17px;
+  height: 17px;
+}
+
+.imp-pick-copy {
   min-width: 0;
 }
 
-.pick-button-text {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.pick-button-note {
-  color: var(--import-text-faint);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.file-sheet {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: center;
-  padding: 14px;
-  border-radius: 14px;
-  background: var(--import-surface-muted);
-  border: 1px solid var(--import-border);
-}
-
-.single-file-card {
-  background: color-mix(in srgb, var(--import-surface-muted) 72%, transparent);
-}
-
-.file-sheet-icon,
-.file-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--import-accent) 18%, transparent), color-mix(in srgb, var(--import-accent) 8%, transparent));
-  color: var(--import-on-accent);
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.file-sheet-copy,
-.file-copy {
-  min-width: 0;
-}
-
-.file-sheet-name,
-.file-copy strong {
+.imp-pick-copy strong {
   display: block;
-  font-size: 15px;
-  font-weight: 700;
   color: var(--import-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 700;
 }
 
-.file-sheet-meta,
-.file-copy p {
-  display: flex;
-  gap: 6px;
-  margin-top: 5px;
+.imp-pick-copy span {
+  display: block;
+  margin-top: 4px;
   color: var(--import-text-faint);
   font-size: 12px;
   line-height: 1.5;
 }
 
-.sheet-action {
-  width: auto;
-  flex-shrink: 0;
+.imp-pick-chevron {
+  color: var(--import-text-faint);
+  font-style: normal;
+  font-size: 16px;
 }
 
-.summary-grid,
-.field-grid,
-.toggle-grid {
+.imp-stats {
   display: grid;
-  gap: 12px;
-}
-
-.summary-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
 }
 
-.summary-card {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  border-radius: 14px;
-  background: var(--import-surface-muted);
+.imp-stat {
+  padding: 13px 14px;
   border: 1px solid var(--import-border);
+  border-radius: var(--radius-md);
+  background: var(--import-surface-muted);
 }
 
-.summary-value {
+.imp-stat strong {
+  display: block;
+  color: var(--import-text);
   font-size: 20px;
   font-weight: 700;
-  color: var(--import-text);
+  letter-spacing: -0.03em;
 }
 
-.summary-label {
-  font-size: 12px;
+.imp-stat span {
+  display: block;
+  margin-top: 5px;
   color: var(--import-text-faint);
+  font-size: 12px;
 }
 
-.batch-toolbar {
+.imp-list-head {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--import-border);
+  color: var(--import-text-faint);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.batch-toolbar .btn {
-  width: auto;
+.imp-text-button {
+  padding: 0;
+  background: transparent;
+  color: var(--import-accent-strong);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.batch-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 360px;
+.imp-tray {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  max-height: 320px;
   overflow-y: auto;
 }
 
-.file-row {
+.imp-file {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-  gap: 14px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: center;
-  padding: 14px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--import-surface-muted) 82%, transparent);
+  gap: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--import-border);
+  border-radius: var(--radius-md);
+  background: var(--import-surface-muted);
 }
 
-.file-copy p {
+.imp-file-lead {
+  padding: 13px 14px;
+}
+
+.imp-file-copy {
+  min-width: 0;
+}
+
+.imp-file-copy strong {
+  display: block;
+  overflow: hidden;
+  color: var(--import-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.imp-file-copy p {
   margin-top: 4px;
+  color: var(--import-text-faint);
+  font-size: 12px;
 }
 
-.single-field-grid {
+.imp-remove {
+  flex: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--import-text-faint);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.imp-remove:hover {
+  color: var(--error-color);
+  background: var(--import-error-bg);
+}
+
+/* 类型色片沿用资料库的类型语言，让导入和归档后是同一套识别方式。 */
+.imp-type {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b7b90;
+  background: #eef1f5;
+}
+
+.imp-type.video {
+  color: #145ab5;
+  background: #e6f0ff;
+}
+
+.imp-type.document {
+  color: #46618a;
+  background: #eaf0f7;
+}
+
+.imp-type.music {
+  color: #5b4a9c;
+  background: #ebe6fa;
+}
+
+.imp-type.image {
+  color: #1f7a5e;
+  background: #dff3ec;
+}
+
+.imp-type.archive {
+  color: #8f6210;
+  background: #fff1d6;
+}
+
+.imp-type.installer {
+  color: #a1414e;
+  background: #f8e4e7;
+}
+
+[data-theme='dark'] .imp-type {
+  color: #a3b2c5;
+  background: rgba(140, 160, 185, 0.16);
+}
+
+[data-theme='dark'] .imp-type.video {
+  color: #9cc4f5;
+  background: rgba(45, 120, 220, 0.2);
+}
+
+[data-theme='dark'] .imp-type.document {
+  color: #a8bcd4;
+  background: rgba(120, 150, 190, 0.18);
+}
+
+[data-theme='dark'] .imp-type.music {
+  color: #b9a9e8;
+  background: rgba(130, 105, 215, 0.2);
+}
+
+[data-theme='dark'] .imp-type.image {
+  color: #7fd3b4;
+  background: rgba(45, 170, 130, 0.2);
+}
+
+[data-theme='dark'] .imp-type.archive {
+  color: #e2bd77;
+  background: rgba(190, 140, 40, 0.2);
+}
+
+[data-theme='dark'] .imp-type.installer {
+  color: #eda3ad;
+  background: rgba(210, 90, 110, 0.2);
+}
+
+.imp-form {
+  display: grid;
+  gap: 14px;
+}
+
+.imp-grid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
+.imp-field {
+  display: grid;
   gap: 8px;
 }
 
-.field span {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--import-text-soft);
-}
-
-.field-full {
+.imp-field.wide {
   grid-column: 1 / -1;
 }
 
-.metadata-shell {
-  padding-top: 2px;
-}
-
-.single-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--import-border), transparent);
-}
-
-.toggle-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.toggle-card {
+.imp-field > span {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 14px;
-  border-radius: 14px;
-  background: var(--import-surface-muted);
-  border: 1px solid var(--import-border);
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: var(--import-text-soft);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.toggle-card input {
+.imp-field em {
+  color: var(--import-text-faint);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.imp-toggles {
+  display: grid;
+  gap: 10px;
+}
+
+.imp-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--import-border);
+  border-radius: var(--radius-md);
+  background: var(--import-surface-muted);
+  cursor: pointer;
+}
+
+.imp-toggle input {
   width: 16px;
   height: 16px;
-  margin-top: 4px;
-  flex-shrink: 0;
+  margin-top: 2px;
+  flex: none;
+  accent-color: var(--import-accent);
 }
 
-.toggle-card strong {
+.imp-toggle strong {
   display: block;
-  font-size: 13px;
   color: var(--import-text);
+  font-size: 13px;
 }
 
-.toggle-card p {
+.imp-toggle p {
   margin-top: 4px;
   color: var(--import-text-faint);
   font-size: 12px;
-  line-height: 1.65;
-}
-
-.feedback {
-  padding: 11px 12px;
-  border-radius: 12px;
-  font-size: 13px;
   line-height: 1.6;
 }
 
-.feedback.error {
-  background: var(--import-error-bg);
-  border: 1px solid var(--import-error-border);
-  color: var(--import-error-text);
+.imp-feedback {
+  margin-right: auto;
+  padding: 9px 13px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-.feedback.success {
-  background: var(--import-success-bg);
-  border: 1px solid var(--import-success-border);
+.imp-feedback.success {
   color: var(--import-success-text);
+  background: var(--import-success-bg);
 }
 
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding-top: 2px;
+.imp-feedback.error {
+  color: var(--import-error-text);
+  background: var(--import-error-bg);
 }
 
-.single-actions {
-  margin-top: 2px;
+.imp-empty {
+  padding: 22px 18px;
+  border: 1px solid var(--import-border);
+  border-radius: var(--radius-md);
+  background: var(--import-surface-muted);
+  text-align: center;
 }
 
-.empty-surface {
-  min-height: 172px;
-  padding: 22px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--import-surface-muted) 72%, transparent);
-  border: 1px dashed var(--import-border);
+/* 来源条里的空位要和选择控件同高，所以改成左对齐、垂直居中。 */
+.imp-empty-lead {
+  display: grid;
+  align-content: center;
+  padding: 13px 16px;
+  text-align: left;
 }
 
-.import-empty,
-.stage-empty {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 8px;
-}
-
-.empty-surface strong {
+.imp-empty strong {
+  display: block;
   color: var(--import-text);
-  font-size: 15px;
+  font-size: 13px;
 }
 
-.empty-surface p {
+.imp-empty p {
+  margin-top: 6px;
   color: var(--import-text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.imp-locked {
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  padding: 24px;
+  border: 1px solid var(--import-border);
+  border-radius: var(--radius-md);
+  background: var(--import-surface-muted);
+  text-align: center;
+}
+
+.imp-locked strong {
+  display: block;
+  color: var(--import-text);
+  font-size: 14px;
+}
+
+.imp-locked p {
+  max-width: 360px;
+  margin-top: 7px;
+  color: var(--import-text-faint);
+  font-size: 12px;
   line-height: 1.7;
 }
 
 @media (max-width: 1080px) {
-  .workspace-grid,
-  .mode-batch {
+  .import-layout.single,
+  .import-layout.batch {
+    grid-template-columns: 1fr;
+  }
+
+  .imp-source {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 820px) {
   .import-view .page-content {
-    padding: 12px;
+    padding: 16px 12px 40px;
   }
 
-  .import-topbar,
-  .stage-panel {
-    padding: 14px;
-    border-radius: 14px;
+  .imp-panel {
+    padding: 16px;
   }
 
-  .panel-head,
-  .actions,
-  .batch-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .panel-meta-row {
-    justify-content: flex-start;
-  }
-
-  .summary-grid,
-.single-field-grid,
-.toggle-grid {
+  .imp-grid {
     grid-template-columns: 1fr;
   }
 
-  .single-selection-head,
-  .single-form-head {
+  .imp-head {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .imp-commit {
+    flex-direction: column-reverse;
     align-items: stretch;
   }
 
-  .single-selection-head .btn {
-    width: 100%;
-  }
-
-  .file-sheet,
-  .file-row {
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
-
-  .sheet-action {
-    width: 100%;
-  }
-
-  .mode-switch {
-    width: 100%;
-  }
-
-  .mode-pill {
-    flex: 1;
+  .imp-commit .imp-feedback {
+    margin-right: 0;
   }
 }
 
-@media (max-width: 640px) {
-  .mode-switch {
-    flex-direction: column;
+@media (max-width: 620px) {
+  .imp-tabs {
+    gap: 16px;
   }
 
-  .mode-pill {
-    width: 100%;
+  .imp-tab {
+    font-size: 16px;
+  }
+
+  .imp-file,
+  .imp-file-lead {
+    grid-template-columns: 36px minmax(0, 1fr);
+    row-gap: 8px;
+  }
+
+  .imp-remove {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .imp-pick:hover {
+    transform: none;
   }
 }
 </style>

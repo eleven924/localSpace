@@ -1,5 +1,5 @@
 <template>
-  <div class="file-card" :class="{ 'menu-open': showMenu }" @click="handleClick">
+  <div class="file-card" :class="{ 'menu-open': showMenu, selected }" @click="handleClick">
     <label v-if="selectable" class="select-box" @click.stop>
       <input
         type="checkbox"
@@ -8,37 +8,13 @@
       />
     </label>
 
-    <button class="menu-button" type="button" @click.stop="toggleMenu">
+    <button ref="menuButtonRef" class="menu-button" type="button" @click.stop="toggleMenu">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
         <circle cx="12" cy="5" r="1.8" />
         <circle cx="12" cy="12" r="1.8" />
         <circle cx="12" cy="19" r="1.8" />
       </svg>
     </button>
-
-    <div v-if="showMenu" class="dropdown-menu" @click.stop>
-      <button class="menu-item" type="button" @click="handleShowDetails">
-        <span>查看详情</span>
-      </button>
-      <button class="menu-item" type="button" @click="handleOpenPreferred">
-        <span>用设置的软件打开</span>
-      </button>
-      <button class="menu-item" type="button" @click="handleOpenSystemDefault">
-        <span>用系统默认打开</span>
-      </button>
-      <button class="menu-item" type="button" @click="handleOpenLocation">
-        <span>打开所在位置</span>
-      </button>
-      <button class="menu-item" type="button" @click="handleRename">
-        <span>重命名</span>
-      </button>
-      <button class="menu-item" type="button" @click="handleEditMetadata">
-        <span>编辑标签和描述</span>
-      </button>
-      <button class="menu-item delete" type="button" @click="handleDelete">
-        <span>删除文件</span>
-      </button>
-    </div>
 
     <div class="file-thumbnail">
       <img
@@ -119,6 +95,40 @@
             <span class="hover-preview-label">描述</span>
             <p class="hover-preview-description">{{ file.description }}</p>
           </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="menu">
+        <div
+          v-if="showMenu"
+          ref="menuRef"
+          class="dropdown-menu"
+          :style="menuStyle"
+          @click.stop
+        >
+          <button class="menu-item" type="button" @click="handleShowDetails">
+            <span>查看详情</span>
+          </button>
+          <button class="menu-item" type="button" @click="handleOpenPreferred">
+            <span>用设置的软件打开</span>
+          </button>
+          <button class="menu-item" type="button" @click="handleOpenSystemDefault">
+            <span>用系统默认打开</span>
+          </button>
+          <button class="menu-item" type="button" @click="handleOpenLocation">
+            <span>打开所在位置</span>
+          </button>
+          <button class="menu-item" type="button" @click="handleRename">
+            <span>重命名</span>
+          </button>
+          <button class="menu-item" type="button" @click="handleEditMetadata">
+            <span>编辑标签和描述</span>
+          </button>
+          <button class="menu-item delete" type="button" @click="handleDelete">
+            <span>删除文件</span>
+          </button>
         </div>
       </Transition>
     </Teleport>
@@ -219,6 +229,9 @@ const showEditMetaDialog = ref(false)
 const newFileName = ref('')
 const isRenaming = ref(false)
 const fileNameInput = ref<HTMLInputElement | null>(null)
+const menuButtonRef = ref<HTMLButtonElement | null>(null)
+const menuRef = ref<HTMLElement | null>(null)
+const menuStyle = ref<CSSProperties>({})
 const hoverZoneRef = ref<HTMLElement | null>(null)
 const isHoverPreviewVisible = ref(false)
 const previewPlacement = ref<{ horizontal: 'right' | 'left'; vertical: 'down' | 'up' }>({
@@ -241,6 +254,31 @@ const previewPlacementClass = computed(() => ({
   'preview-down': previewPlacement.value.vertical === 'down',
 }))
 const thumbnailSrc = computed(() => props.file.thumbnail || '')
+
+const updateMenuPlacement = () => {
+  if (!showMenu.value || !menuButtonRef.value || !menuRef.value) return
+
+  const buttonRect = menuButtonRef.value.getBoundingClientRect()
+  const menuRect = menuRef.value.getBoundingClientRect()
+  const viewportPadding = 12
+  const menuWidth = Math.min(menuRect.width, window.innerWidth - viewportPadding * 2)
+  const menuHeight = menuRect.height
+  const gap = 8
+  const canOpenBelow = buttonRect.bottom + gap + menuHeight <= window.innerHeight - viewportPadding
+  const rawTop = canOpenBelow
+    ? buttonRect.bottom + gap
+    : buttonRect.top - menuHeight - gap
+  const rawLeft = buttonRect.right - menuWidth
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+
+  // 菜单挂到 body 后使用视口坐标，避免被文件列表的滚动容器裁剪。
+  menuStyle.value = {
+    top: `${clamp(rawTop, viewportPadding, Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding))}px`,
+    left: `${clamp(rawLeft, viewportPadding, Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding))}px`,
+    width: `${menuWidth}px`,
+    visibility: 'visible',
+  }
+}
 
 const getPreviewMetrics = () => {
   const isCompactViewport = window.innerWidth <= 768
@@ -342,6 +380,14 @@ const getFileIcon = (fileType: string): string => {
 const toggleMenu = () => {
   showMenu.value = !showMenu.value
   isHoverPreviewVisible.value = false
+
+  if (showMenu.value) {
+    // 首次渲染先隐藏菜单，待拿到真实尺寸后再定位，避免用固定高度误判上下空间。
+    menuStyle.value = { visibility: 'hidden' }
+    nextTick(updateMenuPlacement)
+  } else {
+    menuStyle.value = {}
+  }
 }
 
 const handleShowDetails = () => {
@@ -464,6 +510,8 @@ onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   window.addEventListener('resize', updateHoverPreviewPlacement)
   window.addEventListener('scroll', updateHoverPreviewPlacement, true)
+  window.addEventListener('resize', updateMenuPlacement)
+  window.addEventListener('scroll', updateMenuPlacement, true)
 })
 
 onUnmounted(() => {
@@ -471,6 +519,8 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   window.removeEventListener('resize', updateHoverPreviewPlacement)
   window.removeEventListener('scroll', updateHoverPreviewPlacement, true)
+  window.removeEventListener('resize', updateMenuPlacement)
+  window.removeEventListener('scroll', updateMenuPlacement, true)
 })
 </script>
 
@@ -512,6 +562,16 @@ onUnmounted(() => {
   justify-content: center;
   width: 28px;
   height: 28px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* 选择控件默认退到卡片视觉层后方，悬停、已选中或键盘操作时再显示。 */
+.file-card:hover .select-box,
+.file-card:focus-within .select-box,
+.file-card.selected .select-box,
+.file-card.menu-open .select-box {
+  opacity: 1;
 }
 
 .select-box input[type="checkbox"] {
@@ -549,16 +609,16 @@ onUnmounted(() => {
 }
 
 .dropdown-menu {
-  position: absolute;
-  top: 40px;
-  right: 8px;
-  min-width: 172px;
+  position: fixed;
+  width: min(212px, calc(100vw - 24px));
+  min-width: 0;
   padding: 6px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
   background: var(--surface-color);
   box-shadow: 0 10px 24px var(--shadow-strong);
-  z-index: 100;
+  z-index: 1900;
+  transform-origin: top right;
 }
 
 .menu-item {
@@ -568,6 +628,18 @@ onUnmounted(() => {
   text-align: left;
   font-size: 13px;
   color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.menu-enter-active,
+.menu-leave-active {
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
 }
 
 .menu-item:hover {

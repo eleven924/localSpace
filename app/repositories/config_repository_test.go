@@ -107,7 +107,7 @@ func TestSetOpenWithConfigRoundTrips(t *testing.T) {
 	repo := NewConfigRepository(NewSQLiteDBWrapper(db))
 
 	expected := &models.OpenWithConfig{
-		ByFileType: map[string]string{"video": "C:\\Tools\\PotPlayer.exe"},
+		ByFileType:  map[string]string{"video": "C:\\Tools\\PotPlayer.exe"},
 		ByExtension: map[string]string{".mkv": "C:\\Tools\\PotPlayer.exe"},
 	}
 
@@ -171,8 +171,9 @@ func TestSetStorageLayoutConfigRoundTrips(t *testing.T) {
 	if actual.Strategy != expected.Strategy {
 		t.Fatalf("expected strategy %q, got %q", expected.Strategy, actual.Strategy)
 	}
-	if actual.UnsortedFolderName != expected.UnsortedFolderName {
-		t.Fatalf("expected unsorted folder %q, got %q", expected.UnsortedFolderName, actual.UnsortedFolderName)
+	// 旧配置中的自定义名称不再影响路径，读取后必须统一为内置目录名。
+	if actual.UnsortedFolderName != models.BuiltinUnsortedFolderName {
+		t.Fatalf("expected built-in unsorted folder %q, got %q", models.BuiltinUnsortedFolderName, actual.UnsortedFolderName)
 	}
 	if actual.SanitizeFolderName != expected.SanitizeFolderName {
 		t.Fatalf("expected sanitize flag %v, got %v", expected.SanitizeFolderName, actual.SanitizeFolderName)
@@ -510,8 +511,6 @@ func TestConfigRepository_StorageDirectories(t *testing.T) {
 	}
 }
 
-
-
 func TestGetAIConfigSupportsOlderSchemaWithoutOptionalColumns(t *testing.T) {
 	db := setupConfigTestDB(t)
 	defer cleanupConfigTestDB(db)
@@ -560,7 +559,6 @@ func TestGetAIConfigSupportsOlderSchemaWithoutOptionalColumns(t *testing.T) {
 		t.Fatalf("expected default web search max results 3 for old schema, got %d", config.WebSearchMaxResults)
 	}
 }
-
 
 func TestGetAIConfigReturnsWebSearchDefaultsWhenRowMissing(t *testing.T) {
 	db := setupConfigTestDB(t)

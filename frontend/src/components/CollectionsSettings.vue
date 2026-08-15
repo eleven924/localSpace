@@ -1,85 +1,121 @@
 <template>
   <div class="collections-settings">
-    <div class="section-block">
-      <h5>新增合集</h5>
-      <div class="add-row">
-        <input v-model="newName" type="text" placeholder="合集名称" />
-        <button class="btn primary" :disabled="!newName.trim() || adding" @click="addCollection">添加</button>
-      </div>
-      <p v-if="error" class="feedback error">{{ error }}</p>
-    </div>
-
-    <div class="section-block">
-      <h5>已有合集</h5>
-      <div v-if="!collections || collections.length === 0" class="empty-state">暂无合集</div>
-      <div v-else class="collection-list">
-        <div v-for="collection in collections" :key="collection.id" class="collection-row">
-          <span>{{ collection.name }}</span>
-          <span class="count">引用 {{ fileCountMap[collection.id] ?? 0 }}</span>
-          <button
-            class="btn ghost"
-            :disabled="(fileCountMap[collection.id] ?? 0) > 0"
-            :title="(fileCountMap[collection.id] ?? 0) > 0 ? '该合集正在被文件使用，无法删除' : '删除合集'"
-            @click="removeCollection(collection.id)"
-          >删除</button>
+    <section class="set-section">
+      <div class="set-section-head">
+        <div>
+          <h3>新增合集</h3>
+          <p>合集用来把同一件事的文件收在一起，导入时可以直接选中。</p>
         </div>
       </div>
-    </div>
+
+      <div class="set-add-row">
+        <input
+          v-model="newName"
+          class="set-field"
+          type="text"
+          placeholder="合集名称"
+          aria-label="合集名称"
+          @keyup.enter="addCollection"
+        />
+        <button
+          type="button"
+          class="btn primary"
+          :disabled="!newName.trim() || adding"
+          @click="addCollection"
+        >
+          {{ adding ? '添加中...' : '添加' }}
+        </button>
+      </div>
+      <p v-if="feedback" class="set-feedback add-feedback" :class="feedback.ok ? 'success' : 'error'">
+        {{ feedback.text }}
+      </p>
+    </section>
+
+    <section class="set-section">
+      <div class="set-section-head">
+        <div>
+          <h3>已有合集</h3>
+          <p>被文件引用的合集不能删除，先把文件移出合集再来。</p>
+        </div>
+      </div>
+
+      <div v-if="collections.length > 0" class="set-collections">
+        <div v-for="collection in collections" :key="collection.id" class="set-collection">
+          <strong>{{ collection.name }}</strong>
+          <span class="set-count">引用 {{ referenceCount(collection.id) }}</span>
+          <button
+            type="button"
+            class="set-mini warn"
+            :disabled="referenceCount(collection.id) > 0"
+            :title="
+              referenceCount(collection.id) > 0 ? '该合集正在被文件使用，无法删除' : '删除合集'
+            "
+            @click="removeCollection(collection.id)"
+          >
+            删除
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="set-empty">
+        <strong>暂无合集</strong>
+        <p>用上面的输入框建一个，导入时就能直接归到这个合集里。</p>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, withDefaults } from 'vue'
+import { onMounted, ref } from 'vue'
 import { api } from '@/api'
-import type { Collection, File } from '@/types'
-
-const props = withDefaults(defineProps<{
-  files?: File[] | null
-}>(), {
-  files: () => [],
-})
+import type { Collection, CollectionFilterCounts } from '@/types'
 
 const collections = ref<Collection[]>([])
 const newName = ref('')
 const adding = ref(false)
-const error = ref('')
+const feedback = ref<{ text: string; ok: boolean } | null>(null)
 
-const fileCountMap = computed(() => {
-  const map: Record<number, number> = {}
-  ;(props.files || []).forEach((file) => {
-    if (file.collectionId) {
-      map[file.collectionId] = (map[file.collectionId] || 0) + 1
-    }
-  })
-  return map
-})
+// 引用数直接问后端要。之前它是按当前列表页里的文件数出来的，
+// 而设置页从不加载文件列表，于是计数恒为 0，「被引用不能删除」这条保护形同虚设。
+const counts = ref<CollectionFilterCounts>({ total: 0, unsorted: 0, collections: {} })
+
+const referenceCount = (id: number): number => counts.value.collections[id] ?? 0
 
 const load = async () => {
-  const result = await api.collection.getAll()
+  const [result, filterCounts] = await Promise.all([
+    api.collection.getAll(),
+    api.collection.getFilterCounts('all'),
+  ])
   collections.value = result || []
+  counts.value = filterCounts || { total: 0, unsorted: 0, collections: {} }
 }
 
 const addCollection = async () => {
+  const name = newName.value.trim()
+  if (!name || adding.value) return
+
   adding.value = true
-  error.value = ''
+  feedback.value = null
   try {
-    await api.collection.add(newName.value.trim())
+    await api.collection.add(name)
     newName.value = ''
     await load()
+    feedback.value = { text: `已创建合集「${name}」`, ok: true }
   } catch (err: any) {
-    error.value = err?.message || '添加失败'
+    feedback.value = { text: err?.message || '添加失败', ok: false }
   } finally {
     adding.value = false
   }
 }
 
 const removeCollection = async (id: number) => {
-  if (!window.confirm('确定删除该合集？')) return
+  // 删除按钮在有引用时是禁用的，走到这里的合集不含文件，一步就能重建，不再拦一次。
   try {
     await api.collection.remove(id)
     await load()
+    feedback.value = { text: '合集已删除', ok: true }
   } catch (err: any) {
-    window.alert(err?.message || '删除失败')
+    feedback.value = { text: err?.message || '删除失败', ok: false }
   }
 }
 
@@ -88,63 +124,10 @@ onMounted(load)
 
 <style scoped>
 .collections-settings {
-  display: grid;
-  gap: 0;
+  width: 100%;
 }
 
-.section-block h5 {
-  margin: 0 0 14px;
-  font-size: 15px;
-  color: var(--text-color);
-}
-
-.section-block {
-  padding: 18px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.add-row {
-  display: flex;
-  gap: 10px;
-}
-
-.add-row input {
-  flex: 1;
-}
-
-.collection-list {
-  display: grid;
-  gap: 8px;
-}
-
-.collection-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 0;
-  border-radius: 0;
-  background: transparent;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-}
-
-.collection-row span:first-child {
-  flex: 1;
-  font-size: 14px;
-  color: var(--text-color);
-}
-
-.collection-row .count {
-  font-size: 12px;
-  color: var(--text-soft);
-}
-
-.empty-state {
-  color: var(--text-soft);
-  font-size: 13px;
-  padding: 12px 0;
-}
-
-.feedback.error {
-  margin-top: 10px;
+.add-feedback {
+  margin-top: 12px;
 }
 </style>

@@ -74,6 +74,10 @@ export function GetActiveJobs() {
   return window['go']['app']['App']['GetActiveJobs']();
 }
 
+export function GetBatchImportItems(arg1) {
+  return window['go']['app']['App']['GetBatchImportItems'](arg1);
+}
+
 export function GetCollectionFilterCounts(arg1) {
   return window['go']['app']['App']['GetCollectionFilterCounts'](arg1);
 }

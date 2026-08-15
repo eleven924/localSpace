@@ -116,6 +116,48 @@ export namespace models {
 	        this.displayName = source["displayName"];
 	    }
 	}
+	export class BatchImportItem {
+	    id: number;
+	    jobId: number;
+	    sourcePath: string;
+	    displayName: string;
+	    detectedFileType: string;
+	    status: string;
+	    itemIndex: number;
+	    tempPath: string;
+	    finalPath: string;
+	    expectedSize: number;
+	    bytesCopied: number;
+	    checksum: string;
+	    errorMessage: string;
+	    startedAt: string;
+	    finishedAt: string;
+	    updatedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BatchImportItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.jobId = source["jobId"];
+	        this.sourcePath = source["sourcePath"];
+	        this.displayName = source["displayName"];
+	        this.detectedFileType = source["detectedFileType"];
+	        this.status = source["status"];
+	        this.itemIndex = source["itemIndex"];
+	        this.tempPath = source["tempPath"];
+	        this.finalPath = source["finalPath"];
+	        this.expectedSize = source["expectedSize"];
+	        this.bytesCopied = source["bytesCopied"];
+	        this.checksum = source["checksum"];
+	        this.errorMessage = source["errorMessage"];
+	        this.startedAt = source["startedAt"];
+	        this.finishedAt = source["finishedAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+	}
 	export class BatchImportJobRequest {
 	    files: BatchImportFileInput[];
 	    sharedTags: string[];

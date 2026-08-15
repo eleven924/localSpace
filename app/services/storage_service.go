@@ -12,7 +12,7 @@ import (
 
 // StorageService handles storage directory operations
 type StorageService struct {
-	configRepo    *repositories.ConfigRepository
+	configRepo      *repositories.ConfigRepository
 	storageBasePath string
 }
 
@@ -413,7 +413,7 @@ func (s *StorageService) AddMasterDirectory(path string, maxSizeGB float64) erro
 	// 创建主目录
 	dir := &models.StorageDir{
 		Path:      normalizedPath,
-		FileType:  "master", // 主目录类型
+		FileType:  "master",                              // 主目录类型
 		MaxSize:   int64(maxSizeGB * 1024 * 1024 * 1024), // 转换为字节
 		IsActive:  true,
 		IsDefault: isDefault,
@@ -535,7 +535,8 @@ func (s *StorageService) GetStoragePathForFileWithMaster(masterID uint, fileType
 	if layoutConfig.Strategy == "type_collection" {
 		segment := strings.TrimSpace(collectionName)
 		if segment == "" {
-			segment = layoutConfig.UnsortedFolderName
+			// 每个主目录都使用自己的固定未分配目录，路径归属由 masterID 决定。
+			segment = models.BuiltinUnsortedFolderName
 		}
 		if layoutConfig.SanitizeFolderName {
 			segment = sanitizePathSegment(segment)
