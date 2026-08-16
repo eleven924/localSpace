@@ -733,6 +733,40 @@ local_search ──┘
 - 结构化输出失败可以定向重试；
 - Graph 失败时可以定位到具体节点。
 
+#### Phase 3 当前实施结果
+
+本阶段已完成第一版可运行 Graph，代码位于 `app/agents/metadata_graph.go`，并已接入 `AgentService`。
+
+```mermaid
+flowchart LR
+    A[AnalysisRequest] --> B[normalize_input]
+    B --> C{文件类型路由}
+    C -->|image| D1[route_image]
+    C -->|document| D2[route_document]
+    C -->|video/music| D3[route_media]
+    C -->|archive| D4[route_archive]
+    C -->|其他| D5[route_generic]
+    D1 --> E[merge_evidence]
+    D2 --> E
+    D3 --> E
+    D4 --> E
+    D5 --> E
+    E --> F[analyze_agent\nEino MetadataAgent]
+    F --> G[validate_result]
+    G --> H[MetadataAnalysisResult + Trace]
+```
+
+当前实现步骤：
+
+1. `normalize_input` 统一文件类型；当调用方没有传入类型时，根据扩展名进行基础推断。
+2. Graph 分支将 image、document、media、archive 和 generic 分开，并在 `merge_evidence` 汇聚到同一个后续流程。
+3. `merge_evidence` 复用 Phase 2 已采集的本地证据，不在 Graph 内重复读取文件。
+4. `analyze_agent` 调用现有 Eino Agent；Agent 仍负责工具选择和结构化 JSON 生成，Graph 不重新实现 tool loop。
+5. `validate_result` 校验结果非空、清理标签和描述，并把 `CurrentStage`、`StageHistory`、`Errors` 写入 trace。
+6. `AgentService` 默认走 Graph；Graph 构建或执行失败时沿用原有 fallback，不能阻塞文件导入。
+
+本阶段暂不实现图片视觉理解、视频关键帧和本地文件搜索；这些能力将在 Graph 路由节点稳定后作为具体证据节点接入。当前各媒体路由已经预留，因此后续增加能力时不需要改变 AgentService 的入口契约。
+
 ### Phase 4：结构化结果、质量门禁和用户确认
 
 **目标：** 防止模型猜测结果直接污染文件库。
@@ -773,6 +807,76 @@ local_search ──┘
 
 置信度不应完全由模型自由填写。建议综合证据来源、证据数量、规则校验结果和模型输出计算，模型给出的
 置信度只能作为其中一个输入。
+
+#### Phase 4 当前实施结果
+
+已在 Phase 3 Graph 的结构化校验后增加 `quality_gate` 和质量分支：
+
+```mermaid
+flowchart TD
+    V[validate_result] --> Q[quality_gate]
+    Q -->|confidence >= 0.85| A[quality_auto_apply]
+    Q -->|0.60 - 0.85| R[quality_needs_review]
+    Q -->|< 0.60| L[quality_low_confidence]
+    A --> E[返回结果，不在 Graph 内写文件]
+    R --> E
+    L --> E
+```
+
+具体实现步骤：
+
+1. 质量门禁使用本地证据数量、文件元数据证据、用户上下文、标签完整度和描述完整度计算置信度，不完全采信模型自报值。
+2. 结果 trace 增加 `Confidence`、`NeedsReview` 和 `QualityStatus`，并保留 Graph 阶段历史。
+3. `GetAIAnalysis` 将质量状态返回给前端，用户可以看到建议是否需要确认。
+4. 批量导入遇到 `needs_review` 或 `low_confidence` 时不自动写入 AI 建议，只保留用户已填写的标签和描述。
+5. Graph 只生成建议和状态，不执行文件移动、数据库写入等不可逆操作；后续确认接口再负责显式应用。
+
+### Phase 5 当前实施结果（第一批）
+
+在本地搜索能力暂缓的前提下，先完成标签复用的结果契约和 Graph 节点：
+
+```mermaid
+flowchart LR
+    A[validate_result] --> B[recommendation_hints]
+    B --> C[主标签 tags]
+    B --> D[可复用标签 relatedTags]
+    B --> E[推荐原因 recommendationReasons]
+    D --> F[用户手动选择]
+    F --> G[写入表单，不由 Agent 自动修改]
+```
+
+当前实现步骤：
+
+1. 从用户已有标签和关键词中提取候选标签，去重后最多返回 5 个。
+2. 已经存在于 AI 主标签中的候选不会重复推荐。
+3. `relatedTags` 与 `tags` 分离，前端可以单独展示并由用户点击应用。
+4. `suggestedCollection` 字段已预留，但在没有本地合集上下文时保持为空，不凭空创建合集建议。
+5. 合集推荐、相似文件、本地文件问答仍等待后续 `search_local_files` 和 `find_similar_files` 能力，不在本批次提前实现。
+
+### Phase 6 当前实施结果（安全写入边界）
+
+已增加显式确认写入接口，但没有向 Agent 暴露任何写工具：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant F as 前端建议
+    participant A as ApplyConfirmedAIAnalysis
+    participant S as FileService
+    participant DB as 文件元数据
+    U->>F: 查看并确认 AI 建议
+    F->>A: confirmed=true
+    A->>S: 校验确认和文件 ID
+    S->>DB: 应用标签/描述，保留原合集
+    DB-->>U: 返回更新结果
+```
+
+实现约束：
+
+1. `confirmed=false` 时服务端直接拒绝，不能依赖前端自律。
+2. AI 建议应用只修改标签和描述，不会改变文件路径或合集归属。
+3. 重复确认是幂等的，重复写入相同元数据不会触发文件移动。
+4. Agent 仍然只有只读分析工具，不能直接调用该写入接口。
 
 ## 7. 功能拓展路线
 

@@ -2,6 +2,8 @@ package agents
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"LocalSpace/app/models"
@@ -14,13 +16,14 @@ type runtimeTestTool struct {
 	name   string
 	calls  []string
 	result string
+	err    error
 }
 
 func (t *runtimeTestTool) Name() string        { return t.name }
 func (t *runtimeTestTool) Description() string { return "test tool" }
 func (t *runtimeTestTool) Execute(ctx context.Context, input string) (string, error) {
 	t.calls = append(t.calls, input)
-	return t.result, nil
+	return t.result, t.err
 }
 
 func TestExecuteToolCallRecordsUsageAndSearchQuery(t *testing.T) {
@@ -41,6 +44,39 @@ func TestExecuteToolCallRecordsUsageAndSearchQuery(t *testing.T) {
 	}
 	if len(searchQueries) != 1 || searchQueries[0] != "movie" {
 		t.Fatalf("expected movie recorded in SearchQueries, got %v", searchQueries)
+	}
+}
+
+func TestExecuteToolCallWithTraceRecordsBoundedSuccess(t *testing.T) {
+	tool := &runtimeTestTool{name: "get_local_file_metadata", result: `{"path":"C:\\Users\\secret\\movie.mp4","title":"Movie"}`}
+	runtime := NewDefaultAgentRuntime()
+
+	output, call, _, _, err := runtime.executeToolCallWithTrace(context.Background(), map[string]tools.Tool{
+		tool.Name(): tool,
+	}, tool.Name(), `{"input":"current file"}`, nil, nil)
+	if err != nil {
+		t.Fatalf("executeToolCallWithTrace returned error: %v", err)
+	}
+	if output == "" || call.Status != "success" || call.DurationMs < 0 {
+		t.Fatalf("unexpected tool call trace: %+v", call)
+	}
+	if strings.Contains(call.Output, `C:\\Users`) {
+		t.Fatalf("trace should not expose local absolute path: %q", call.Output)
+	}
+}
+
+func TestExecuteToolCallWithTraceRecordsFailure(t *testing.T) {
+	tool := &runtimeTestTool{name: "web_search", err: fmt.Errorf("request failed")}
+	runtime := NewDefaultAgentRuntime()
+
+	_, call, _, _, err := runtime.executeToolCallWithTrace(context.Background(), map[string]tools.Tool{
+		tool.Name(): tool,
+	}, tool.Name(), "movie", nil, nil)
+	if err == nil {
+		t.Fatal("expected tool execution error")
+	}
+	if call.Status != "failed" || call.Error != "request failed" {
+		t.Fatalf("unexpected failed tool call trace: %+v", call)
 	}
 }
 
@@ -69,6 +105,30 @@ func TestDecodeToolInput(t *testing.T) {
 	}
 }
 
+func TestNormalizeToolArgumentsSupportsTypedWebSearchInput(t *testing.T) {
+	got, err := normalizeToolArguments("web_search", `{"query":"movie 2024","limit":3}`)
+	if err != nil {
+		t.Fatalf("normalizeToolArguments() returned error: %v", err)
+	}
+	if got != "movie 2024" {
+		t.Fatalf("normalizeToolArguments() = %q, want %q", got, "movie 2024")
+	}
+}
+
+func TestLocalToolAdapterExposesTypedWebSearchSchema(t *testing.T) {
+	adapter := &localToolAdapter{local: &runtimeTestTool{name: "web_search"}}
+	info, err := adapter.Info(context.Background())
+	if err != nil {
+		t.Fatalf("Info() returned error: %v", err)
+	}
+	if info.Name != "web_search" {
+		t.Fatalf("unexpected tool name %q", info.Name)
+	}
+	if info.ParamsOneOf == nil {
+		t.Fatal("expected typed parameter schema")
+	}
+}
+
 func TestDefaultAgentRuntimeRun_WithoutToolsReturnsDirectOutput(t *testing.T) {
 	runtime := &DefaultAgentRuntime{
 		generate: func(ctx context.Context, messages []*schema.Message, req *AgentRunRequest, toolInfos []*schema.ToolInfo) (*schema.Message, error) {
@@ -89,6 +149,33 @@ func TestDefaultAgentRuntimeRun_WithoutToolsReturnsDirectOutput(t *testing.T) {
 	}
 	if len(resp.ToolsUsed) != 0 {
 		t.Fatalf("expected no tools used, got %v", resp.ToolsUsed)
+	}
+}
+
+func TestReactAgentResponseUsesTextMultiContent(t *testing.T) {
+	response := reactAgentResponse(&schema.Message{
+		Role: schema.Assistant,
+		AssistantGenMultiContent: []schema.MessageOutputPart{{
+			Type: schema.ChatMessagePartTypeText,
+			Text: `{"tags":["video"],"description":"Movie metadata"}`,
+		}},
+	}, nil, nil)
+	if response.Output == "" || response.OutputDiagnostic != "" {
+		t.Fatalf("expected text multi-content to be extracted, got %+v", response)
+	}
+}
+
+func TestReactAgentResponseDiagnosesEmptyContent(t *testing.T) {
+	response := reactAgentResponse(&schema.Message{
+		Role:             schema.Assistant,
+		ReasoningContent: "thinking",
+		ResponseMeta:     &schema.ResponseMeta{FinishReason: "length"},
+	}, nil, nil)
+	if response.Output != "" {
+		t.Fatalf("expected empty output, got %q", response.Output)
+	}
+	if !strings.Contains(response.OutputDiagnostic, "reasoning_content_present") || !strings.Contains(response.OutputDiagnostic, "finish_reason=length") {
+		t.Fatalf("expected empty output diagnostics, got %q", response.OutputDiagnostic)
 	}
 }
 

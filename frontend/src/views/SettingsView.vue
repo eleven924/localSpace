@@ -231,7 +231,7 @@ const settingItems: SettingItem[] = [
   { id: 'layout', label: '存储规则', context: '控制导入后在主目录中的落盘层级结构。', iconPaths: settingIconPaths.layout },
   { id: 'openWith', label: '打开方式', context: '指定常用文件在 LocalSpace 内优先使用的软件。', iconPaths: settingIconPaths.openWith },
   { id: 'theme', label: '主题', context: '调整界面明暗、强调色与背景图片。', instantNote: '修改后立即生效', iconPaths: settingIconPaths.theme },
-  { id: 'ai', label: 'AI', context: '配置模型、密钥与 Agent 的工具能力。', iconPaths: settingIconPaths.ai },
+  { id: 'ai', label: 'AI', context: '配置模型、密钥与工具增强分析能力。', iconPaths: settingIconPaths.ai },
   { id: 'collections', label: '合集', context: '维护可复用的文件分组。', instantNote: '改动立即生效', iconPaths: settingIconPaths.collections },
   { id: 'tasks', label: '任务', context: '管理任务记录的保留时长和清理策略。', iconPaths: settingIconPaths.tasks },
   { id: 'about', label: '关于', context: '查看产品信息、许可与文档入口。', iconPaths: settingIconPaths.about },

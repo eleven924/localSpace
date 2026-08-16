@@ -130,16 +130,16 @@
         <section class="set-section">
           <div class="set-section-head">
             <div>
-              <h3>Agent 能力</h3>
-              <p>Agent 会在生成标签前先理解文件，必要时调用工具补充信息。</p>
+              <h3>工具增强分析</h3>
+              <p>AI 会优先使用已有文件信息；开启后，可按需读取当前支持的本地证据并调用已配置的工具。</p>
             </div>
           </div>
 
           <div class="set-rows">
             <div class="set-row">
               <div class="set-row-copy">
-                <label for="enable-agent">启用 Agent 模式</label>
-                <p>启用后允许使用 Agent 能力。</p>
+                <label for="enable-agent">启用工具增强</label>
+                <p>关闭后仍可生成基础 AI 建议，但不会使用本地证据工具或网络搜索。</p>
               </div>
               <div class="set-control">
                 <label class="set-switch">
@@ -160,7 +160,7 @@
             <div v-if="config.enableAgent" class="set-row">
               <div class="set-row-copy">
                 <label for="enable-web-search">启用网络搜索</label>
-                <p>仅为 Agent 的 web_search tool 配置搜索服务。</p>
+                <p>仅在本地证据不足时允许 AI 访问网络搜索，可能产生外部网络请求。</p>
               </div>
               <div class="set-control">
                 <label class="set-switch">
@@ -217,7 +217,7 @@
                   v-model="config.webSearchBaseURL"
                   class="set-field mono"
                   type="text"
-                  placeholder="https://search.example.com"
+                  placeholder="https://api.tavily.com"
                   @input="handleConfigChange"
                 />
               </div>

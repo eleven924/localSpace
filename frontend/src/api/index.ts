@@ -35,6 +35,7 @@ declare global {
           RefreshFile: (id: number) => Promise<any>
           RenameFile: (id: number, newName: string) => Promise<string>
           UpdateFileMetadata: (id: number, tags: string[], description: string, collectionId: number) => Promise<void>
+          ApplyConfirmedAIAnalysis: (id: number, tags: string[], description: string, confirmed: boolean) => Promise<void>
           BatchUpdateFilesCollection: (ids: number[], collectionId: number) => Promise<any>
           BatchDeleteFiles: (ids: number[]) => Promise<any>
 
@@ -369,6 +370,21 @@ export const api = {
             return
           }
           window.go!.app!.App.UpdateFileMetadata(id, tags, description, collectionId || 0)
+            .then(() => resolve())
+            .catch(reject)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+    applyConfirmedAIAnalysis: (id: number, tags: string[], description: string) =>
+      new Promise<void>((resolve, reject) => {
+        try {
+          if (!window.go || !window.go.app || !window.go.app.App) {
+            reject(new Error('Wails API not available'))
+            return
+          }
+          // confirmed 固定由用户点击确认动作触发，服务端仍会再次校验该参数。
+          window.go!.app!.App.ApplyConfirmedAIAnalysis(id, tags, description, true)
             .then(() => resolve())
             .catch(reject)
         } catch (error) {

@@ -8,6 +8,8 @@ export function AddMasterDirectory(arg1:string,arg2:number):Promise<void>;
 
 export function AddStorageDirectory(arg1:string,arg2:string):Promise<void>;
 
+export function ApplyConfirmedAIAnalysis(arg1:number,arg2:Array<string>,arg3:string,arg4:boolean):Promise<void>;
+
 export function BatchDeleteFiles(arg1:Array<number>):Promise<models.BatchDeleteResult>;
 
 export function BatchUpdateFilesCollection(arg1:Array<number>,arg2:number):Promise<models.BatchMoveResult>;

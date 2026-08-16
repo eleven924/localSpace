@@ -69,6 +69,15 @@ func TestNormalizeMetadataDescription_TrimsWhitespace(t *testing.T) {
 	}
 }
 
+func TestApplyConfirmedAIAnalysisRequiresExplicitConfirmation(t *testing.T) {
+	service := &FileService{}
+	if err := service.ApplyConfirmedAIAnalysis(1, []string{"tag"}, "description", false); err == nil {
+		t.Fatal("expected explicit confirmation error")
+	} else if !strings.Contains(err.Error(), "explicitly confirmed") {
+		t.Fatalf("unexpected confirmation error: %v", err)
+	}
+}
+
 type metadataRepoStub struct {
 	findByIDCalledWith uint
 	findFile           *models.File
@@ -140,6 +149,43 @@ func TestUpdateFileMetadata_NormalizesInputBeforePersisting(t *testing.T) {
 
 	if updated.Description != "新描述" {
 		t.Fatalf("expected trimmed description, got %q", updated.Description)
+	}
+}
+
+func TestApplyConfirmedAIAnalysisIsIdempotent(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	db, err := database.NewSQLiteDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	fileRepo := repositories.NewFileRepository(repositories.NewSQLiteDBWrapper(db))
+	service := &FileService{metadataRepo: fileRepo, fileRepo: fileRepo}
+	file := &models.File{
+		FileName: "confirmed.txt", OriginalName: "confirmed.txt",
+		FilePath: filepath.Join(tempDir, "confirmed.txt"), FileType: "document",
+		FileSubType: "txt", FileSize: 5, Checksum: "confirmed-checksum",
+	}
+	if err := fileRepo.Create(file); err != nil {
+		t.Fatalf("create file: %v", err)
+	}
+
+	for i := 0; i < 2; i++ {
+		if err := service.ApplyConfirmedAIAnalysis(file.ID, []string{"confirmed"}, "confirmed description", true); err != nil {
+			t.Fatalf("apply confirmed AI analysis: %v", err)
+		}
+	}
+	updated, err := fileRepo.FindByID(file.ID)
+	if err != nil {
+		t.Fatalf("find confirmed file: %v", err)
+	}
+	if len(updated.Tags) != 1 || updated.Tags[0] != "confirmed" || updated.Description != "confirmed description" {
+		t.Fatalf("unexpected confirmed metadata: tags=%v description=%q", updated.Tags, updated.Description)
+	}
+	if updated.CollectionID != nil {
+		t.Fatalf("expected collection to remain unchanged, got %v", updated.CollectionID)
 	}
 }
 

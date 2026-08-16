@@ -95,6 +95,24 @@ export interface FileType {
 export interface AIAnalysis {
   tags: string[]
   description: string
+  relatedTags?: string[]
+  suggestedCollection?: string
+  recommendationReasons?: string[]
+  confidence?: number
+  needsReview?: boolean
+  qualityStatus?: string
+  fallbackReason?: string
+  outputDiagnostic?: string
+  toolCalls?: AIToolCall[]
+}
+
+export interface AIToolCall {
+  name: string
+  input?: string
+  output?: string
+  status: 'success' | 'failed' | string
+  error?: string
+  durationMs: number
 }
 
 // API Response types

@@ -1,8 +1,39 @@
 export namespace models {
 	
+	export class AIToolCall {
+	    name: string;
+	    input?: string;
+	    output?: string;
+	    status: string;
+	    error?: string;
+	    durationMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new AIToolCall(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.input = source["input"];
+	        this.output = source["output"];
+	        this.status = source["status"];
+	        this.error = source["error"];
+	        this.durationMs = source["durationMs"];
+	    }
+	}
 	export class AIAnalysis {
 	    tags: string[];
 	    description: string;
+	    relatedTags?: string[];
+	    suggestedCollection?: string;
+	    recommendationReasons?: string[];
+	    confidence?: number;
+	    needsReview: boolean;
+	    qualityStatus?: string;
+	    fallbackReason?: string;
+	    outputDiagnostic?: string;
+	    toolCalls?: AIToolCall[];
 	
 	    static createFrom(source: any = {}) {
 	        return new AIAnalysis(source);
@@ -12,7 +43,34 @@ export namespace models {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.tags = source["tags"];
 	        this.description = source["description"];
+	        this.relatedTags = source["relatedTags"];
+	        this.suggestedCollection = source["suggestedCollection"];
+	        this.recommendationReasons = source["recommendationReasons"];
+	        this.confidence = source["confidence"];
+	        this.needsReview = source["needsReview"];
+	        this.qualityStatus = source["qualityStatus"];
+	        this.fallbackReason = source["fallbackReason"];
+	        this.outputDiagnostic = source["outputDiagnostic"];
+	        this.toolCalls = this.convertValues(source["toolCalls"], AIToolCall);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class AIConfig {
 	    id: number;
@@ -52,6 +110,7 @@ export namespace models {
 	        this.webSearchMaxResults = source["webSearchMaxResults"];
 	    }
 	}
+	
 	export class BatchDeleteFailedItem {
 	    fileId: number;
 	    fileName: string;

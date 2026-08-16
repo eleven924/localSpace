@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -37,7 +38,7 @@ func NewHTTPWebSearchClient(baseURL, apiKey, provider string, httpClient *http.C
 	}
 
 	return &HTTPWebSearchClient{
-		baseURL:    strings.TrimRight(baseURL, "/"),
+		baseURL:    normalizeWebSearchBaseURL(baseURL),
 		apiKey:     apiKey,
 		provider:   provider,
 		httpClient: httpClient,
@@ -53,8 +54,11 @@ func (c *HTTPWebSearchClient) Search(ctx context.Context, query string, limit in
 		return nil, fmt.Errorf("web search API key is not configured")
 	}
 
-	// Tavily API 使用 POST 请求，端点需要添加 /search
-	searchEndpoint := strings.TrimRight(c.baseURL, "/") + "/search"
+	// Tavily API 使用 POST 请求；同时兼容用户填写 host 或完整 /search 地址。
+	searchEndpoint, err := buildWebSearchEndpoint(c.baseURL)
+	if err != nil {
+		return nil, err
+	}
 
 	// Tavily API 请求体格式
 	requestBody := map[string]any{
@@ -108,4 +112,38 @@ func (c *HTTPWebSearchClient) Search(ctx context.Context, query string, limit in
 	}
 
 	return items, nil
+}
+
+// normalizeWebSearchBaseURL cleans values copied from JSON, environment files,
+// or the settings form before they reach net/http.
+func normalizeWebSearchBaseURL(raw string) string {
+	value := strings.TrimSpace(raw)
+	for len(value) >= 2 {
+		wrappedInDoubleQuotes := value[0] == '"' && value[len(value)-1] == '"'
+		wrappedInSingleQuotes := value[0] == '\'' && value[len(value)-1] == '\''
+		if !wrappedInDoubleQuotes && !wrappedInSingleQuotes {
+			break
+		}
+		value = strings.TrimSpace(value[1 : len(value)-1])
+	}
+	return strings.TrimRight(value, "/")
+}
+
+// buildWebSearchEndpoint validates the URL and appends /search only when needed.
+func buildWebSearchEndpoint(baseURL string) (string, error) {
+	value := normalizeWebSearchBaseURL(baseURL)
+	if value == "" {
+		return "", fmt.Errorf("web search base URL is not configured")
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("web search base URL is invalid: %q", value)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("web search base URL must use http or https")
+	}
+	if !strings.HasSuffix(strings.TrimRight(parsed.Path, "/"), "/search") {
+		parsed.Path = strings.TrimRight(parsed.Path, "/") + "/search"
+	}
+	return parsed.String(), nil
 }

@@ -14,6 +14,10 @@ export function AddStorageDirectory(arg1, arg2) {
   return window['go']['app']['App']['AddStorageDirectory'](arg1, arg2);
 }
 
+export function ApplyConfirmedAIAnalysis(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['ApplyConfirmedAIAnalysis'](arg1, arg2, arg3, arg4);
+}
+
 export function BatchDeleteFiles(arg1) {
   return window['go']['app']['App']['BatchDeleteFiles'](arg1);
 }

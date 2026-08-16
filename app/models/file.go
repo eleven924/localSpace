@@ -37,18 +37,38 @@ type Metadata struct {
 
 // AIAnalysis represents AI analysis results
 type AIAnalysis struct {
-	Tags        []string `json:"tags"`
-	Description string   `json:"description"`
+	Tags                  []string     `json:"tags"`
+	Description           string       `json:"description"`
+	RelatedTags           []string     `json:"relatedTags,omitempty"`
+	SuggestedCollection   string       `json:"suggestedCollection,omitempty"`
+	RecommendationReasons []string     `json:"recommendationReasons,omitempty"`
+	Confidence            float64      `json:"confidence,omitempty"`
+	NeedsReview           bool         `json:"needsReview"`
+	QualityStatus         string       `json:"qualityStatus,omitempty"`
+	FallbackReason        string       `json:"fallbackReason,omitempty"`
+	OutputDiagnostic      string       `json:"outputDiagnostic,omitempty"`
+	ToolCalls             []AIToolCall `json:"toolCalls,omitempty"`
+}
+
+// AIToolCall records one bounded tool invocation for user-visible diagnostics.
+// Input and Output are sanitized summaries rather than raw backend payloads.
+type AIToolCall struct {
+	Name       string `json:"name"`
+	Input      string `json:"input,omitempty"`
+	Output     string `json:"output,omitempty"`
+	Status     string `json:"status"`
+	Error      string `json:"error,omitempty"`
+	DurationMs int64  `json:"durationMs"`
 }
 
 // FileType represents a file type
 type FileType struct {
-	ID          uint        `json:"id"`
-	Name        string      `json:"name"`
-	DisplayName string      `json:"displayName"`
-	Extensions  string      `json:"extensions"`
-	SubTypes    []string    `json:"subTypes"`
-	CreatedAt   string      `json:"createdAt"`
+	ID          uint     `json:"id"`
+	Name        string   `json:"name"`
+	DisplayName string   `json:"displayName"`
+	Extensions  string   `json:"extensions"`
+	SubTypes    []string `json:"subTypes"`
+	CreatedAt   string   `json:"createdAt"`
 }
 
 // GetExtensionsSlice returns extensions as a slice

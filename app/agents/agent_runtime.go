@@ -20,13 +20,18 @@ type AgentRunRequest struct {
 	UserPrompt   string
 	Tools        []tools.Tool
 	AIConfig     *models.AIConfig
+	// StructuredOutput asks compatible providers to return a JSON object.
+	// It is used by the bounded repair pass, not by the tool-selection pass.
+	StructuredOutput bool
 }
 
 // AgentRunResponse captures the final model output and runtime tool trace.
 type AgentRunResponse struct {
-	Output        string
-	ToolsUsed     []string
-	SearchQueries []string
+	Output           string
+	OutputDiagnostic string
+	ToolsUsed        []string
+	SearchQueries    []string
+	ToolCalls        []models.AIToolCall
 }
 
 // AgentRuntime is the execution contract used by metadata agents.
@@ -113,6 +118,7 @@ func (r *DefaultAgentRuntime) Run(ctx context.Context, req *AgentRunRequest) (*A
 	toolInfos := buildToolInfos(req.Tools)
 	toolsUsed := []string{}
 	searchQueries := []string{}
+	toolCalls := []models.AIToolCall{}
 
 	assistantMsg, err := r.generate(ctx, messages, req, toolInfos)
 	if err != nil {
@@ -137,7 +143,8 @@ func (r *DefaultAgentRuntime) Run(ctx context.Context, req *AgentRunRequest) (*A
 				continue
 			}
 
-			toolOutput, updatedToolsUsed, updatedSearchQueries, err := r.executeToolCall(ctx, toolMap, toolName, toolInput, toolsUsed, searchQueries)
+			toolOutput, call, updatedToolsUsed, updatedSearchQueries, err := r.executeToolCallWithTrace(ctx, toolMap, toolName, toolInput, toolsUsed, searchQueries)
+			toolCalls = append(toolCalls, call)
 			if err != nil {
 				return nil, err
 			}
@@ -177,6 +184,7 @@ func (r *DefaultAgentRuntime) Run(ctx context.Context, req *AgentRunRequest) (*A
 		Output:        assistantMsg.Content,
 		ToolsUsed:     toolsUsed,
 		SearchQueries: searchQueries,
+		ToolCalls:     toolCalls,
 	}, nil
 }
 
@@ -188,22 +196,116 @@ func (r *DefaultAgentRuntime) executeToolCall(
 	toolsUsed []string,
 	searchQueries []string,
 ) (string, []string, []string, error) {
+	output, _, toolsUsed, searchQueries, err := r.executeToolCallWithTrace(ctx, toolMap, toolName, input, toolsUsed, searchQueries)
+	return output, toolsUsed, searchQueries, err
+}
+
+// executeToolCallWithTrace executes a tool and creates a sanitized diagnostic record.
+// 即使工具执行失败，也保留失败调用，便于后续将错误原因展示给用户或写入审计日志。
+func (r *DefaultAgentRuntime) executeToolCallWithTrace(
+	ctx context.Context,
+	toolMap map[string]tools.Tool,
+	toolName string,
+	input string,
+	toolsUsed []string,
+	searchQueries []string,
+) (string, models.AIToolCall, []string, []string, error) {
+	call := models.AIToolCall{
+		Name:   toolName,
+		Input:  sanitizeToolTraceValue(input),
+		Status: "failed",
+	}
+	startedAt := time.Now()
 	tool, ok := toolMap[toolName]
 	if !ok {
-		return "", toolsUsed, searchQueries, fmt.Errorf("tool not found: %s", toolName)
+		call.Error = fmt.Sprintf("tool not found: %s", toolName)
+		call.DurationMs = time.Since(startedAt).Milliseconds()
+		return "", call, toolsUsed, searchQueries, fmt.Errorf("tool not found: %s", toolName)
 	}
 
 	output, err := tool.Execute(ctx, input)
+	call.DurationMs = time.Since(startedAt).Milliseconds()
 	if err != nil {
-		return "", toolsUsed, searchQueries, fmt.Errorf("execute tool %s: %w", toolName, err)
+		call.Error = sanitizeToolTraceValue(err.Error())
+		return "", call, toolsUsed, searchQueries, fmt.Errorf("execute tool %s: %w", toolName, err)
 	}
 
+	call.Status = "success"
+	call.Output = sanitizeToolTraceValue(output)
 	toolsUsed = append(toolsUsed, toolName)
 	if toolName == "web_search" && strings.TrimSpace(input) != "" {
 		searchQueries = append(searchQueries, strings.TrimSpace(input))
 	}
 
-	return output, toolsUsed, searchQueries, nil
+	return output, call, toolsUsed, searchQueries, nil
+}
+
+// sanitizeToolTraceValue bounds diagnostic payloads and removes values that should
+// never leave the backend, such as local paths and common credential fields.
+func sanitizeToolTraceValue(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	value = redactWindowsAbsolutePaths(value)
+	for _, key := range []string{"apiKey", "APIKey", "webSearchAPIKey", "authorization", "Authorization"} {
+		value = maskTraceField(value, key)
+	}
+	const maxTraceValueLength = 4096
+	if len(value) > maxTraceValueLength {
+		return value[:maxTraceValueLength] + "..."
+	}
+	return value
+}
+
+func maskTraceField(value, key string) string {
+	marker := `"` + key + `"`
+	idx := strings.Index(value, marker)
+	if idx < 0 {
+		return value
+	}
+	separatorStart := idx + len(marker)
+	separatorOffset := strings.IndexAny(value[separatorStart:], ":=")
+	if separatorOffset < 0 {
+		return value
+	}
+	start := separatorStart + separatorOffset + 1
+	for start < len(value) && (value[start] == ' ' || value[start] == '\t') {
+		start++
+	}
+	end := start
+	if end < len(value) && value[end] == '"' {
+		end++
+		for end < len(value) {
+			if value[end] == '"' && value[end-1] != '\\' {
+				end++
+				break
+			}
+			end++
+		}
+	} else {
+		for end < len(value) && value[end] != ',' && value[end] != '}' && value[end] != '\n' {
+			end++
+		}
+	}
+	return value[:start] + `"[redacted]"` + value[end:]
+}
+
+// redactWindowsAbsolutePaths hides drive-letter paths without touching normal URLs.
+func redactWindowsAbsolutePaths(value string) string {
+	for index := 0; index+2 < len(value); index++ {
+		isDriveLetter := (value[index] >= 'A' && value[index] <= 'Z') || (value[index] >= 'a' && value[index] <= 'z')
+		if !isDriveLetter || value[index+1] != ':' || value[index+2] != '\\' {
+			continue
+		}
+		end := index + 3
+		for end < len(value) && !strings.ContainsRune("\"'\r\n,}]", rune(value[end])) {
+			end++
+		}
+		value = value[:index] + "[local-path]/" + value[end:]
+		index += len("[local-path]/") - 1
+	}
+	return value
 }
 
 func decodeToolInput(arguments string) (string, error) {

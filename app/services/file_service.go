@@ -16,6 +16,7 @@ import (
 	"LocalSpace/app/agents"
 	"LocalSpace/app/models"
 	"LocalSpace/app/repositories"
+	"LocalSpace/app/tools"
 	"LocalSpace/app/utils"
 )
 
@@ -67,10 +68,15 @@ type BatchImportPlan struct {
 }
 
 type BatchImportMetadataRequest struct {
+	FilePath                     string
 	FileName                     string
 	FileType                     string
+	FileSubType                  string
+	UserKeywords                 string
 	SharedTags                   []string
 	SharedDescription            string
+	CollectionID                 *uint
+	NativeMetadata               models.Metadata
 	EnableAIGeneratedTags        bool
 	EnableAIGeneratedDescription bool
 }
@@ -526,12 +532,17 @@ func (s *FileService) CleanupBatchImportArtifacts(tempPath, finalPath string) er
 }
 
 func (s *FileService) ResolveBatchImportMetadata(req BatchImportMetadataRequest) ([]string, string, error) {
+	return s.ResolveBatchImportMetadataContext(context.Background(), req)
+}
+
+// ResolveBatchImportMetadataContext resolves import metadata with a caller-owned cancellation context.
+func (s *FileService) ResolveBatchImportMetadataContext(ctx context.Context, req BatchImportMetadataRequest) ([]string, string, error) {
 	tags := append([]string{}, req.SharedTags...)
 	description := strings.TrimSpace(req.SharedDescription)
 
 	needsAI := req.EnableAIGeneratedTags || req.EnableAIGeneratedDescription
 	if needsAI {
-		analysisTags, analysisDescription, err := s.generateImportMetadata(req.FileName, req.FileType)
+		analysisTags, analysisDescription, err := s.generateImportMetadata(ctx, req)
 		if err != nil {
 			return nil, "", err
 		}
@@ -546,25 +557,46 @@ func (s *FileService) ResolveBatchImportMetadata(req BatchImportMetadataRequest)
 	return s.normalizeMetadataTags(tags), s.normalizeMetadataDescription(description), nil
 }
 
-func (s *FileService) generateImportMetadata(fileName, fileType string) ([]string, string, error) {
+func (s *FileService) generateImportMetadata(ctx context.Context, req BatchImportMetadataRequest) ([]string, string, error) {
 	if s.agentService != nil {
-		analysis, err := s.agentService.AnalyzeMetadata(context.Background(), &agents.MetadataGenerationInput{
-			FileName: fileName,
-			FileType: fileType,
-		})
-		if err == nil && analysis != nil {
-			return analysis.Tags, analysis.Description, nil
+		analysisRequest := &agents.AnalysisRequest{
+			FilePath:        req.FilePath,
+			FileName:        req.FileName,
+			FileType:        req.FileType,
+			FileSubType:     req.FileSubType,
+			UserKeywords:    req.UserKeywords,
+			UserTags:        req.SharedTags,
+			UserDescription: req.SharedDescription,
+			CollectionID:    req.CollectionID,
+			NativeMetadata:  req.NativeMetadata,
+		}
+		// 先执行有界的确定性本地证据提取，再交给 Agent 决定是否需要额外工具。
+		if req.FilePath != "" {
+			localEvidence, evidenceErr := tools.CollectLocalEvidence(ctx, req.FilePath, req.FileType, req.FileSubType)
+			if evidenceErr != nil {
+				fmt.Printf("[DEBUG] Local evidence extraction failed for %s: %v\n", req.FileName, evidenceErr)
+			}
+			analysisRequest.Evidence = localEvidence
+		}
+
+		analysis, err := s.agentService.AnalyzeMetadataWithTrace(ctx, analysisRequest)
+		if err == nil && analysis != nil && analysis.Analysis != nil {
+			if analysis.Trace != nil && analysis.Trace.NeedsReview {
+				// 低置信度建议只返回给预览确认，不直接写入导入文件的元数据。
+				return nil, "", nil
+			}
+			return analysis.Analysis.Tags, analysis.Analysis.Description, nil
 		}
 	}
 
 	var tags []string
 	var description string
 	if s.aiService != nil {
-		generatedTags, err := s.aiService.GenerateTags(fileName, fileType)
+		generatedTags, err := s.aiService.GenerateTags(req.FileName, req.FileType)
 		if err != nil {
 			return nil, "", err
 		}
-		generatedDescription, err := s.aiService.GenerateDescription(fileName, fileType)
+		generatedDescription, err := s.aiService.GenerateDescription(req.FileName, req.FileType)
 		if err != nil {
 			return nil, "", err
 		}
@@ -641,6 +673,27 @@ func (s *FileService) UpdateFileMetadata(id uint, tags []string, description str
 		return fmt.Errorf("failed to update file metadata: %w", err)
 	}
 	return nil
+}
+
+// ApplyConfirmedAIAnalysis applies AI suggestions only after explicit user confirmation.
+// The current collection is preserved because AI metadata approval must not move files.
+func (s *FileService) ApplyConfirmedAIAnalysis(id uint, tags []string, description string, confirmed bool) error {
+	if !confirmed {
+		return fmt.Errorf("ai analysis must be explicitly confirmed before applying")
+	}
+	if id == 0 {
+		return fmt.Errorf("file id cannot be empty")
+	}
+	if s == nil || s.metadataRepo == nil {
+		return fmt.Errorf("file repository not initialized")
+	}
+
+	file, err := s.metadataRepo.FindByID(id)
+	if err != nil {
+		return fmt.Errorf("failed to get file: %w", err)
+	}
+	// 使用当前合集 ID 调用统一更新逻辑，确保确认 AI 建议不会改变文件归属。
+	return s.UpdateFileMetadata(id, tags, description, file.CollectionID)
 }
 
 func sameCollectionID(a, b *uint) bool {

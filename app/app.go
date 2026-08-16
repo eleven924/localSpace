@@ -490,6 +490,14 @@ func (a *App) UpdateFileMetadata(id uint, tags []string, description string, col
 	return a.fileService.UpdateFileMetadata(id, tags, description, cid)
 }
 
+// ApplyConfirmedAIAnalysis applies AI metadata only after explicit user confirmation.
+func (a *App) ApplyConfirmedAIAnalysis(id uint, tags []string, description string, confirmed bool) error {
+	if !a.isInitialized() {
+		return fmt.Errorf("app not initialized")
+	}
+	return a.fileService.ApplyConfirmedAIAnalysis(id, tags, description, confirmed)
+}
+
 // GetCollections returns all collections.
 func (a *App) GetCollections() ([]models.Collection, error) {
 	if !a.waitForInitialization(5 * time.Second) {
@@ -704,20 +712,29 @@ func resolvePreferredApp(fileName, fileType string, config *models.OpenWithConfi
 func (a *App) GetAIAnalysis(fileName, fileType, userKeywords string, userTags []string, userDescription string) (*models.AIAnalysis, error) {
 	// Try to use agent service first if available
 	if a.agentService != nil {
-		analysis, err := a.agentService.AnalyzeMetadata(context.Background(), &agents.MetadataGenerationInput{
+		result, err := a.agentService.AnalyzeMetadataWithTrace(context.Background(), &agents.AnalysisRequest{
 			FileName:        fileName,
 			FileType:        fileType,
 			UserKeywords:    userKeywords,
 			UserTags:        userTags,
 			UserDescription: userDescription,
 		})
-		if err != nil || analysis == nil {
+		if err != nil || result == nil || result.Analysis == nil {
 			return &models.AIAnalysis{Tags: []string{}, Description: ""}, nil
 		}
 
 		return &models.AIAnalysis{
-			Tags:        analysis.Tags,
-			Description: analysis.Description,
+			Tags:                  result.Analysis.Tags,
+			Description:           result.Analysis.Description,
+			RelatedTags:           result.Analysis.RelatedTags,
+			SuggestedCollection:   result.Analysis.SuggestedCollection,
+			RecommendationReasons: result.Analysis.RecommendationReasons,
+			Confidence:            result.Trace.Confidence,
+			NeedsReview:           result.Trace.NeedsReview,
+			QualityStatus:         result.Trace.QualityStatus,
+			FallbackReason:        result.Trace.FallbackReason,
+			OutputDiagnostic:      result.Trace.OutputDiagnostic,
+			ToolCalls:             result.Trace.ToolCalls,
 		}, nil
 	}
 

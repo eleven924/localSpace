@@ -198,11 +198,15 @@ func (h *BatchImportHandler) process(ctx context.Context, job *models.Job, runti
 			metadata = models.Metadata{}
 		}
 
-		tags, description, err := runtime.FileService().ResolveBatchImportMetadata(BatchImportMetadataRequest{
+		tags, description, err := runtime.FileService().ResolveBatchImportMetadataContext(ctx, BatchImportMetadataRequest{
+			FilePath:                     plan.TempPath,
 			FileName:                     displayName,
 			FileType:                     plan.FileType,
+			FileSubType:                  plan.FileSubType,
 			SharedTags:                   payload.SharedTags,
 			SharedDescription:            payload.SharedDescription,
+			CollectionID:                 payload.CollectionID,
+			NativeMetadata:               metadata,
 			EnableAIGeneratedTags:        payload.EnableAIGeneratedTags,
 			EnableAIGeneratedDescription: payload.EnableAIGeneratedDescription,
 		})

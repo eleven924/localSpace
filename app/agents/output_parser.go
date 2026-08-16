@@ -67,8 +67,11 @@ func NormalizeMetadataAnalysis(analysis *MetadataAnalysis) *MetadataAnalysis {
 	}
 
 	normalized := &MetadataAnalysis{
-		Tags:        make([]string, 0, len(analysis.Tags)),
-		Description: strings.TrimSpace(analysis.Description),
+		Tags:                  make([]string, 0, len(analysis.Tags)),
+		Description:           strings.TrimSpace(analysis.Description),
+		RelatedTags:           normalizeMetadataStringList(analysis.RelatedTags, 5),
+		SuggestedCollection:   strings.TrimSpace(analysis.SuggestedCollection),
+		RecommendationReasons: normalizeMetadataStringList(analysis.RecommendationReasons, 5),
 	}
 
 	seen := make(map[string]struct{}, len(analysis.Tags))
@@ -92,4 +95,24 @@ func NormalizeMetadataAnalysis(analysis *MetadataAnalysis) *MetadataAnalysis {
 	}
 
 	return normalized
+}
+
+func normalizeMetadataStringList(values []string, max int) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+		if len(result) >= max {
+			break
+		}
+	}
+	return result
 }

@@ -46,6 +46,9 @@ func TestWebSearchToolExecuteFormatsBoundedResults(t *testing.T) {
 	if !strings.Contains(result, `"query":"movie"`) {
 		t.Fatalf("expected formatted query in output, got %q", result)
 	}
+	if !strings.Contains(result, `"title":"Result 1"`) || !strings.Contains(result, `"content":"First snippet"`) {
+		t.Fatalf("expected Tavily-compatible result fields in output, got %q", result)
+	}
 	if strings.Contains(result, "Result 4") {
 		t.Fatalf("expected output to exclude truncated result, got %q", result)
 	}
@@ -111,5 +114,27 @@ func TestHTTPWebSearchClientSearchMapsResults(t *testing.T) {
 	}
 	if items[0].URL != "https://example.com/movie" {
 		t.Fatalf("expected mapped URL, got %q", items[0].URL)
+	}
+}
+
+func TestBuildWebSearchEndpointNormalizesQuotedURL(t *testing.T) {
+	tests := []struct {
+		name string
+		base string
+		want string
+	}{
+		{name: "host", base: " https://api.tavily.com ", want: "https://api.tavily.com/search"},
+		{name: "full endpoint", base: `" https://api.tavily.com/search "`, want: "https://api.tavily.com/search"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildWebSearchEndpoint(tt.base)
+			if err != nil {
+				t.Fatalf("buildWebSearchEndpoint returned error: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("buildWebSearchEndpoint() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

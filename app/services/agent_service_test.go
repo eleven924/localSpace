@@ -43,8 +43,40 @@ func TestNewAgentService(t *testing.T) {
 	if service.toolRegistry == nil {
 		t.Fatal("expected tool registry")
 	}
+	if service.metadataGraph == nil {
+		t.Fatal("expected metadata graph")
+	}
 	if len(service.toolRegistry.List()) != 0 {
 		t.Fatalf("expected no eagerly registered tools, got %v", service.toolRegistry.List())
+	}
+}
+
+func TestAgentServiceAnalyzeMetadataUsesGraphWhenConfigured(t *testing.T) {
+	agent := &fakeMetadataAgent{result: &agents.MetadataAnalysisResult{
+		Analysis: &agents.MetadataAnalysis{Tags: []string{"Document"}, Description: "from graph"},
+	}}
+	service := &AgentService{
+		metadataAgent: agent,
+		metadataGraph: agents.NewMetadataAnalysisGraph(agent),
+		toolRegistry:  tools.NewToolRegistry(),
+	}
+
+	result, err := service.analyzeMetadataWithConfig(
+		context.Background(),
+		&agents.AnalysisRequest{FileName: "notes.md", FileType: "document"},
+		&models.AIConfig{Enabled: true, EnableAgent: true, Model: "test-model"},
+	)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if result == nil || result.Trace == nil {
+		t.Fatal("expected graph result with trace")
+	}
+	if result.Trace.CurrentStage != "quality_needs_review" {
+		t.Fatalf("expected graph quality stage, got %q", result.Trace.CurrentStage)
+	}
+	if len(result.Trace.StageHistory) == 0 {
+		t.Fatal("expected graph stage history")
 	}
 }
 
@@ -103,5 +135,37 @@ func TestAgentServiceAnalyzeMetadata_FallbackIncludesResolvedToolsWhenRuntimeUse
 	}
 	if len(result.Trace.ToolsAvailable) != 1 || result.Trace.ToolsAvailable[0] != "web_search" {
 		t.Fatalf("expected resolved tool captured in fallback trace, got %v", result.Trace.ToolsAvailable)
+	}
+}
+
+func TestAgentServiceAnalyzeMetadataWithTraceAddsRunMetadata(t *testing.T) {
+	service := &AgentService{
+		metadataAgent: &fakeMetadataAgent{
+			result: &agents.MetadataAnalysisResult{
+				Analysis: &agents.MetadataAnalysis{Tags: []string{"video"}, Description: "metadata"},
+			},
+		},
+		toolRegistry: tools.NewToolRegistry(),
+	}
+
+	result, err := service.analyzeMetadataWithConfig(
+		context.Background(),
+		&agents.AnalysisRequest{FileName: "movie.mp4", FileType: "video"},
+		&models.AIConfig{Enabled: true, EnableAgent: true, Model: "test-model"},
+	)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if result == nil || result.Trace == nil {
+		t.Fatal("expected trace result")
+	}
+	if result.Trace.RunID == "" {
+		t.Fatal("expected generated run id")
+	}
+	if result.Trace.Status != "completed" {
+		t.Fatalf("expected completed status, got %q", result.Trace.Status)
+	}
+	if result.Trace.Model != "test-model" {
+		t.Fatalf("expected model in trace, got %q", result.Trace.Model)
 	}
 }

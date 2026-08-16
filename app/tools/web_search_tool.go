@@ -21,15 +21,15 @@ type Tool interface {
 
 // SearchItem represents one bounded search result.
 type SearchItem struct {
-	Title   string
-	URL     string
-	Snippet string
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Snippet string `json:"content"`
 }
 
 // SearchResult represents a bounded tool search response.
 type SearchResult struct {
-	Query   string
-	Results []SearchItem
+	Query   string       `json:"query"`
+	Results []SearchItem `json:"results"`
 }
 
 // WebSearchTool executes bounded searches through a configured client.
