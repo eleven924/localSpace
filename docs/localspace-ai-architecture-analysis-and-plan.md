@@ -25,6 +25,10 @@
 - 没有使用 Eino 的 `compose.Chain`、`compose.Graph`、`compose.ToolsNode` 或 `flow/agent/react`；
 - 工具调用、消息追加、轮次控制、错误处理和 trace 记录仍由 `DefaultAgentRuntime` 手写。
 
+需要特别说明：当前 Web Search 并不是完全由 Agent 自主判断是否使用。`EinoMetadataAgent` 在检测到
+`web_search` 可用时，会通过 System Prompt 要求 video、document、music 等文件类型优先调用搜索工具。
+因此当前行为更接近“Prompt 强制的工具调用 + 自研 loop”，而不是完整的 Agent 自主决策。
+
 因此，当前代码不是“完全没有使用 Eino”，但也还不是 Eino 意义上的完整 Agent 架构。更准确的描述是：
 
 > LocalSpace 当前使用 Eino 作为 LLM 和 Tool Calling 适配层，Agent 编排仍由项目自己实现。
@@ -70,7 +74,7 @@ flowchart TB
     C --> C2[compose Graph]
     C --> C3[compose ToolsNode]
     C --> C4[flow/agent/react]
-    C --> C5[标准 Agent State]
+    C --> C5[Eino Agent/Graph 状态编排]
     C --> C6[Graph 分支、并行、恢复]
 ```
 
@@ -167,13 +171,14 @@ GenerateTags       -> 一次模型调用
 GenerateDescription -> 一次模型调用
 ```
 
-而新的 Agent 路径会尝试一次模型调用，并在需要时调用工具再继续生成。
+而新的 Agent 路径会先调用模型；当搜索工具被暴露时，当前 Prompt 会要求部分文件类型优先调用
+`web_search`，随后再继续生成结果。这个行为与后续“本地证据优先、网络搜索按需使用”的目标并不一致。
 
 当前 `AgentService` 通常已经存在，因此 `FileService` 的旧 AI fallback 实际上很少被触发。两条路径会导致配置、错误处理、Prompt、模型调用次数和结果质量不一致。
 
 #### 事实三：当前 Agent 上下文不足
 
-当前 `MetadataGenerationInput` 主要包含文件名、文件类型、用户输入和少量 Metadata。Agent 通常拿不到：
+当前 `MetadataGenerationInput` 主要包含文件名、文件类型、用户输入和少量 Native Metadata。Agent 通常拿不到：
 
 - 文档正文；
 - 图片缩略图或 OCR 结果；
@@ -183,6 +188,13 @@ GenerateDescription -> 一次模型调用
 - 文件所在合集和附近文件上下文。
 
 因此目前的分析主要是“根据文件名推断”，Web Search 也只是对文件名进行搜索。
+
+另外，单文件预览、单文件实际导入和批量导入目前不是同一条路径：
+
+- 单文件预览通过 `App.GetAIAnalysis` 调用 `AgentService`；
+- 单文件 `ImportFile` 当前主要使用用户填写的标签和描述，不会自动执行 AI 分析；
+- 批量导入通过 `ResolveBatchImportMetadata` 触发 AI，但目前主要只传入文件名和文件类型；
+- `AgentService` 通常会把 Agent 失败转换为 fallback 结果，因此旧 `AIService` 并不一定会真正接管失败请求。
 
 #### 事实四：单文件导入和批量导入行为不一致
 
@@ -385,10 +397,13 @@ flowchart TD
 
     MERGE --> QUALITY{证据是否足够}
     QUALITY -- 足够 --> GENERATE[结构化 Metadata Chain]
-    QUALITY -- 不足 --> AGENT[React Agent 选择补充工具]
+    QUALITY -- 不足 --> ENRICH_LIMIT{补充次数是否超限}
+    ENRICH_LIMIT -- 否 --> AGENT[React Agent 选择补充工具]
     AGENT --> MERGE
+    ENRICH_LIMIT -- 是 --> GENERATE_LOW[低置信度生成]
 
     GENERATE --> VALIDATE[Schema 校验和质量门禁]
+    GENERATE_LOW --> VALIDATE
     VALIDATE --> REVIEW{置信度是否足够}
     REVIEW -- 是 --> SUGGEST[生成分析建议]
     REVIEW -- 否 --> HUMAN[等待用户确认]
@@ -404,6 +419,9 @@ flowchart TD
 | React Agent | 根据上下文选择工具、补充证据、处理开放式问题 | 直接执行不可逆写操作 |
 | Graph | 组织节点、分支、状态、重试、恢复、人工审核 | 承担所有具体业务细节 |
 | Go Service | 权限、数据库、文件系统、事务 | 让模型直接决定系统行为 |
+
+这里的“恢复”不是 Graph 自动提供的产品任务持久化能力。需要结合 Eino CheckPoint Store、序列化器、
+RunID/CheckPointID 以及 LocalSpace 自己的任务记录，才能支持进程重启后的恢复。
 
 ## 6. 具体实现步骤
 
@@ -429,6 +447,17 @@ type AnalysisRequest struct {
     CollectionID    *uint
 }
 ```
+
+`AnalysisRequest` 是后端完整请求，不等于直接发送给模型的 Prompt。建议再定义一个模型上下文投影：
+
+```text
+AnalysisRequest（后端内部）
+  -> 权限校验、文件读取、数据库查询、Graph State
+  -> ModelContext（允许发送给模型的字段）
+```
+
+`FileID`、`FilePath`、`CollectionID` 等内部字段可以保留在后端状态中，但默认不直接进入模型上下文。
+绝对路径、API Key 和其他敏感信息必须在 Prompt 构造前过滤。
 
 实现要求：
 
@@ -537,12 +566,14 @@ ChatModel
   + Tool Middleware
 ```
 
-当前 `maxRounds` 和 `maxWebSearchCalls` 的行为需要迁移到：
+当前 `maxRounds` 和 `maxWebSearchCalls` 的行为不能简单视为同一个限制，需要分别迁移到：
 
-- `MaxStep`：控制 Agent 最大步骤；
-- 工具 middleware：记录调用和限制；
-- Tool policy：控制每种工具的最大调用次数；
+- `MaxStep`：控制 Agent 整体最大执行步骤。它与当前只统计模型/工具循环的 `maxRounds` 不是严格一一对应，必须通过测试校准；
+- 工具 middleware：记录工具调用、耗时和错误；
+- LocalSpace 自己的 Tool Policy：控制每种工具的最大调用次数，例如 `web_search` 最多两次；
 - Context：控制整体超时。
+
+其中 Tool Policy 是 LocalSpace 的业务策略，不能假设 Eino 会自动替代当前的按工具计数逻辑。
 
 #### 步骤 1.4：保留当前业务降级策略
 
@@ -639,8 +670,14 @@ type AnalysisState struct {
     NeedReview    bool
     Errors        []string
     CurrentStage  string
+    EnrichCount   int
+    RunID         string
+    CheckPointID  string
 }
 ```
+
+`evidence_quality -> enrich_agent -> merge_evidence` 必须是有界循环。建议默认最多补充 1～2 次；
+超过上限后仍然证据不足，则继续生成但降低置信度并进入人工确认，不能再次回到 Agent 节点。
 
 #### 步骤 3.2：实现基础节点
 
@@ -658,6 +695,9 @@ type AnalysisState struct {
 | `validate_metadata` | Go Lambda | Schema、长度、标签质量校验 |
 | `review_gate` | Branch | 判断自动保存或人工确认 |
 | `persist_suggestion` | Go Service | 保存建议和 trace |
+
+如果进入人工确认，Graph 不应直接结束。应保存当前状态和 checkpoint，并向前端返回 `RunID`；用户确认后，
+通过恢复接口继续执行后续节点。人工审核节点需要使用幂等设计，避免恢复或重试时重复写入。
 
 #### 步骤 3.3：实现文件类型分支
 
@@ -730,6 +770,9 @@ local_search ──┘
 结构化校验失败 -> 定向重试一次
 仍失败 -> fallback
 ```
+
+置信度不应完全由模型自由填写。建议综合证据来源、证据数量、规则校验结果和模型输出计算，模型给出的
+置信度只能作为其中一个输入。
 
 ## 7. 功能拓展路线
 
@@ -962,4 +1005,3 @@ Phase 6 最后开放带确认的写操作 Agent
 - AI 失败不会阻塞导入；
 - 任何写操作都需要用户确认；
 - Graph 节点失败、重试和恢复行为可测试。
-
