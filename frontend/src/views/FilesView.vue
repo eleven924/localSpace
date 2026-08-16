@@ -69,7 +69,7 @@
           @clear="filesStore.clearSelection()"
         />
 
-        <div v-if="filesStore.loading" class="state-panel">
+        <div v-if="filesStore.loading" class="state-panel loading-state">
           <div class="spinner"></div>
           <p>正在加载资料库...</p>
         </div>
@@ -592,7 +592,7 @@ const confirmBatchDelete = async () => {
   padding: 0 13px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.65);
+  background: var(--content-control-bg);
   color: var(--text-soft);
   font-size: 12px;
   font-weight: 650;
@@ -602,7 +602,7 @@ const confirmBatchDelete = async () => {
 .filter-trigger.active {
   border-color: rgba(111, 143, 216, 0.42);
   color: var(--primary-hover);
-  background: rgba(235, 241, 250, 0.9);
+  background: var(--content-control-hover);
 }
 
 .filter-trigger-dot {
@@ -630,7 +630,7 @@ const confirmBatchDelete = async () => {
   padding: 16px;
   border: 1px solid rgba(146, 165, 192, 0.36);
   border-radius: 15px;
-  background: rgba(255, 255, 255, 0.97);
+  background: var(--content-popover-bg);
   box-shadow: 0 18px 38px rgba(29, 48, 78, 0.14);
 }
 
@@ -643,7 +643,7 @@ const confirmBatchDelete = async () => {
   height: 11px;
   border-top: 1px solid rgba(146, 165, 192, 0.36);
   border-left: 1px solid rgba(146, 165, 192, 0.36);
-  background: #fff;
+  background: var(--content-popover-bg);
   transform: rotate(45deg);
 }
 
@@ -703,7 +703,7 @@ const confirmBatchDelete = async () => {
   min-height: 30px;
   padding: 6px 9px;
   border-radius: 8px;
-  background: #fbfcfe;
+  background: var(--content-option-bg);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -740,8 +740,9 @@ const confirmBatchDelete = async () => {
   gap: 10px;
   min-height: 43px;
   padding: 0 13px;
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.74);
+  background: var(--content-control-bg);
   box-shadow: 0 5px 13px rgba(40, 60, 90, 0.03);
 }
 
@@ -783,8 +784,15 @@ const confirmBatchDelete = async () => {
   min-height: 0;
   border-radius: 28px;
   border: 1px solid rgba(146, 165, 192, 0.18);
-  background: rgba(255, 255, 255, 0.64);
+  background: var(--content-state-bg);
   color: var(--text-soft);
+}
+
+/* 加载只需要反馈进度，不应在页面切换期间制造一块抢眼的大面板。 */
+.state-panel.loading-state {
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
 }
 
 .error-state h3 {

@@ -15,6 +15,7 @@
   --set-accent: var(--primary-color);
   --set-accent-strong: color-mix(in srgb, var(--primary-color) 86%, var(--text-color));
   --set-accent-soft: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  --set-mode-active: color-mix(in srgb, var(--primary-color) 12%, var(--surface-color));
   --set-success-bg: rgba(76, 175, 80, 0.1);
   --set-success-text: #2e7d32;
   --set-error-bg: rgba(244, 67, 54, 0.08);
@@ -37,6 +38,7 @@
   --set-danger: #eda3ad;
   --set-danger-soft: rgba(210, 90, 110, 0.16);
   --set-danger-border: rgba(210, 90, 110, 0.42);
+  --set-mode-active: color-mix(in srgb, var(--primary-color) 18%, var(--surface-color));
 }
 
 /* ---------- 骨架 ---------- */
@@ -774,8 +776,8 @@
 }
 
 .set-modes button.active {
-  background: var(--surface-color);
-  box-shadow: 0 4px 12px var(--shadow-color);
+  background: var(--set-mode-active);
+  box-shadow: 0 3px 10px var(--shadow-color), inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 24%, transparent);
   color: var(--set-accent-strong);
 }
 

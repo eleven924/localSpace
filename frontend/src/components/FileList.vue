@@ -216,7 +216,7 @@ const handleToggleSelect = (id: number) => emit('toggleSelect', id)
 }
 
 .empty-icon.is-search {
-  background: rgba(235, 241, 250, 0.88);
+  background: var(--content-empty-search-bg);
 }
 
 .empty-icon svg {

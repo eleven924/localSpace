@@ -21,6 +21,22 @@
   --app-bg-color: var(--bg-color);
   --shadow-color: rgba(15, 23, 42, 0.06);
   --shadow-strong: rgba(15, 23, 42, 0.12);
+  /* 应用壳层颜色单独抽出，避免导航组件把浅色常量带进深色主题。 */
+  --chrome-sidebar-bg: rgba(249, 251, 254, 0.92);
+  --chrome-sidebar-border: rgba(146, 165, 192, 0.22);
+  --chrome-sidebar-hover: rgba(231, 237, 247, 0.78);
+  --chrome-sidebar-active: rgba(221, 230, 246, 0.92);
+  --chrome-sidebar-active-text: #3f61a3;
+  --chrome-header-bg: rgba(244, 247, 251, 0.34);
+  --chrome-header-border: rgba(199, 211, 226, 0.72);
+  --chrome-shadow: rgba(55, 75, 110, 0.12);
+  /* 搜索、筛选和加载态共享这组表面，页面切换时不会闪出白色大块。 */
+  --content-control-bg: rgba(255, 255, 255, 0.74);
+  --content-control-hover: rgba(235, 241, 250, 0.9);
+  --content-popover-bg: rgba(255, 255, 255, 0.97);
+  --content-option-bg: #fbfcfe;
+  --content-state-bg: rgba(255, 255, 255, 0.64);
+  --content-empty-search-bg: rgba(235, 241, 250, 0.88);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -40,6 +56,21 @@
   --app-bg-color: var(--bg-color);
   --shadow-color: rgba(0, 0, 0, 0.24);
   --shadow-strong: rgba(0, 0, 0, 0.36);
+  /* 深色壳层采用深 navy 表面，保持与内容区的明暗节奏。 */
+  --chrome-sidebar-bg: rgba(22, 29, 40, 0.96);
+  --chrome-sidebar-border: rgba(148, 163, 184, 0.18);
+  --chrome-sidebar-hover: rgba(78, 96, 122, 0.28);
+  --chrome-sidebar-active: color-mix(in srgb, var(--primary-color) 15%, var(--surface-color));
+  --chrome-sidebar-active-text: #b9d5ff;
+  --chrome-header-bg: rgba(15, 23, 36, 0.72);
+  --chrome-header-border: rgba(148, 163, 184, 0.2);
+  --chrome-shadow: rgba(0, 0, 0, 0.3);
+  --content-control-bg: color-mix(in srgb, var(--surface-color) 88%, var(--bg-color));
+  --content-control-hover: color-mix(in srgb, var(--primary-color) 14%, var(--surface-color));
+  --content-popover-bg: color-mix(in srgb, var(--surface-color) 96%, var(--bg-color));
+  --content-option-bg: var(--surface-muted);
+  --content-state-bg: color-mix(in srgb, var(--surface-color) 80%, var(--bg-color));
+  --content-empty-search-bg: color-mix(in srgb, var(--primary-color) 14%, var(--surface-color));
 }
 
 html,
